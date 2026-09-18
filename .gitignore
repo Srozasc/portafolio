@@ -1,0 +1,60 @@
+# Local Pi runtime state
+.atl/
+
+# Debug screenshots / scratch files
+Sin título.png
+scratch/
+
+
+# Python (backend)
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# Node / Astro (frontend)
+node_modules/
+.astro/
+.vercel/
+.pnpm-store/
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# ChromaDB persisted data (rebuilt from .md files)
+apps/api/data/chroma/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Logs / temp
+*.log
+*.tar.gz
+*.zip
+tmp/
+.tmp/
+
+# Coverage / test artifacts
+coverage/
+.playwright/
+playwright-report/
+test-results/

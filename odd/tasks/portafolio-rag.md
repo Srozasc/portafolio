@@ -93,4 +93,6 @@ Parent session keeps orchestration only: task tracking, decisions, commit orches
 - All 8 phases complete
 - All tests pass (backend unit + integration + frontend E2E)
 - Site deployed and accessible via public URL
-- Recr
+- Recruiter can chat, get project recommendations, click through to detail pages
+- i18n works in both ES and EN
+- README updated with live demo link
