@@ -1,0 +1,90 @@
+---
+import '../styles/global.css';
+import es from '../i18n/es.json';
+import en from '../i18n/en.json';
+
+export interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = 'Portafolio profesional navegable por chatbot con RAG.' } = Astro.props;
+const locale = Astro.currentLocale ?? 'es';
+const t = locale === 'en' ? en : es;
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content={description} />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+  </head>
+  <body>
+    <header>
+      <nav class="container">
+        <a href="/" class="brand">{t.site.title}</a>
+        <ul class="nav-links">
+          <li><a href="/">{t.nav.home}</a></li>
+          <li><a href="/proyectos/">{t.nav.projects}</a></li>
+          <li><a href="/sobre-mi/">{t.nav.about}</a></li>
+          <li class="lang-switcher">
+            <a href="/" aria-label="Español" aria-current={locale === 'es' ? 'page' : undefined}>ES</a>
+            <span>/</span>
+            <a href="/en/" aria-label="English" aria-current={locale === 'en' ? 'page' : undefined}>EN</a>
+          </li>
+        </ul>
+      </nav>
+    </header>
+    <main>
+      <slot />
+    </main>
+    <footer>
+      <div class="container">
+        <p>&copy; 2026 Sebastián Rozas</p>
+      </div>
+    </footer>
+  </body>
+</html>
+
+<style>
+  header {
+    border-bottom: 1px solid var(--border);
+  }
+  nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-block: 1rem;
+  }
+  .brand {
+    font-weight: 600;
+    color: var(--fg);
+  }
+  .nav-links {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+  }
+  .lang-switcher {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+    color: var(--fg-muted);
+  }
+  .lang-switcher a[aria-current='page'] {
+    color: var(--fg);
+    font-weight: 600;
+  }
+  footer {
+    border-top: 1px solid var(--border);
+    margin-top: 4rem;
+    padding-block: 2rem;
+    color: var(--fg-muted);
+    font-size: 0.875rem;
+  }
+</style>

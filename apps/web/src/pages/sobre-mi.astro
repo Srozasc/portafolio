@@ -1,0 +1,26 @@
+---
+import Base from '../layouts/Base.astro';
+import es from '../i18n/es.json';
+import en from '../i18n/en.json';
+
+const locale = Astro.currentLocale ?? 'es';
+const t = locale === 'en' ? en : es;
+---
+
+<Base title={`${t.nav.about} — ${t.site.title}`}>
+  <section class="container">
+    <h1>{t.nav.about}</h1>
+    <p class="phase-note">
+      <em>Coming in a later phase.</em>
+    </p>
+  </section>
+</Base>
+
+<style>
+  h1 {
+    margin-bottom: 1rem;
+  }
+  .phase-note {
+    color: var(--fg-muted);
+  }
+</style>

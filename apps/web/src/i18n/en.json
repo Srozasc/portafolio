@@ -1,0 +1,18 @@
+{
+  "site": {
+    "title": "Portfolio RAG",
+    "tagline": "Projects, skills and experience — browse with the bot or explore the index."
+  },
+  "nav": {
+    "home": "Home",
+    "projects": "Projects",
+    "about": "About",
+    "language": "Language"
+  },
+  "home": {
+    "intro": "Hi, I'm Sebastián. Here's what I've built.",
+    "chat_hint": "Ask the bot about anything that interests you (Python, AWS, cloud, data...) — or browse the full list.",
+    "open_chat": "Open chat",
+    "view_projects": "View all projects"
+  }
+}

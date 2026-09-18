@@ -1,0 +1,18 @@
+{
+  "site": {
+    "title": "Portafolio RAG",
+    "tagline": "Proyectos, skills y trayectoria — navegá con el bot o explorá el índice."
+  },
+  "nav": {
+    "home": "Inicio",
+    "projects": "Proyectos",
+    "about": "Sobre mí",
+    "language": "Idioma"
+  },
+  "home": {
+    "intro": "Hola, soy Sebastián. Acá vas a encontrar lo que hice.",
+    "chat_hint": "Preguntale al bot qué te interesa (Python, AWS, cloud, data...) — o mirá la lista completa.",
+    "open_chat": "Abrir chat",
+    "view_projects": "Ver todos los proyectos"
+  }
+}
