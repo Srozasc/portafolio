@@ -1,26 +1,68 @@
 ---
+import { getCollection } from 'astro:content';
 import Base from '../../layouts/Base.astro';
+import ProjectCard from '../../components/ProjectCard.astro';
 import es from '../../i18n/es.json';
 import en from '../../i18n/en.json';
 
 const locale = Astro.currentLocale ?? 'es';
 const t = locale === 'en' ? en : es;
+
+// Load all projects, sort by year descending (newest first).
+const projects = (await getCollection('projects')).sort(
+  (a, b) => b.data.year - a.data.year,
+);
 ---
 
-<Base title={`${t.nav.projects} — ${t.site.title}`}>
+<Base title={`${t.proyectos.title} — ${t.site.title}`} description={t.proyectos.subtitle}>
   <section class="container">
-    <h1>{t.nav.projects}</h1>
-    <p class="phase-note">
-      <em>Projects will appear here in Phase 1, once the .md content collections are wired.</em>
-    </p>
+    <header class="proyectos-header">
+      <h1>{t.proyectos.title}</h1>
+      <p class="proyectos-subtitle">{t.proyectos.subtitle}</p>
+    </header>
+
+    {projects.length === 0 ? (
+      <p class="proyectos-empty">{t.proyectos.empty}</p>
+    ) : (
+      <div class="proyectos-grid">
+        {projects.map((project) => (
+          <ProjectCard project={project} locale={locale} />
+        ))}
+      </div>
+    )}
   </section>
 </Base>
 
 <style>
-  h1 {
-    margin-bottom: 1rem;
+  .proyectos-header {
+    margin-bottom: 2rem;
   }
-  .phase-note {
+  .proyectos-header h1 {
+    margin: 0 0 0.5rem;
+    font-size: 2rem;
+  }
+  .proyectos-subtitle {
+    margin: 0;
     color: var(--fg-muted);
+    font-size: 1.05rem;
+  }
+  .proyectos-grid {
+    display: grid;
+    gap: 1.25rem;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 640px) {
+    .proyectos-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 960px) {
+    .proyectos-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  .proyectos-empty {
+    color: var(--fg-muted);
+    font-style: italic;
   }
 </style>

@@ -1,52 +1,86 @@
 ---
+import { getCollection } from 'astro:content';
 import Base from '../layouts/Base.astro';
+import ProjectCard from '../components/ProjectCard.astro';
 import es from '../i18n/es.json';
 import en from '../i18n/en.json';
 
 const locale = Astro.currentLocale ?? 'es';
 const t = locale === 'en' ? en : es;
+
+// Top 3 projects for the featured section (sorted by year desc).
+const projects = (await getCollection('projects'))
+  .sort((a, b) => b.data.year - a.data.year)
+  .slice(0, 3);
+
+const projectsHref = locale === 'en' ? '/en/proyectos/' : '/proyectos/';
+const aboutHref = locale === 'en' ? '/en/sobre-mi/' : '/sobre-mi/';
 ---
 
 <Base title={t.site.title} description={t.site.tagline}>
   <section class="container hero">
-    <h1>{t.site.title}</h1>
-    <p class="tagline">{t.site.tagline}</p>
-    <p>{t.home.intro}</p>
-    <p class="hint">{t.home.chat_hint}</p>
+    <p class="hero-greeting">{t.home.greeting}</p>
+    <h1>{t.home.name}</h1>
+    <p class="hero-tagline">{t.home.tagline}</p>
+    <p class="hero-intro">{t.home.intro}</p>
     <p class="ctas">
-      <a href="#chat" class="cta primary">{t.home.open_chat}</a>
-      <a href="/proyectos/" class="cta secondary">{t.home.view_projects}</a>
+      <a href="#chat" class="cta primary">{t.home.cta.chat}</a>
+      <a href={projectsHref} class="cta secondary">{t.home.cta.projects}</a>
     </p>
-    <p class="phase-note">
-      <em>Phase 0 scaffold — chat and project pages coming in Phase 4-5.</em>
+    <p class="chat-placeholder" id="chat" aria-label={t.home.cta.chat}>
+      <em>{t.home.chat_placeholder}</em>
+    </p>
+  </section>
+
+  {projects.length > 0 && (
+    <section class="container featured">
+      <header class="featured-header">
+        <h2>{t.home.featured}</h2>
+        <a href={projectsHref} class="featured-all">{t.home.cta.all_projects} →</a>
+      </header>
+      <div class="featured-grid">
+        {projects.map((project) => (
+          <ProjectCard project={project} locale={locale} />
+        ))}
+      </div>
+    </section>
+  )}
+
+  <section class="container about-hint">
+    <p>
+      <a href={aboutHref}>{t.home.about_hint}</a>
     </p>
   </section>
 </Base>
 
 <style>
   .hero {
-    padding-block: 4rem;
+    padding-block: 3rem 2rem;
     text-align: center;
   }
-  .hero h1 {
-    font-size: 2.5rem;
+  .hero-greeting {
     margin: 0 0 0.5rem;
+    color: var(--fg-muted);
+    font-size: 0.95rem;
   }
-  .tagline {
+  .hero h1 {
+    margin: 0 0 0.5rem;
+    font-size: 2.5rem;
+  }
+  .hero-tagline {
     color: var(--fg-muted);
     font-size: 1.125rem;
-    margin-bottom: 2rem;
+    margin: 0 0 1.5rem;
   }
-  .hint {
-    margin: 2rem auto;
+  .hero-intro {
     max-width: 36rem;
+    margin: 0 auto 2rem;
   }
   .ctas {
     display: flex;
     gap: 1rem;
     justify-content: center;
     flex-wrap: wrap;
-    margin-top: 2rem;
   }
   .cta {
     display: inline-block;
@@ -70,9 +104,56 @@ const t = locale === 'en' ? en : es;
     background: #f9fafb;
     text-decoration: none;
   }
-  .phase-note {
-    margin-top: 3rem;
+  .chat-placeholder {
+    margin: 2.5rem auto 0;
+    padding: 1.5rem;
+    border: 1px dashed var(--border);
+    border-radius: 0.5rem;
     color: var(--fg-muted);
-    font-size: 0.875rem;
+    max-width: 36rem;
+    background: #fafafa;
+  }
+
+  .featured {
+    padding-block: 2rem;
+  }
+  .featured-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+  .featured-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+  }
+  .featured-all {
+    color: var(--accent);
+    font-size: 0.95rem;
+  }
+  .featured-grid {
+    display: grid;
+    gap: 1.25rem;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 640px) {
+    .featured-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 960px) {
+    .featured-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  .about-hint {
+    padding-block: 1.5rem 2rem;
+    text-align: center;
+    color: var(--fg-muted);
+  }
+  .about-hint p {
+    margin: 0;
   }
 </style>

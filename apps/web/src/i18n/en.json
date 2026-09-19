@@ -10,9 +10,73 @@
     "language": "Language"
   },
   "home": {
-    "intro": "Hi, I'm Sebastián. Here's what I've built.",
+    "greeting": "Hi, I'm",
+    "name": "Sebastián Rozas",
+    "tagline": "Tech Lead / Senior Engineer — Python, AWS, data and ML in production.",
+    "intro": "Here's the work I've led or contributed to as a senior. Most of it is in banking and fintech, focused on real-time data, RAG and cloud platforms.",
     "chat_hint": "Ask the bot about anything that interests you (Python, AWS, cloud, data...) — or browse the full list.",
     "open_chat": "Open chat",
-    "view_projects": "View all projects"
+    "view_projects": "View all projects",
+    "cta": {
+      "chat": "Ask the bot",
+      "projects": "View projects",
+      "all_projects": "View all"
+    },
+    "chat_placeholder": "The chatbot widget will live here (Phase 5). For now, browse the project list or read about me.",
+    "featured": "Featured projects",
+    "about_hint": "More about me and how to reach me →"
+  },
+  "proyectos": {
+    "title": "Projects",
+    "subtitle": "Selected projects in production. Filter by stack or tag with the bot.",
+    "empty": "No projects published yet.",
+    "detail": {
+      "back": "Projects",
+      "year": "Year",
+      "role": "Role",
+      "stack": "Stack",
+      "tags": "Tags",
+      "impact": "Impact",
+      "links": {
+        "label": "Links",
+        "repo": "Repository",
+        "demo": "Demo",
+        "case_study": "Case study"
+      }
+    }
+  },
+  "sobre_mi": {
+    "title": "About me",
+    "subtitle": "Senior backend engineer based in Buenos Aires. Open to remote roles in UTC-3.",
+    "bio": {
+      "paragraph1": "I'm Sebastián, a tech lead and senior backend engineer based in Buenos Aires. I've spent the last decade writing software that runs in production — mostly in banking, fintech and data platforms, where a bug isn't a 500 but a blocked transaction or a regulatory report that ships late.",
+      "paragraph2": "I'm comfortable across the full cycle: from technical decisions (which database, which consistency model, what SLA is realistic) to operations (runbooks, on-call rotation, post-mortems that actually help). I particularly enjoy projects where the complexity lives in the domain — fraud, scoring, event ingestion — rather than in the framework.",
+      "paragraph3": "I'm currently open to fully remote roles in the UTC-3 timezone and medium/long-term engagements. If you need someone to take ownership of an existing system and leave it better than they found it, let's talk."
+    },
+    "skills": {
+      "title": "Skills",
+      "hard_title": "Hard skills",
+      "hard": [
+        "Python (FastAPI, Airflow, PyFlink)",
+        "AWS (EKS, Lambda, Kinesis, SageMaker, MSK)",
+        "Terraform + GitHub Actions + ArgoCD",
+        "Apache Kafka + Spark Structured Streaming",
+        "PostgreSQL + Redis + DynamoDB",
+        "Kubernetes + Docker + Helm",
+        "MLOps (MLflow, Feast, Evidently AI)",
+        "Observability (Datadog, Prometheus, Grafana, OpenTelemetry)"
+      ],
+      "soft_title": "Soft skills",
+      "soft": "Tech leadership and mentoring of squads of 3-6 people. Heavy collaboration with risk, compliance and product teams to translate business constraints into technical decisions. Blameless post-mortems and operational documentation as part of the codebase."
+    },
+    "contact": {
+      "title": "Contact",
+      "email_label": "Email",
+      "email": "sebastian@example.com",
+      "linkedin_label": "LinkedIn",
+      "linkedin": "linkedin.com/in/sebastian-rozas",
+      "github_label": "GitHub",
+      "github": "github.com/sebastian-rozas"
+    }
   }
 }

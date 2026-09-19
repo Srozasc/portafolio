@@ -169,6 +169,44 @@ Commit: see git log on `dev` (Phase 1 commit, SHA recorded at commit time).
 
 ---
 
+## Phase 4 — Astro UI (1-2 days) — IN PROGRESS
+
+- [ ] **T4.1-T4.4** i18n config + Base layout + LangSwitcher (already done in Phase 0)
+- [ ] **T4.5** Update `apps/web/src/pages/index.astro` with real landing content (hero, featured projects, chatbot CTA placeholder)
+- [ ] **T4.6** Update `apps/web/src/pages/proyectos/index.astro` with real listing (getCollection projects sorted by year, ProjectCard grid)
+- [ ] **T4.7** Create `apps/web/src/pages/proyectos/[slug].astro` detail page (bilingual sections: title, summary, role, stack, impact list, body markdown)
+- [ ] **T4.8** Create `apps/web/src/components/ProjectCard.astro` component (compact: title, year, role, summary, tags)
+- [ ] **T4.9** Update `apps/web/src/pages/sobre-mi.astro` with real bio content (bilingual sections: bio, skills, contact links)
+- [ ] **T4.10** Extend `apps/web/src/i18n/es.json` and `en.json` with new strings for the new sections
+- [ ] **T4.11** Extend `apps/web/src/styles/global.css` for project detail styling (metadata sidebar, impact list, etc.)
+- [ ] **T4.12** Verify: `npm run build` green (3 base routes × 2 locales + 5 detail pages × 2 locales = 22 HTMLs expected)
+- [ ] **T4.13** Verify: language switcher toggles between /es/... and /en/...; detail pages show correct locale
+
+### Acceptance criteria Phase 4
+
+- [ ] `npm run build` produces 22 HTML files (or close — depending on Astro deduplication)
+- [ ] Landing page shows real hero, featured projects, chatbot CTA placeholder
+- [ ] Projects listing page shows all 5 projects as ProjectCard grid, sorted by year descending
+- [ ] Project detail page renders bilingual content correctly (ES and EN variants)
+- [ ] Detail page metadata sidebar shows: year, role, stack, impact, links
+- [ ] Detail page body renders the markdown content as HTML
+- [ ] LangSwitcher toggles between /es/proyectos/... and /en/proyectos/...
+- [ ] All routes return 200 status when serving
+- [ ] `astro check` (typecheck) passes
+
+### Decisions documented
+
+- **Keep simple CSS, no Tailwind**: extends existing `global.css` with project-detail styles. Tailwind adds dependency overhead for a 5-project site.
+- **ProjectCard reuses across listing and bot responses**: same component used by `/proyectos/index.astro` and will be reused by the chatbot in Phase 5.
+- **Detail page metadata sidebar**: right-aligned column with structured fields (year, role, stack as tags, impact as list). Body markdown on the left.
+- **No [slug].astro for i18n variants**: Astro's i18n routing handles `/proyectos/[slug]` and `/en/proyectos/[slug]` automatically based on the prefix. The component reads `Astro.currentLocale` to select ES/EN fields.
+
+### Commit (Phase 4)
+
+`feat(web): build static portfolio site with i18n and project pages`
+
+---
+
 ## Phases 2-7 (deferred)
 
 See `docs/plans/2026-09-17-portafolio-rag-impl-plan.md` for full task breakdown.

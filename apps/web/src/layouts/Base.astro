@@ -11,6 +11,19 @@ export interface Props {
 const { title, description = 'Portafolio profesional navegable por chatbot con RAG.' } = Astro.props;
 const locale = Astro.currentLocale ?? 'es';
 const t = locale === 'en' ? en : es;
+
+// Locale-aware URL helpers. ES has no prefix (`/proyectos/`), EN uses
+// `/en/proyectos/`. This matches the `prefixDefaultLocale: false` config.
+const homePath = locale === 'en' ? '/en/' : '/';
+const projectsPath = locale === 'en' ? '/en/proyectos/' : '/proyectos/';
+const aboutPath = locale === 'en' ? '/en/sobre-mi/' : '/sobre-mi/';
+
+// Lang switcher: navigate to the same page in the other locale by
+// swapping the leading /es/ or /en/ prefix in the current pathname.
+const pathname = Astro.url.pathname;
+const stripped = pathname.replace(/^\/(es|en)/, '') || '/';
+const otherLocale = locale === 'es' ? 'en' : 'es';
+const otherLocalePath = `/${otherLocale}${stripped}`;
 ---
 
 <!doctype html>
@@ -24,15 +37,15 @@ const t = locale === 'en' ? en : es;
   <body>
     <header>
       <nav class="container">
-        <a href="/" class="brand">{t.site.title}</a>
+        <a href={homePath} class="brand">{t.site.title}</a>
         <ul class="nav-links">
-          <li><a href="/">{t.nav.home}</a></li>
-          <li><a href="/proyectos/">{t.nav.projects}</a></li>
-          <li><a href="/sobre-mi/">{t.nav.about}</a></li>
+          <li><a href={homePath}>{t.nav.home}</a></li>
+          <li><a href={projectsPath}>{t.nav.projects}</a></li>
+          <li><a href={aboutPath}>{t.nav.about}</a></li>
           <li class="lang-switcher">
-            <a href="/" aria-label="Español" aria-current={locale === 'es' ? 'page' : undefined}>ES</a>
+            <a href={otherLocalePath} hreflang={otherLocale} aria-label="Español" aria-current={locale === 'es' ? 'true' : undefined}>ES</a>
             <span>/</span>
-            <a href="/en/" aria-label="English" aria-current={locale === 'en' ? 'page' : undefined}>EN</a>
+            <a href={otherLocalePath} hreflang={otherLocale} aria-label="English" aria-current={locale === 'en' ? 'true' : undefined}>EN</a>
           </li>
         </ul>
       </nav>
@@ -76,7 +89,7 @@ const t = locale === 'en' ? en : es;
     align-items: center;
     color: var(--fg-muted);
   }
-  .lang-switcher a[aria-current='page'] {
+  .lang-switcher a[aria-current='true'] {
     color: var(--fg);
     font-weight: 600;
   }

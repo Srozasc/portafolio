@@ -7,20 +7,123 @@ const locale = Astro.currentLocale ?? 'es';
 const t = locale === 'en' ? en : es;
 ---
 
-<Base title={`${t.nav.about} — ${t.site.title}`}>
+<Base title={`${t.sobre_mi.title} — ${t.site.title}`} description={t.sobre_mi.subtitle}>
   <section class="container">
-    <h1>{t.nav.about}</h1>
-    <p class="phase-note">
-      <em>Coming in a later phase.</em>
-    </p>
+    <header class="about-header">
+      <h1>{t.sobre_mi.title}</h1>
+      <p class="about-subtitle">{t.sobre_mi.subtitle}</p>
+    </header>
+
+    <article class="about-bio prose">
+      <p>{t.sobre_mi.bio.paragraph1}</p>
+      <p>{t.sobre_mi.bio.paragraph2}</p>
+      <p>{t.sobre_mi.bio.paragraph3}</p>
+    </article>
+
+    <section class="about-skills" aria-labelledby="skills-heading">
+      <h2 id="skills-heading">{t.sobre_mi.skills.title}</h2>
+      <h3 class="skills-subheading">{t.sobre_mi.skills.hard_title}</h3>
+      <ul class="tag-list">
+        {t.sobre_mi.skills.hard.map((skill) => (
+          <li class="tag-chip">{skill}</li>
+        ))}
+      </ul>
+      <h3 class="skills-subheading">{t.sobre_mi.skills.soft_title}</h3>
+      <p class="soft-skills">{t.sobre_mi.skills.soft}</p>
+    </section>
+
+    <section class="about-contact" aria-labelledby="contact-heading">
+      <h2 id="contact-heading">{t.sobre_mi.contact.title}</h2>
+      <ul class="contact-list">
+        {t.sobre_mi.contact.email && (
+          <li>
+            <span class="contact-label">{t.sobre_mi.contact.email_label}</span>
+            <a href={`mailto:${t.sobre_mi.contact.email}`}>{t.sobre_mi.contact.email}</a>
+          </li>
+        )}
+        {t.sobre_mi.contact.linkedin && (
+          <li>
+            <span class="contact-label">{t.sobre_mi.contact.linkedin_label}</span>
+            <a href={`https://${t.sobre_mi.contact.linkedin}`} target="_blank" rel="noopener noreferrer">
+              {t.sobre_mi.contact.linkedin}
+            </a>
+          </li>
+        )}
+        {t.sobre_mi.contact.github && (
+          <li>
+            <span class="contact-label">{t.sobre_mi.contact.github_label}</span>
+            <a href={`https://${t.sobre_mi.contact.github}`} target="_blank" rel="noopener noreferrer">
+              {t.sobre_mi.contact.github}
+            </a>
+          </li>
+        )}
+      </ul>
+    </section>
   </section>
 </Base>
 
 <style>
-  h1 {
-    margin-bottom: 1rem;
+  .about-header {
+    margin-bottom: 2rem;
   }
-  .phase-note {
+  .about-header h1 {
+    margin: 0 0 0.5rem;
+    font-size: 2rem;
+  }
+  .about-subtitle {
+    margin: 0;
     color: var(--fg-muted);
+    font-size: 1.05rem;
+  }
+
+  .about-bio p {
+    margin: 0 0 1rem;
+  }
+
+  .about-skills {
+    margin-top: 2.5rem;
+  }
+  .about-skills h2 {
+    margin: 0 0 1rem;
+    font-size: 1.5rem;
+  }
+  .skills-subheading {
+    margin: 1.25rem 0 0.5rem;
+    font-size: 1rem;
+    color: var(--fg-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+  }
+  .soft-skills {
+    margin: 0;
+    color: var(--fg);
+  }
+
+  .about-contact {
+    margin-top: 2.5rem;
+  }
+  .about-contact h2 {
+    margin: 0 0 1rem;
+    font-size: 1.5rem;
+  }
+  .contact-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .contact-list li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: baseline;
+  }
+  .contact-label {
+    color: var(--fg-muted);
+    font-size: 0.875rem;
+    min-width: 5.5rem;
   }
 </style>

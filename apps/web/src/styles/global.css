@@ -56,3 +56,57 @@ code {
   padding: 0.1em 0.3em;
   border-radius: 0.25em;
 }
+
+/* ---------------------------------------------------------------------------
+ * Phase 4 additions: project listing, project detail layout, shared chips.
+ * Component-scoped styles still live inside each .astro file; this file only
+ * holds cross-component atoms and layout primitives that need to be shared.
+ * --------------------------------------------------------------------------- */
+
+/* Breadcrumb — small back link used at the top of detail pages. */
+.breadcrumb {
+  margin-bottom: 1.25rem;
+  font-size: 0.9rem;
+}
+.breadcrumb a {
+  color: var(--fg-muted);
+}
+.breadcrumb a:hover {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* Tag chip — small rounded pill used for stack, tags and skill lists.
+ * Component-scoped styles win for color/spacing, this just sets the atom. */
+.tag-chip {
+  display: inline-block;
+  padding: 0.125rem 0.625rem;
+  border-radius: 999px;
+  background: #f3f4f6;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.tag-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+/* Impact list — bullet list rendered in the project main column and
+ * optionally used in the sidebar of related cards. */
+.impact-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.impact-list li {
+  line-height: 1.5;
+}
