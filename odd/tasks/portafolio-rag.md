@@ -226,7 +226,52 @@ Commit: `250c43d`.
 
 ---
 
-## Phases 5-7 (pending)
+## Phase 5 — Chatbot component (1 day) — IN PROGRESS
+
+Branch: `dev`. Sub-tasks tracked in `todo`.
+
+- [ ] **T5.1** Confirm React island (already chosen; `@astrojs/react` 3.6.3 installed)
+- [ ] **T5.2** Confirm `@astrojs/react` integration wired in `apps/web/astro.config.mjs`
+- [ ] **T5.3** Create `apps/web/src/components/Chatbot.tsx` with message input + submit, message list (user + assistant bubbles), loading state
+- [ ] **T5.4** Implement SSE client using `fetch` + `ReadableStream` (no external SSE lib)
+- [ ] **T5.5** Handle SSE event types: `content` (append to assistant message), `projects` (render cards), `done` (close), `error` (show error)
+- [ ] **T5.6** Maintain `session_id` in `sessionStorage` (UUID v4, lazy init)
+- [ ] **T5.7** Maintain history in React state, cap at 6 turns; send with each request
+- [ ] **T5.8** Detect user locale from URL (`/es/...` or `/en/...`) and send as `lang` field; react to locale change
+- [ ] **T5.9** Add `Chatbot` to `apps/web/src/pages/index.astro` as an island (`client:load` or `client:visible`)
+- [ ] **T5.10** Error handling: retry button on connection failure, fallback message when API down
+- [ ] **T5.11** Render markdown safely (XSS-safe; decide approach in Phase 5 kickoff)
+- [ ] **T5.12** Verify end-to-end chat works locally (Astro dev + FastAPI uvicorn on localhost)
+- [ ] **T5.13** Verify cards link to correct `/proyectos/<slug>` pages
+- [ ] **T5.14** Verify language switcher triggers new `lang` field in subsequent requests
+
+### Acceptance criteria Phase 5
+
+- [ ] Chat island mounted on `/` and `/<locale>/` (landing page)
+- [ ] Full SSE flow works locally against running FastAPI
+- [ ] Assistant message renders prose + project cards correctly
+- [ ] Multi-turn conversation retains context (last 6 turns sent)
+- [ ] Language switch propagates to bot on next request
+- [ ] Cards link to correct project detail pages
+- [ ] `session_id` persists across reloads within the same tab
+- [ ] Connection failures show a retry button, not a crash
+- [ ] No XSS via SSE content (markdown rendered safely)
+
+### Decisions to document (during Phase 5)
+
+- **Markdown rendering library** (TBD in kickoff): `react-markdown` vs raw text + line breaks
+- **Backend URL config** (TBD in kickoff): `PUBLIC_API_URL` env var vs Astro proxy in dev
+- **Island hydration**: `client:load` vs `client:visible` vs `client:idle`
+- **Error UX shape**: inline error message + retry button vs toast
+- **ProjectCard reuse**: same Astro component as the listing page (rendered inside React island via `set:html` is awkward — likely need a small React-native card component that mirrors the Astro one)
+
+### Commit (Phase 5)
+
+`feat(chat-ui): add interactive chatbot with SSE streaming and project cards`
+
+---
+
+## Phases 6-7 (pending)
 
 See `docs/plans/2026-09-17-portafolio-rag-impl-plan.md` for full task breakdown.
 
@@ -238,7 +283,7 @@ Summary:
 | 2 | RAG indexing: master index + per-project collections | 1 day | DONE |
 | 3 | Bot router: ProjectRouter, bilingual prompts, extended endpoints | 1-2 days | DONE |
 | 4 | Astro UI: landing, listing, detail pages, i18n, switcher | 1-2 days | DONE |
-| 5 | Chatbot component: SSE, prose + cards, multi-turn | 1 day | pending |
+| 5 | Chatbot component: SSE, prose + cards, multi-turn | 1 day | IN PROGRESS |
 | 6 | Deploy: backend host setup, Cloudflare Tunnel, Vercel config | ½ day | pending |
 | 7 | E2E + polish: Playwright tests, SEO, fallbacks, docs | 1 day | pending |
 

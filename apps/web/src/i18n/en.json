@@ -22,7 +22,15 @@
       "projects": "View projects",
       "all_projects": "View all"
     },
-    "chat_placeholder": "The chatbot widget will live here (Phase 5). For now, browse the project list or read about me.",
+    "chat": {
+      "input_placeholder": "Ask the bot about a stack, project or role...",
+      "send": "Send",
+      "thinking": "Thinking...",
+      "error_title": "Something went wrong",
+      "error_retry": "Retry",
+      "card_view": "View project",
+      "empty_message": "Hi, I'm Sebastián's bot. Ask me about Python, AWS, cloud, real-time data or request a specific project."
+    },
     "featured": "Featured projects",
     "about_hint": "More about me and how to reach me →"
   },

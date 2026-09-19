@@ -22,7 +22,15 @@
       "projects": "Ver proyectos",
       "all_projects": "Ver todos"
     },
-    "chat_placeholder": "Acá va a vivir el widget del chatbot (Phase 5). Por ahora podés navegar la lista de proyectos o leer sobre mí.",
+    "chat": {
+      "input_placeholder": "Preguntale al bot sobre un stack, proyecto o rol...",
+      "send": "Enviar",
+      "thinking": "Pensando...",
+      "error_title": "Algo salió mal",
+      "error_retry": "Reintentar",
+      "card_view": "Ver proyecto",
+      "empty_message": "Hola, soy el bot de Sebastián. Preguntame sobre Python, AWS, cloud, datos en tiempo real o pedime un proyecto en particular."
+    },
     "featured": "Proyectos destacados",
     "about_hint": "Más sobre mí y cómo contactarme →"
   },
