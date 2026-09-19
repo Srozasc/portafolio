@@ -54,7 +54,80 @@ Branch: `dev`. All work on `dev` until Phase 7 closes and PR to `main`.
 
 ---
 
-## Phases 1-7 (deferred)
+## Phase 1 — Data schema (1 day) — DONE
+
+Commit: see git log on `dev` (Phase 1 commit, SHA recorded at commit time).
+
+- [x] **T1.1** Enable Astro Content Layer experimental flag in `apps/web/astro.config.mjs`
+- [x] **T1.2** Define Zod schema in `apps/web/src/content/config.ts` (bilingual fields)
+- [x] **T1.3** Configure glob loader to read from `apps/api/data/projects/`
+- [x] **T1.4-T1.5** Seed 5 example project .md files (bilingual, realistic content)
+- [x] **T1.6** Add slug pattern validation ` /^proj-[a-z0-9-]+$/`
+- [x] **T1.7-T1.8** Verify: `npm run build` green + invalid .md fails with clear error
+
+### Acceptance criteria Phase 1
+
+- [x] Astro Content Layer enabled via experimental flag
+- [x] Zod schema validates all bilingual fields
+- [x] glob loader points to `apps/api/data/projects/` (single source of truth)
+- [x] 5 example projects seeded with realistic content (data-pipeline, rag-customer, cloud-migration, ml-scoring, realtime-fraud)
+- [x] `npm run build` green (3 routes × 2 locales = 6 HTML files)
+- [x] Sanity check: invalid slug rejected with clear error pointing to file:field:line
+- [x] Work-unit commit on `dev`
+
+### Decisions documented for future phases
+
+- **Astro 4 convention used (`src/content/config.ts`), not Astro 5 (`src/content.config.ts`)**: Astro 4.16.19 only loads the former. Migration to Astro 5 later will be a single `git mv`.
+- **Astro Content Layer is experimental in Astro 4.16 but stable in Astro 5**: acceptable risk for our schema/markdown use case.
+- **Glob path correction**: `'./apps/api/data/projects/'` would have resolved to `apps/web/apps/api/data/projects/` (wrong). Worker used `'../api/data/projects/'` which resolves correctly. Documented in a comment in `src/content/config.ts`.
+- **Build only generated 3 routes × 2 locales = 6 HTMLs (not project detail pages)**: expected — Phase 4 will add `src/pages/proyectos/[slug].astro`. The Content Layer is loaded but no consumer page yet.
+- **No slug uniqueness validation**: would need a custom check (e.g., in a pre-build hook). Defer until needed.
+
+### Commit (Phase 1)
+
+`feat(data): define project schema and seed example projects`
+
+---
+
+## Phase 2 — RAG indexing (1 day) — IN PROGRESS
+
+- [ ] **T2.1** Create `apps/api/backend/services/projects_service.py` with `ingest_all(projects_dir, force)` method
+- [ ] **T2.2** Add PyYAML to `requirements.txt`; implement frontmatter parser (split on `---`, yaml.safe_load for header)
+- [ ] **T2.3** Implement `build_index_entry(project)` → returns small chunk with title_es/en, summary_es/en, tags as document + metadata for `projects_index` collection
+- [ ] **T2.4** Implement `build_project_chunks(project)` → use existing `chunk_markdown` on body (after frontmatter), add per-chunk metadata (slug, year, source)
+- [ ] **T2.5** Wire to existing `VectorStore` (`apps/api/backend/rag/vector_store.py`): delete-then-upsert for both index and detail collections
+- [ ] **T2.6** Create `apps/api/scripts/reindex.py` CLI entry point with `--force` flag and `--projects-dir` (defaults to `apps/api/data/projects/`)
+- [ ] **T2.7** Add `apps/api/backend/api/routes/projects.py` with `POST /api/projects/reindex` endpoint (uses same service)
+- [ ] **T2.8** Add `ReindexRequest` / `ReindexResponse` schemas to `apps/api/backend/api/schemas.py`
+- [ ] **T2.9** Unit tests: frontmatter parsing, build_index_entry, build_project_chunks, slug validation, error handling for malformed .md files
+- [ ] **T2.10** Integration tests with real ChromaDB in tmp_path: re-ingest 5 projects, verify `projects_index` has 5 entries, verify 5 per-project collections exist
+- [ ] **T2.11** Idempotency test: re-running with `--force` recreates from scratch (no stale chunks)
+
+### Acceptance criteria Phase 2
+
+- [ ] `scripts/reindex.py` works against existing VectorStore wrapper (no rewrite)
+- [ ] `projects_index` collection has one entry per project (5 entries after seeding)
+- [ ] One collection per project in `data/chroma/projects_<slug>/` (5 collections, named `projects_<slug>` because ChromaDB disallows `/` in collection names)
+- [ ] Re-running with `--force` is idempotent (no stale data)
+- [ ] Malformed .md file (missing frontmatter, invalid slug) → clear error logged, doesn't abort the batch
+- [ ] All existing HiRag15k tests still pass (124 + new ones)
+- [ ] HTTP endpoint `POST /api/projects/reindex` works (file is ready; wiring into main.py is Phase 3)
+
+### Decisions documented
+
+- **Index collection `projects_index`**: one chunk per project, document is a brief text combining title+summary+tags, metadata has all structured fields for filtering (slug, year, tags as JSON string, etc.)
+- **Detail collections `projects_<slug>`**: chunks of the body via existing `chunk_markdown`, metadata has slug/source/year/chunk_index
+- **Body language**: stored as-is (Spanish in our seed projects). No language separation at index time — the bot can filter or surface both as needed in Phase 3+.
+- **Force flag**: deletes the relevant collections (index + each project's detail) before re-ingesting, ensuring idempotency.
+- **Collection naming**: `/` is NOT allowed in ChromaDB collection names, so `projects/proj-foo` becomes `projects_proj-foo`.
+
+### Commit (Phase 2)
+
+`feat(rag): add projects indexer with master and per-project collections`
+
+---
+
+## Phases 2-7 (deferred)
 
 See `docs/plans/2026-09-17-portafolio-rag-impl-plan.md` for full task breakdown.
 
@@ -62,7 +135,7 @@ Summary:
 
 | Phase | Goal | Effort | Status |
 | --- | --- | --- | --- |
-| 1 | Data: frontmatter schema, example projects, Content Collections | 1 day | pending |
+| 1 | Data: frontmatter schema, example projects, Content Collections | 1 day | DONE |
 | 2 | RAG indexing: master index + per-project collections | 1 day | pending |
 | 3 | Bot router: ProjectRouter, bilingual prompts, extended endpoints | 1-2 days | pending |
 | 4 | Astro UI: landing, listing, detail pages, i18n, switcher | 1-2 days | pending |

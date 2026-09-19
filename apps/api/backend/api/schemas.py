@@ -99,3 +99,50 @@ class ErrorEnvelope(BaseModel):
 
     error: str = Field(..., description="Machine-readable error code.")
     message: str = Field(..., description="Human-readable error description.")
+
+
+# ---------------------------------------------------------------------------
+# Projects reindex
+# ---------------------------------------------------------------------------
+
+
+class ReindexRequest(BaseModel):
+    """POST /api/projects/reindex request body."""
+
+    force: bool = Field(
+        default=False,
+        description="Delete existing collections before upserting. "
+        "Use for first run or after a schema change.",
+    )
+    projects_dir: str | None = Field(
+        default=None,
+        description="Path to the projects directory. Defaults to "
+        "apps/api/data/projects/ when omitted.",
+    )
+
+
+class ReindexResponse(BaseModel):
+    """POST /api/projects/reindex success response body."""
+
+    ok: bool = True
+    indexed_projects: int = Field(
+        ..., description="Number of projects successfully indexed."
+    )
+    index_chunks: int = Field(
+        ...,
+        description="Number of chunks in the master `projects_index` collection "
+        "(one per project).",
+    )
+    detail_chunks_total: int = Field(
+        ...,
+        description="Total number of chunks across all per-project detail collections.",
+    )
+    duration_ms: int = Field(..., description="Processing time in milliseconds.")
+    project_slugs: list[str] = Field(
+        default_factory=list,
+        description="Slugs of the projects successfully indexed.",
+    )
+    errors: list[str] = Field(
+        default_factory=list,
+        description="Per-project error messages that did not abort the batch.",
+    )

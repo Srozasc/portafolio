@@ -34,8 +34,8 @@ node_modules/
 .env.*.local
 !.env.example
 
-# ChromaDB persisted data (rebuilt from .md files)
-apps/api/data/chroma/
+# ChromaDB persisted data (rebuilt from .md files; catches any test variants)
+apps/api/data/chroma*/
 
 # IDE / OS
 .vscode/
