@@ -37,7 +37,7 @@ class IngestResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Chat
+# Chat (Phase 1: HiRag15k baseline)
 # ---------------------------------------------------------------------------
 
 
@@ -52,16 +52,85 @@ class ChatRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Chat (Phase 3: projects-aware router)
+# ---------------------------------------------------------------------------
+
+
+class ChatTurn(BaseModel):
+    """One turn of a multi-turn conversation."""
+
+    role: Literal["user", "assistant"]
+    content: str
+
+
+class ProjectsChatRequest(BaseModel):
+    """POST /api/chat/stream-projects request body."""
+
+    question: str = Field(..., min_length=1, description="User question (non-empty string).")
+    lang: Literal["es", "en"] = Field(
+        default="es",
+        description="Response language (controls the system prompt and the "
+        "card summary/title fields used).",
+    )
+    session_id: str | None = Field(
+        default=None,
+        description="Optional client-provided session id (for future use).",
+    )
+    history: list[ChatTurn] = Field(
+        default_factory=list,
+        description="Optional recent conversation turns (most recent last). "
+        "Used for pronoun resolution (e.g. 'el primero').",
+    )
+
+
+class ProjectCard(BaseModel):
+    """A single project card emitted alongside the LLM prose."""
+
+    slug: str = Field(..., description="Project slug, e.g. 'proj-data-pipeline'.")
+    title: str = Field(..., description="Project title in the request language.")
+    summary: str = Field(..., description="One-line project summary.")
+    relevance: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Relevance score 0.0-1.0; 1.0 for explicit detail requests.",
+    )
+
+
+class ProjectsChatResponse(BaseModel):
+    """Non-streaming convenience response for /api/chat/stream-projects.
+
+    The SSE endpoint streams `content` / `projects` / `done` events instead
+    of returning this model directly. This model is exposed for tests and
+    future non-streaming clients.
+    """
+
+    ok: bool = True
+    route_kind: str = Field(..., description="LIST_PROJECTS / DETAIL_PROJECT / GENERAL.")
+    slug: str | None = Field(
+        default=None, description="Resolved slug for DETAIL_PROJECT routes."
+    )
+    project_slugs: list[str] = Field(
+        default_factory=list,
+        description="Slugs of projects emitted in the `projects` event.",
+    )
+
+
+# ---------------------------------------------------------------------------
 # SSE StreamEvent (mirrors backend.services.chat_service.StreamEvent)
 # ---------------------------------------------------------------------------
 
 # Re-exported here so the route layer imports a stable type from schemas
 StreamEvent = dict
-"""SSE event payload. Three variants discriminated by the `type` field:
+"""SSE event payload. Discriminated by the `type` field.
 
+Phase 1 variants:
   - content: {"type": "content", "text": "<token delta>"}
   - done:    {"type": "done"}
   - error:   {"type": "error", "error": "<CODE>", "message": "<human>"}
+
+Phase 3 additions:
+  - projects:{"type": "projects", "items": [ProjectCard, ...]}
 """
 
 

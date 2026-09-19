@@ -127,6 +127,48 @@ Commit: see git log on `dev` (Phase 1 commit, SHA recorded at commit time).
 
 ---
 
+## Phase 3 — Bot router (1-2 days) — IN PROGRESS
+
+- [ ] **T3.1** Create `apps/api/backend/rag/project_router.py` with `route(question, history, lang) → RouteDecision` and the `RouteDecision` types
+- [ ] **T3.2** Implement `RouteDecision` types: `LIST_PROJECTS`, `DETAIL_PROJECT(slug)`, `GENERAL`
+- [ ] **T3.3** Routing logic: detect list intent (tech/stack/role mentions) vs detail (specific project by slug or name) vs general fallback
+- [ ] **T3.4** Extend `apps/api/backend/services/chat_service.py` to handle each `RouteDecision`:
+  - `LIST_PROJECTS`: query `projects_index`, generate prose + emit `{"projects":[...]}` at end
+  - `DETAIL_PROJECT(slug)`: load `projects_<slug>`, generate prose from detail chunks
+  - `GENERAL`: query `projects_index` for general overview (broad relevance)
+- [ ] **T3.5** Update `apps/api/backend/rag/prompts.py` with bilingual system prompts (ES + EN variants of SYSTEM_PROMPT_TEMPLATE)
+- [ ] **T3.6** Update the prompt to instruct the LLM to emit a `{"projects":[...]}` JSON block at the very end of listing responses, with explicit format and example
+- [ ] **T3.7** Post-generation validation: parse the JSON block, validate slugs against known set, drop invalid entries; if parse fails, log warning and continue with prose only (graceful degradation)
+- [ ] **T3.8** Multi-turn history support: accept `history` field from request (list of {role, content}), include last 6 turns in the prompt, prepend to user message
+- [ ] **T3.9** Update `apps/api/backend/api/routes/chat.py` to accept new request schema (`lang`, `session_id`, `history`)
+- [ ] **T3.10** Emit SSE event `{"type":"projects","items":[...]}` when projects are extracted; ensure ordering is content → projects → done
+- [ ] **T3.11** Tests: unit for ProjectRouter; integration for chat endpoint with LIST/DETAIL/GENERAL routes; verify event ordering; verify bilingual prompts; verify history propagation
+- [ ] **T3.12** Verify via curl that streaming works for all 3 routes
+
+### Acceptance criteria Phase 3
+
+- [ ] `ProjectRouter.route()` correctly classifies list vs detail vs general
+- [ ] `chat_service` emits SSE events in order: `content` chunks → `projects` event → `done`
+- [ ] Bilingual prompts work (lang=es uses Spanish system prompt, lang=en uses English)
+- [ ] Multi-turn history (up to 6 turns) is included in prompt
+- [ ] Invalid slugs in the LLM's JSON output are dropped without aborting
+- [ ] All HiRag15k baseline tests still pass (124 + new ones)
+- [ ] New tests cover LIST/DETAIL/GENERAL routing and bilingual prompts
+
+### Decisions documented
+
+- **Routing is heuristic** (not LLM-based): list intent detected by tech/stack keywords; detail intent by slug mention or previous project reference in history; general fallback otherwise. Saves LLM call per query.
+- **JSON extraction by regex** at the end of the streamed prose: prompt instructs LLM to emit a final `===PROJECTS===` block with JSON; chat_service post-processor parses it and emits as `projects` event.
+- **Graceful degradation**: if JSON extraction fails, the prose is still emitted; no `projects` event is sent; client falls back to chat-only mode.
+- **Multi-turn window of 6 turns** per the design doc §6.
+- **Bilingual prompts as separate templates** (not parameterized strings) — simpler to maintain than runtime string interpolation.
+
+### Commit (Phase 3)
+
+`feat(chat): add project-aware routing and bilingual streaming responses`
+
+---
+
 ## Phases 2-7 (deferred)
 
 See `docs/plans/2026-09-17-portafolio-rag-impl-plan.md` for full task breakdown.

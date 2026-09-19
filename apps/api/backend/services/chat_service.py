@@ -4,15 +4,25 @@ Design: design.md Decision 3 / Module APIs / WU 2.2.
 Orchestrates: collection resolution -> Retriever -> (deflection | LLM stream).
 The central REQ-CHS-004 assertion is that `llm.stream_chat` is NEVER called
 when the retriever returns zero hits above threshold.
+
+Phase 3 extends the service with ``chat_projects_stream`` for the
+projects-aware router (LIST / DETAIL / GENERAL). The legacy
+``stream_answer`` path is preserved unchanged.
 """
 
 from __future__ import annotations
 
-from typing import Iterator, NamedTuple
+import json
+import re
+from collections.abc import Iterator
+from typing import NamedTuple
 
 from backend.rag.llm_client import LLMClient, StreamError
 from backend.rag.prompts import build_chat_system_prompt
+from backend.rag.project_router import ProjectRouter, RouteKind
 from backend.rag.retriever import Retriever
+from backend.rag.vector_store import Hit, VectorStore
+from backend.services.projects_service import ProjectsService
 
 
 # ---------------------------------------------------------------------------
@@ -23,15 +33,14 @@ from backend.rag.retriever import Retriever
 class StreamEvent(dict):
     """SSE event payload shape.
 
-    Three variants discriminated by the `type` field:
+    Phase 1 variants (existing):
       - content: {"type": "content", "text": "<token delta>"}
       - done:    {"type": "done"}
       - error:   {"type": "error", "error": "<CODE>", "message": "<sanitised>"}
 
-    Phase 3 will replace this with an import from backend.api.schemas.
+    Phase 3 additions:
+      - projects:{"type": "projects", "items": [{"slug", "title", "summary", "relevance"}, ...]}
     """
-
-    pass
 
 
 # ---------------------------------------------------------------------------
@@ -54,6 +63,41 @@ _DEFLECTION_TEXT = "No tengo información sobre eso."
 
 
 # ---------------------------------------------------------------------------
+# Phase 3: projects JSON block parsing
+# ---------------------------------------------------------------------------
+
+PROJECTS_BLOCK_RE = re.compile(
+    r"===PROJECTS===\s*(\[.*?\])\s*===END===",
+    re.DOTALL,
+)
+
+
+def _extract_projects_block(prose: str) -> list[dict] | None:
+    """Parse a trailing ===PROJECTS=== JSON block from `prose`.
+
+    Returns the parsed JSON array of project items, or None if the block
+    is missing or malformed. The block is delimited EXACTLY as:
+        ===PROJECTS===
+        [{"slug": "...", ...}]
+        ===END===
+
+    Non-list payloads (e.g. an object instead of an array) also return None.
+    """
+    if not prose:
+        return None
+    match = PROJECTS_BLOCK_RE.search(prose)
+    if not match:
+        return None
+    try:
+        items = json.loads(match.group(1))
+    except (json.JSONDecodeError, ValueError):
+        return None
+    if not isinstance(items, list):
+        return None
+    return items
+
+
+# ---------------------------------------------------------------------------
 # StreamEvent constructors
 # ---------------------------------------------------------------------------
 
@@ -68,6 +112,10 @@ def _done() -> StreamEvent:
 
 def _error(code: str, message: str) -> StreamEvent:
     return StreamEvent(type="error", error=code, message=message)
+
+
+def _projects(items: list[dict]) -> StreamEvent:
+    return StreamEvent(type="projects", items=items)
 
 
 # ---------------------------------------------------------------------------
@@ -150,7 +198,247 @@ class ChatService:
         yield from self._stream_with_error_handling(system_prompt, question)
 
     # ---------------------------------------------------------------------------
-    # Private helpers
+    # Phase 3 public API: project-aware streaming
+    # ---------------------------------------------------------------------------
+
+    def chat_projects_stream(
+        self,
+        *,
+        question: str,
+        lang: str = "es",
+        history: list[dict] | None = None,
+        session_id: str | None = None,
+    ) -> Iterator[StreamEvent]:
+        """Stream a project-aware answer (Phase 3 router).
+
+        Algorithm:
+          1. Discover known project slugs from the ChromaDB store
+             (collections matching `projects_*` minus `projects_index`).
+          2. Build a ProjectRouter with the known slugs.
+          3. Classify the question -> RouteDecision (LIST / DETAIL / GENERAL).
+          4. Resolve the source collection:
+             - DETAIL: `projects_<slug>` (per-project body chunks)
+             - LIST or GENERAL: `projects_index` (master one-per-project)
+          5. Embed + query the collection. Threshold 0.0 so we don't
+             accidentally drop the index's own matches.
+          6. Build the system prompt from the hits and prepend a history
+             window (last 6 turns) to the user message.
+          7. Stream the LLM, accumulating prose to parse the trailing
+             ===PROJECTS=== JSON block at the end.
+          8. Emit a `projects` event with the resolved card items, then `done`.
+
+        Args:
+            question: User's question (non-empty).
+            lang: "es" (default) or "en" — selects the system prompt template.
+            history: Optional list of {"role": "user"|"assistant", "content": "..."}
+                of recent turns (most recent last). Used for pronoun resolution
+                in DETAIL intent and prepended to the LLM message.
+            session_id: Optional client-provided session id (currently unused).
+
+        Yields:
+            StreamEvent dicts: content / projects / done / error.
+        """
+        # Local access (avoids circular import / exposes internals via the same
+        # pattern the legacy code uses).
+        store: VectorStore = self._retriever._store  # noqa: SLF001
+        embedder = self._retriever._embedder
+
+        # 1. Discover known slugs
+        known_slugs = self._discover_project_slugs(store)
+
+        # 2. Build router
+        router = ProjectRouter(known_slugs)
+
+        # 3. Route (history is already a list[dict] | None)
+        decision = router.route(question, history)
+
+        # 4. Resolve source collection + retrieval top_k
+        history_list = history or []
+        if decision.kind == RouteKind.DETAIL_PROJECT:
+            assert decision.slug is not None
+            # Inline ProjectsService.detail_collection_name(slug) — the
+            # implementation only formats the name (no instance state needed),
+            # so we avoid constructing a ProjectsService here.
+            collection = f"{ProjectsService.DETAIL_COLLECTION_PREFIX}_{decision.slug}"
+            top_k = 4
+            forced_slug = decision.slug
+        else:
+            # LIST_PROJECTS and GENERAL both query the master index.
+            collection = ProjectsService.INDEX_COLLECTION
+            top_k = 6
+            forced_slug = None
+
+        # 5. Retrieve chunks
+        try:
+            hits = self._query_store(
+                store=store,
+                embedder=embedder,
+                question=question,
+                collection=collection,
+                top_k=top_k,
+                threshold=self._retriever.threshold,
+            )
+        except Exception:
+            yield _error("VECTOR_STORE_ERROR", "VECTOR_STORE_ERROR")
+            yield _done()
+            return
+
+        # 6. Build the system prompt from the hits (bilingual).
+        chunks_for_prompt = [
+            _ChunkFromHit(
+                section_header=h.metadata.get("section_header", ""),
+                text=h.text,
+            )
+            for h in hits
+        ]
+        system_prompt = build_chat_system_prompt(chunks_for_prompt, lang=lang)
+
+        # 7. Build the user message with history (last 6 turns).
+        user_message = self._build_user_with_history(
+            question=question,
+            history=history_list,
+            max_turns=6,
+        )
+
+        # 8. Stream the LLM, accumulating prose.
+        raw_prose_parts: list[str] = []
+        has_error = False
+
+        for event in self._stream_with_error_handling(
+            system=system_prompt,
+            user=user_message,
+        ):
+            if event.get("type") == "content":
+                raw_prose_parts.append(event.get("text", ""))
+                yield event
+            elif event.get("type") == "error":
+                yield event
+                has_error = True
+                break
+            elif event.get("type") == "done":
+                # Don't forward the inner done; we emit our own after projects.
+                break
+
+        if has_error:
+            yield _done()
+            return
+
+        # 9. Parse the projects JSON block from the accumulated prose.
+        full_prose = "".join(raw_prose_parts)
+        llm_items = _extract_projects_block(full_prose)
+
+        # 10. Build the project cards.
+        cards = _build_project_cards(
+            llm_items=llm_items,
+            hits=hits,
+            lang=lang,
+            forced_slug=forced_slug,
+            known_slugs=set(known_slugs),
+        )
+
+        if cards:
+            yield _projects(cards)
+
+        yield _done()
+
+    # ---------------------------------------------------------------------------
+    # Phase 3 helpers
+    # ---------------------------------------------------------------------------
+
+    @staticmethod
+    def _discover_project_slugs(store: VectorStore) -> list[str]:
+        """Return project slugs found in ChromaDB collections.
+
+        Convention: detail collections are named ``projects_<slug>``; the
+        master collection ``projects_index`` is excluded. We extract the
+        slug after the ``projects_`` prefix and validate it matches the
+        Phase 1 slug pattern (``proj-<...>``).
+        """
+        prefix = ProjectsService.DETAIL_COLLECTION_PREFIX + "_"
+        index_name = ProjectsService.INDEX_COLLECTION
+        slugs: list[str] = []
+        for name in store.list_collections():
+            if name == index_name:
+                continue
+            if not name.startswith(prefix):
+                continue
+            slug = name[len(prefix):]
+            # Validate slug shape (defensive — the indexer already enforces this).
+            if re.fullmatch(r"proj-[a-z0-9-]+", slug):
+                slugs.append(slug)
+        return slugs
+
+    @staticmethod
+    def _query_store(
+        *,
+        store: VectorStore,
+        embedder,
+        question: str,
+        collection: str,
+        top_k: int,
+        threshold: float,
+    ) -> list[Hit]:
+        """Embed `question` and query `collection`, returning hits above `threshold`.
+
+        Returns an empty list if the collection does not exist (ChromaDB
+        raises ValueError on unknown collection). Any other exception is
+        re-raised so the caller can emit a VECTOR_STORE_ERROR.
+        """
+        try:
+            embedding = embedder.embed([question])[0]
+        except Exception:
+            raise
+
+        try:
+            return store.query(
+                name=collection,
+                embedding=embedding,
+                top_k=top_k,
+                threshold=threshold,
+            )
+        except ValueError:
+            # Unknown collection -> empty hit list (caller may still try
+            # to emit something or treat as no-hits).
+            return []
+
+    @staticmethod
+    def _build_user_with_history(
+        *,
+        question: str,
+        history: list[dict],
+        max_turns: int,
+    ) -> str:
+        """Build the LLM user message by prepending the last `max_turns` turns.
+
+        Format:
+            <history as a transcript, oldest first>
+            ---
+            Current question: <question>
+
+        The transcript uses simple "User:" / "Assistant:" labels. If a turn
+        has a non-string or missing content, it is skipped silently.
+        """
+        recent = history[-max_turns:] if history else []
+        parts: list[str] = []
+        for turn in recent:
+            if not isinstance(turn, dict):
+                continue
+            role = turn.get("role")
+            content = turn.get("content", "")
+            if not isinstance(content, str) or not content.strip():
+                continue
+            if role == "user":
+                parts.append(f"User: {content.strip()}")
+            elif role == "assistant":
+                parts.append(f"Assistant: {content.strip()}")
+
+        if parts:
+            transcript = "\n".join(parts)
+            return f"{transcript}\n---\nCurrent question: {question}"
+        return question
+
+    # ---------------------------------------------------------------------------
+    # Legacy private helpers (kept for stream_answer)
     # ---------------------------------------------------------------------------
 
     def _resolve_collection(
@@ -214,10 +502,6 @@ class ChatService:
             keep_back = open_len - 1  # max chars that could still form <think>
             holdback = ""  # content kept back as potential tag prefix
             inside_think = False
-
-            def emit(text: str):
-                if text:
-                    yield _content(text)  # type: ignore[misc]
 
             for token in self._llm.stream_chat(system, user):
                 if inside_think:
@@ -288,3 +572,108 @@ class ChatService:
             yield _error("LLM_ERROR", type(exc).__name__)
         finally:
             yield _done()
+
+
+# ---------------------------------------------------------------------------
+# Module-level helpers (used by chat_projects_stream + tests)
+# ---------------------------------------------------------------------------
+
+
+def _build_project_cards(
+    *,
+    llm_items: list[dict] | None,
+    hits: list[Hit],
+    lang: str,
+    forced_slug: str | None,
+    known_slugs: set[str],
+) -> list[dict]:
+    """Build the cards for the SSE `projects` event.
+
+    Priority:
+      1. If `forced_slug` (DETAIL route): always emit exactly one card for
+         that slug with relevance=1.0; metadata is pulled from the first
+         matching index hit (if available) or from the detail chunk itself.
+      2. If the LLM emitted a parseable ===PROJECTS=== JSON block, use
+         those items (filtered to known_slugs; invalid shapes dropped).
+      3. Otherwise, fall back to the top-N `hits` (LIST/GENERAL): build
+         cards from the index metadata with relevance = hit.score.
+
+    Cards are dicts ready for the SSE payload:
+        {"slug": str, "title": str, "summary": str, "relevance": float}
+    """
+    title_field = "title_en" if lang == "en" else "title_es"
+    summary_field = "summary_en" if lang == "en" else "summary_es"
+
+    # 1. Forced slug (DETAIL route)
+    if forced_slug is not None:
+        # Build title/summary from the hits metadata (which is index metadata
+        # if we routed through it, or use a slug-only fallback otherwise).
+        title = forced_slug
+        summary = ""
+        for h in hits:
+            if h.metadata.get("slug") == forced_slug:
+                title = h.metadata.get(title_field) or h.metadata.get("title_es") or forced_slug
+                summary = h.metadata.get(summary_field) or h.metadata.get("summary_es") or ""
+                break
+        return [
+            {
+                "slug": forced_slug,
+                "title": title,
+                "summary": summary,
+                "relevance": 1.0,
+            }
+        ]
+
+    # 2. LLM-emitted items
+    if llm_items:
+        cards: list[dict] = []
+        for item in llm_items:
+            if not isinstance(item, dict):
+                continue
+            slug = item.get("slug")
+            if not isinstance(slug, str) or slug not in known_slugs:
+                continue
+            title = item.get("title")
+            if not isinstance(title, str):
+                title = slug
+            summary = item.get("summary")
+            if not isinstance(summary, str):
+                summary = ""
+            relevance_raw = item.get("relevance", 0.0)
+            try:
+                relevance_f = float(relevance_raw)
+            except (TypeError, ValueError):
+                relevance_f = 0.0
+            cards.append(
+                {
+                    "slug": slug,
+                    "title": title,
+                    "summary": summary,
+                    "relevance": relevance_f,
+                }
+            )
+        if cards:
+            return cards
+
+    # 3. Fallback from hits (LIST / GENERAL with no LLM block)
+    cards = []
+    for h in hits[:5]:  # cap at 5 cards
+        slug = h.metadata.get("slug")
+        if not isinstance(slug, str):
+            continue
+        title = h.metadata.get(title_field) or h.metadata.get("title_es") or slug
+        summary = h.metadata.get(summary_field) or h.metadata.get("summary_es") or ""
+        score = h.score
+        try:
+            score_f = float(score)
+        except (TypeError, ValueError):
+            score_f = 0.0
+        cards.append(
+            {
+                "slug": slug,
+                "title": title,
+                "summary": summary,
+                "relevance": score_f,
+            }
+        )
+    return cards
