@@ -226,7 +226,9 @@ Commit: `250c43d`.
 
 ---
 
-## Phase 5 — Chatbot component (1 day) — IN PROGRESS
+## Phase 5 — Chatbot component (1 day) — DONE
+
+Commit: `38ae109`.
 
 Branch: `dev`. Sub-tasks tracked in `todo`.
 
@@ -273,6 +275,31 @@ Branch: `dev`. Sub-tasks tracked in `todo`.
 
 ## Phases 6-7 (pending)
 
+### Phase 5 — Unverified by E2E (deferred)
+
+The Phase 5 work-unit commit landed end-to-end plumbing (SSE framing,
+route dispatch, CORS, error event propagation, retry UX, history cap,
+sessionStorage session id, react-markdown rendering, client:idle
+hydration). The verifier confirmed SSE framing and a clean
+error+done cycle against a live uvicorn process, plus CORS preflight
+and a real `data: {json}\n\n` round-trip.
+
+What was NOT exercised because it requires operator setup:
+
+- **`content` and `projects` SSE events with real prose** — needs
+  ChromaDB populated (`python scripts/reindex.py`) and a valid LLM
+  API key in `apps/api/.env`.
+- **Card click-through to `/proyectos/<slug>/`** — manual browser
+  verification.
+- **Multi-turn history propagation** — manual browser verification
+  with the chatbot chat (send 2-3 messages in a row).
+- **Locale switch mid-conversation** — manual browser verification:
+  toggle the lang switcher, send a new message, confirm `lang` field
+  changed and the bot's response language changed.
+
+These are quick smoke tests once `apps/api/.env` has a real key and
+ChromaDB is populated.
+
 See `docs/plans/2026-09-17-portafolio-rag-impl-plan.md` for full task breakdown.
 
 Summary:
@@ -283,7 +310,7 @@ Summary:
 | 2 | RAG indexing: master index + per-project collections | 1 day | DONE |
 | 3 | Bot router: ProjectRouter, bilingual prompts, extended endpoints | 1-2 days | DONE |
 | 4 | Astro UI: landing, listing, detail pages, i18n, switcher | 1-2 days | DONE |
-| 5 | Chatbot component: SSE, prose + cards, multi-turn | 1 day | IN PROGRESS |
+| 5 | Chatbot component: SSE, prose + cards, multi-turn | 1 day | DONE |
 | 6 | Deploy: backend host setup, Cloudflare Tunnel, Vercel config | ½ day | pending |
 | 7 | E2E + polish: Playwright tests, SEO, fallbacks, docs | 1 day | pending |
 
