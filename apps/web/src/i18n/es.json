@@ -32,7 +32,13 @@
       "empty_message": "Hola, soy el bot de Sebastián. Preguntame sobre Python, AWS, cloud, datos en tiempo real o pedime un proyecto en particular.",
       "assistant_title": "Asistente de navegación",
       "open_chat": "Abrir chat de navegación",
-      "close_chat": "Cerrar"
+      "close_chat": "Cerrar",
+      "welcome_greeting": "Hola, soy el bot de Sebastián.",
+      "welcome_subtitle": "Elegí uno o más stacks para ver proyectos relacionados.",
+      "welcome_submit": "Ver proyectos",
+      "welcome_skip": "o escribí tu pregunta abajo",
+      "clear_selection": "Limpiar",
+      "back_to_tags": "Volver a los stacks"
     },
     "featured": "Proyectos destacados",
     "about_hint": "Más sobre mí y cómo contactarme →"

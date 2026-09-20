@@ -2,6 +2,7 @@
 import '../styles/global.css';
 import es from '../i18n/es.json';
 import en from '../i18n/en.json';
+import { getCollection } from 'astro:content';
 import { ViewTransitions } from 'astro:transitions';
 import Chatbot from '../components/Chatbot';
 
@@ -26,6 +27,31 @@ const pathname = Astro.url.pathname;
 const stripped = pathname.replace(/^\/(es|en)/, '') || '/';
 const otherLocale = locale === 'es' ? 'en' : 'es';
 const otherLocalePath = `/${otherLocale}${stripped}`;
+
+// Phase 5.5c: pre-compute the top tags + a slim project metadata subset
+// for the chat island. The same Content Collection feeds the backend
+// RAG index and the public project pages — we keep a small payload
+// (just the fields the ChatProjectCard renders) so the island stays light.
+const allProjects = await getCollection('projects');
+const tagCounts = new Map<string, number>();
+for (const project of allProjects) {
+  for (const tag of project.data.tags) {
+    tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
+  }
+}
+const topTags = Array.from(tagCounts.entries())
+  .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  .slice(0, 10)
+  .map(([tag, count]) => ({ tag, count }));
+const projectsForChat = allProjects.map((p) => ({
+  slug: p.data.slug,
+  title_es: p.data.title_es,
+  title_en: p.data.title_en,
+  summary_es: p.data.summary_es,
+  summary_en: p.data.summary_en,
+  year: p.data.year,
+  tags: p.data.tags,
+}));
 ---
 
 <!doctype html>
@@ -72,6 +98,8 @@ const otherLocalePath = `/${otherLocale}${stripped}`;
       client:load
       transition:persist
       locale={locale}
+      availableTags={topTags}
+      projects={projectsForChat}
       strings={{
         inputPlaceholder: t.home.chat.input_placeholder,
         send: t.home.chat.send,
@@ -83,6 +111,12 @@ const otherLocalePath = `/${otherLocale}${stripped}`;
         assistantTitle: t.home.chat.assistant_title,
         openChatAria: t.home.chat.open_chat,
         closeChatAria: t.home.chat.close_chat,
+        welcomeGreeting: t.home.chat.welcome_greeting,
+        welcomeSubtitle: t.home.chat.welcome_subtitle,
+        welcomeSubmit: t.home.chat.welcome_submit,
+        welcomeSkip: t.home.chat.welcome_skip,
+        clearSelection: t.home.chat.clear_selection,
+        backToTags: t.home.chat.back_to_tags,
       }}
     />
   </body>
