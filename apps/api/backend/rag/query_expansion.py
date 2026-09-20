@@ -100,16 +100,18 @@ _KEYWORD_PATTERNS: list[tuple[re.Pattern[str], str]] = [
 
 
 def expand_query(question: str) -> str:
-    """Expand a short query with known tech keywords.
+    """Expand the query by appending context strings for known tech keywords.
 
-    Rules:
-      - If `question` has more than 4 whitespace-separated tokens, return
-        it unchanged (already a full sentence — no expansion needed).
-      - Otherwise, scan for any keyword from KEYWORD_EXPANSIONS (case-
-        insensitive, word-boundary). For each match, APPEND the
-        expansion to the original (don't replace the original wording).
-      - Return the expanded question. If no keyword matches, return the
-        original unchanged.
+    Pure CPU work. Fires iff at least one keyword from KEYWORD_EXPANSIONS is
+    found in the (accent-normalized, case-folded) query. No length cap —
+    natural Spanish recruiter sentences like "Como fue la migracion a cloud
+    que lidere" (6 tokens) expand just as well as the bare keyword "rag".
+    Queries without any recognized keyword pass through unchanged.
+
+    The expansion is APPEND-only: the original question text is preserved
+    verbatim so the recruiter sees their exact wording in the chat UI
+    (the user-facing LLM message still uses the original question; the
+    expanded text is only fed to the embedder in chat_service.py).
 
     Args:
         question: The raw user question.
@@ -117,8 +119,7 @@ def expand_query(question: str) -> str:
     Returns:
         The question string, possibly with expansion suffixes appended.
     """
-    tokens = question.split()
-    if len(tokens) > 4:
+    if not question:
         return question
 
     # Normalize the user query so 'migracion' and 'migración' both match.

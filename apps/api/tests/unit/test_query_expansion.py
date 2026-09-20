@@ -8,20 +8,79 @@ from backend.rag.query_expansion import KEYWORD_EXPANSIONS, expand_query
 
 
 # ---------------------------------------------------------------------------
-# Long queries: returned unchanged
+# Long queries: keyword presence is the only gate
 # ---------------------------------------------------------------------------
 
 
 def test_long_query_with_five_words_is_unchanged():
-    """A 5-word sentence is returned as-is (even if a keyword is present)."""
-    question = "tell me about python projects please"
+    """A >4-token sentence with NO recognized tech keyword passes through.
+
+    Even though it is long, the only gate now is keyword presence — length
+    is irrelevant. A recruiter sentence that doesn't mention any tech
+    keyword (e.g. small-talk or a meta-question) is returned verbatim.
+    """
+    question = "tell me about your projects please"
     assert expand_query(question) == question
 
 
-def test_long_query_with_keywords_is_unchanged():
-    """A >4-token query containing known keywords is still returned as-is."""
-    # 5 tokens with "rag" + "python" — would expand if short, but >4 tokens.
-    question = "qué proyectos python rag tienes"
+def test_long_query_with_keywords_is_now_expanded():
+    """A >4-token query containing a known keyword IS expanded.
+
+    Previously the >4-token guard short-circuited and returned the query
+    unchanged even when keywords were present. Now any recognized keyword
+    fires the expansion regardless of sentence length, so recruiter-style
+    Spanish sentences like this one expand.
+    """
+    long_query_with_keyword = "que proyectos tienes con python y aws"
+    result = expand_query(long_query_with_keyword)
+    # Original wording is preserved at the start (append-only).
+    assert "python" in result.lower()
+    # And at least one of the keyword expansions is appended.
+    assert any(
+        marker in result.lower()
+        for marker in ["lenguaje programacion", "amazon web services"]
+    )
+
+
+def test_six_token_query_with_keyword_is_now_expanded():
+    """Reported failure: 6-token 'Como fue la migracion a cloud que lidere'.
+
+    Both 'migracion' and 'cloud' are recognized keywords — the sentence
+    must expand even though it is longer than the old 4-token cap.
+    """
+    question = "Como fue la migracion a cloud que lidere"
+    result = expand_query(question)
+    # Original is preserved at the start (append-only).
+    assert result.startswith(question)
+    # Keyword presence fires the expansion; 'migracion' appends Spanish
+    # with-tilde form 'migración' and 'cloud' appends cloud-related context.
+    assert "migración" in result
+    assert "AWS" in result
+
+
+def test_five_token_question_about_rag_is_now_expanded():
+    """Reported failure: 5-token 'y que hay de rag?' must expand.
+
+    Old behavior bailed out at >4 tokens and the bot deflected. New
+    behavior fires on keyword presence — 'rag' triggers the RAG expansion
+    regardless of sentence length.
+    """
+    question = "y que hay de rag?"
+    result = expand_query(question)
+    # Original is preserved at the start (append-only).
+    assert result.startswith(question)
+    # The rag expansion is appended.
+    assert "retrieval augmented generation" in result
+
+
+def test_long_question_with_no_tech_keyword_still_unchanged():
+    """A long Spanish sentence with no recognized keyword passes through.
+
+    The keyword gate still applies: 'Cómo estuvo tu día ayer hermano?'
+    contains no tech term, so even though it has 6 tokens the expansion
+    must not fire and no noise is appended to the embedder input.
+    """
+    question = "Como estuvo tu día ayer hermano?"
     assert expand_query(question) == question
 
 
@@ -192,15 +251,18 @@ def test_cloud_keyword_matches():
 
 
 def test_nube_keyword_matches():
-    """Short 'nube' query expands; >4-token query containing 'nube' is unchanged."""
+    """Short 'nube' query expands; long 'nube' query also expands now."""
     # Short query (2 tokens) expands.
     out_short = expand_query("proyectos nube")
     assert out_short.startswith("proyectos nube")
     assert "AWS" in out_short
-    # Long query (6 tokens) is returned unchanged per the >4 rule, even though
-    # 'nube' is present.
+    # Long query (6 tokens) used to bail out under the old >4 guard. Now
+    # keyword presence is the only gate, so 'nube' triggers expansion even
+    # in a full sentence.
     long_q = "qué proyectos hiciste en la nube"
-    assert expand_query(long_q) == long_q
+    out_long = expand_query(long_q)
+    assert out_long.startswith(long_q)
+    assert "AWS" in out_long
 
 
 @pytest.mark.parametrize(
