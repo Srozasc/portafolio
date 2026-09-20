@@ -300,17 +300,40 @@ class ChatService:
             max_turns=6,
         )
 
-        # 8. Stream the LLM, accumulating prose.
+        # 8. Stream the LLM, accumulating prose and buffering the optional
+        #    ===PROJECTS=== ... ===END=== JSON block so it never reaches the
+        #    visitor's screen. The LLM is instructed to emit the block at the
+        #    END of its response; we let the visible prose stream through
+        #    normally and flush only up to the marker, then stop yielding
+        #    content chunks (the cards are surfaced via the `projects` SSE
+        #    event instead).
         raw_prose_parts: list[str] = []
         has_error = False
+        flushed_chars = 0  # chars of `raw_prose_parts` already streamed to client
+        block_consumed = False
 
         for event in self._stream_with_error_handling(
             system=system_prompt,
             user=user_message,
         ):
             if event.get("type") == "content":
-                raw_prose_parts.append(event.get("text", ""))
-                yield event
+                text = event.get("text", "")
+                raw_prose_parts.append(text)
+                accumulated = "".join(raw_prose_parts)
+                if not block_consumed and "===PROJECTS===" in accumulated:
+                    # Marker just appeared. Flush the visible prose up to the
+                    # marker (anything after is the JSON block — discard).
+                    visible = accumulated.split("===PROJECTS===", 1)[0]
+                    tail = visible[flushed_chars:]
+                    if tail:
+                        yield _content(tail)
+                    flushed_chars = len(visible)
+                    block_consumed = True
+                elif not block_consumed:
+                    # No marker yet — stream the chunk through.
+                    yield event
+                    flushed_chars += len(text)
+                # If block_consumed: drop the chunk silently.
             elif event.get("type") == "error":
                 yield event
                 has_error = True
