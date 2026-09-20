@@ -38,7 +38,9 @@
       "welcome_submit": "Ver proyectos",
       "welcome_skip": "o escribí tu pregunta abajo",
       "clear_selection": "Limpiar",
-      "back_to_tags": "Volver a los stacks"
+      "back_to_tags": "Volver a los stacks",
+      "new_search": "Nueva búsqueda",
+      "new_search_aria": "Iniciar nueva búsqueda"
     },
     "featured": "Proyectos destacados",
     "about_hint": "Más sobre mí y cómo contactarme →"

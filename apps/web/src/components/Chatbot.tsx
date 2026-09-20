@@ -52,6 +52,19 @@ type Message = {
   projects?: ProjectCard[];
 };
 
+/**
+ * Per-project conversation entry stored in localStorage. `projectSlug`
+ * mirrors the URL context: `null` means generic (home / sobre-mi / index
+ * pages) and a slug means the visitor was sitting on a project detail page.
+ */
+type StoredConversation = {
+  projectSlug: string | null;
+  messages: Message[];
+};
+
+/** Whole persisted shape: a list of conversations, one per project context. */
+type StoredState = StoredConversation[];
+
 /** Discriminated union of every SSE event the backend may emit. */
 type StreamEvent =
   | { type: "content"; text: string }
@@ -101,6 +114,11 @@ interface ChatbotProps {
     /** Phase 5.5c: chip row + back button labels. */
     clearSelection: string;
     backToTags: string;
+    /** Phase 5.5c: "Nueva búsqueda" affordance. Optional — falls back to
+     *  a locale-aware default string if Base.astro doesn't supply them. */
+    new_search?: string;
+    /** ARIA label for the same button. */
+    new_search_aria?: string;
   };
 }
 
@@ -108,8 +126,12 @@ interface ChatbotProps {
 const HISTORY_CAP_PAIRS = 6;
 /** sessionStorage key for the per-tab session id. */
 const SESSION_STORAGE_KEY = "portafolio:session_id";
-/** localStorage key for the message history (refresh survival). */
-const MESSAGES_STORAGE_KEY = "portafolio:chat_messages";
+/**
+ * localStorage key for the per-project message history (refresh survival).
+ * Versioned: the previous `_messages` key held a flat `Message[]`, which
+ * we don't try to migrate — bumping to `_v2` invalidates it cleanly.
+ */
+const STORAGE_KEY = "portafolio:chat_history_v2";
 /** Cap how many messages we keep in localStorage to avoid bloating it. */
 const MESSAGES_PERSIST_CAP = 30;
 /** Default backend URL when PUBLIC_API_URL is missing (mirrors .env.example). */
@@ -123,6 +145,15 @@ const isValidStoredMessage = (value: unknown): value is Message => {
   if (typeof v.content !== "string") return false;
   if (v.projects !== undefined && !Array.isArray(v.projects)) return false;
   return true;
+};
+
+/** Type guard for one persisted conversation entry. */
+const isValidStoredConversation = (value: unknown): value is StoredConversation => {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  if (v.projectSlug !== null && typeof v.projectSlug !== "string") return false;
+  if (!Array.isArray(v.messages)) return false;
+  return v.messages.every(isValidStoredMessage);
 };
 
 /** Build the empty-state assistant line. Defined as a constant factory so the
@@ -139,18 +170,27 @@ const extractProjectSlug = (pathname: string): string | null => {
 };
 
 /**
- * Read messages from localStorage, gracefully degrading on parse errors or
- * missing keys. We intentionally accept an empty array back so callers can
- * fall back to seeding the empty-state assistant line.
+ * Read the conversation for `projectSlug` from localStorage, gracefully
+ * degrading on parse errors, missing keys, or shape mismatches. The
+ * `_v2` key holds a list of conversations; we look up the entry whose
+ * `projectSlug` matches and return its messages (empty array on miss).
  */
-const loadPersistedMessages = (emptyMessage: string): Message[] => {
+const loadPersistedMessages = (
+  projectSlug: string | null,
+  emptyMessage: string,
+): Message[] => {
   if (typeof localStorage === "undefined") return [];
   try {
-    const raw = localStorage.getItem(MESSAGES_STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    const valid: Message[] = parsed.filter(isValidStoredMessage);
+    const match = parsed.find(
+      (c): c is StoredConversation =>
+        isValidStoredConversation(c) && c.projectSlug === projectSlug,
+    );
+    if (!match) return [];
+    const valid = match.messages;
     if (valid.length === 0) return [];
     // Ensure the first message is the empty-state assistant line; if it
     // somehow got stripped (corruption / older schema), prepend it so the
@@ -164,15 +204,67 @@ const loadPersistedMessages = (emptyMessage: string): Message[] => {
   }
 };
 
-/** Write messages to localStorage, dropping the cap. */
-const persistMessages = (msgs: Message[]) => {
+/**
+ * Write the conversation for `projectSlug`, leaving other conversations
+ * intact. Empty `msgs` REMOVES the entry to keep storage tidy; a fully
+ * empty list collapses to a single `removeItem` call.
+ */
+const persistMessages = (projectSlug: string | null, msgs: Message[]) => {
   if (typeof localStorage === "undefined") return;
   try {
     const trimmed = msgs.slice(-MESSAGES_PERSIST_CAP);
-    localStorage.setItem(MESSAGES_STORAGE_KEY, JSON.stringify(trimmed));
+    const raw = localStorage.getItem(STORAGE_KEY);
+    let list: StoredState = [];
+    if (raw) {
+      try {
+        const parsed: unknown = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          list = parsed.filter(isValidStoredConversation);
+        }
+      } catch {
+        // Unparseable blob: start fresh; we'll overwrite on the way out.
+      }
+    }
+    list = list.filter((c) => c.projectSlug !== projectSlug);
+    if (trimmed.length > 0) {
+      list.push({ projectSlug, messages: trimmed });
+    }
+    if (list.length === 0) {
+      localStorage.removeItem(STORAGE_KEY);
+    } else {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    }
   } catch {
     // Storage quota / private-mode errors are non-fatal — we keep the
     // in-memory messages and the chat still works for this session.
+  }
+};
+
+/** Drop the conversation for `projectSlug` (used on navigation / new search). */
+const clearPersistedMessages = (projectSlug: string | null) => {
+  if (typeof localStorage === "undefined") return;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    let list: StoredState = [];
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        list = parsed.filter(isValidStoredConversation);
+      }
+    } catch {
+      // Unparseable blob: just nuke the whole key; nothing to preserve.
+      localStorage.removeItem(STORAGE_KEY);
+      return;
+    }
+    const filtered = list.filter((c) => c.projectSlug !== projectSlug);
+    if (filtered.length === 0) {
+      localStorage.removeItem(STORAGE_KEY);
+    } else {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+    }
+  } catch {
+    // Ignore — best-effort cleanup.
   }
 };
 
@@ -425,31 +517,56 @@ export default function Chatbot({ locale, availableTags, projects, strings }: Ch
     }
     setSessionId(id);
 
-    // Rehydrate messages from localStorage if present; otherwise seed the
-    // empty-state assistant line so the chat never opens blank.
-    const persisted = loadPersistedMessages(strings.emptyMessage);
+    // Initial project slug from the URL — rehydration targets THIS project
+    // context so a refresh on a project page restores its conversation.
+    const initialSlug = extractProjectSlug(window.location.pathname);
+    setProjectSlug(initialSlug);
+
+    // Rehydrate messages for the initial project context. Empty array
+    // means "no prior conversation for this slug" — we seed the empty-state
+    // assistant line so the chat never opens blank.
+    const persisted = loadPersistedMessages(initialSlug, strings.emptyMessage);
     if (persisted.length > 0) {
       setMessages(persisted);
     } else {
       setMessages([{ role: "assistant", content: strings.emptyMessage }]);
     }
     setHasRehydrated(true);
-
-    // Initial project slug from the URL (no SPA navigation has happened yet).
-    setProjectSlug(extractProjectSlug(window.location.pathname));
   }, [strings.emptyMessage]);
 
   // -- Re-detect project slug on every Astro View Transitions navigation ------
+  // When the URL moves between project contexts (e.g. /proyectos/proj-a/ →
+  // /proyectos/proj-b/, or any of those → /), drop the previous project's
+  // conversation: the chat becomes project-scoped. `session_id` is NOT
+  // touched — a long tab is one continuous conversation from the backend's
+  // POV, only the in-message history is ephemeral per project.
   useEffect(() => {
-    const detectProject = () => {
-      setProjectSlug(extractProjectSlug(window.location.pathname));
+    const onPageLoad = () => {
+      const newSlug = extractProjectSlug(window.location.pathname);
+      setProjectSlug((prev) => {
+        if (newSlug !== prev) {
+          // Project context changed: clear chat and persisted conversation.
+          setMessages([{ role: "assistant", content: strings.emptyMessage }]);
+          setSelectedTags(new Set());
+          setShowFilteredCards(false);
+          setWelcomeDismissed(false);
+          setInput("");
+          setLastFailedQuestion(null);
+          // Drop the OLD conversation (not the new one) so storage reflects
+          // the visitor's actual path. The new slug gets re-seeded on the
+          // next persistMessages cycle.
+          clearPersistedMessages(prev);
+        }
+        return newSlug;
+      });
     };
-    // astro:page-load fires after every Astro navigation (including the very
-    // first page load). This is the supported hook for View Transitions
-    // integrations.
-    document.addEventListener("astro:page-load", detectProject);
-    return () => document.removeEventListener("astro:page-load", detectProject);
-  }, []);
+    // astro:page-load fires after every Astro navigation (including the
+    // very first page load). Run once on mount to pick up the initial
+    // project slug, then listen for View Transitions navigations.
+    onPageLoad();
+    document.addEventListener("astro:page-load", onPageLoad);
+    return () => document.removeEventListener("astro:page-load", onPageLoad);
+  }, [strings.emptyMessage]);
 
   // -- Body scroll lock + ESC to close -----------------------------------------
   useEffect(() => {
@@ -477,8 +594,8 @@ export default function Chatbot({ locale, availableTags, projects, strings }: Ch
     // Skip the first render before mount has rehydrated/seeded anything; we
     // don't want to overwrite localStorage with a transient empty array.
     if (!hasRehydrated) return;
-    persistMessages(messages);
-  }, [messages, hasRehydrated]);
+    persistMessages(projectSlug, messages);
+  }, [messages, projectSlug, hasRehydrated]);
 
   // -- Abort any in-flight stream on unmount so we never setState after teardown.
   useEffect(() => {
@@ -677,6 +794,33 @@ export default function Chatbot({ locale, availableTags, projects, strings }: Ch
   const closePanel = () => setIsPanelOpen(false);
   const togglePanel = () => setIsPanelOpen((prev) => !prev);
 
+  /**
+   * Reset the chat to its first-time UX without changing the URL. Used by
+   * the "Nueva búsqueda" affordance so a visitor sitting on a project page
+   * can pivot to a different topic / set of tags without navigating away.
+   * Mirrors the navigation cleanup (project change) but skips the project
+   * slug step — we're staying on the same page.
+   */
+  const handleNewSearch = () => {
+    setMessages([{ role: "assistant", content: strings.emptyMessage }]);
+    setSelectedTags(new Set());
+    setShowFilteredCards(false);
+    setWelcomeDismissed(false);
+    setInput("");
+    setLastFailedQuestion(null);
+    // Also clear localStorage for the current project: each search is
+    // ephemeral — we don't retain the previous query.
+    clearPersistedMessages(projectSlug);
+  };
+
+  // Locale-aware fallback for the optional i18n keys. Keeping these here
+  // (instead of forcing Base.astro to pass them) means existing layouts
+  // don't need to be edited to ship the new button.
+  const newSearchLabel =
+    strings.new_search ?? (locale === "en" ? "New search" : "Nueva búsqueda");
+  const newSearchAria =
+    strings.new_search_aria ?? (locale === "en" ? "Start new search" : "Iniciar nueva búsqueda");
+
   // Derived: is the trailing assistant bubble currently an error line?
   const lastMessage = messages[messages.length - 1];
   const trailingError =
@@ -730,14 +874,27 @@ export default function Chatbot({ locale, availableTags, projects, strings }: Ch
       >
         <header className="chatbot-panel-header">
           <h2 className="chatbot-panel-title">{strings.assistantTitle}</h2>
-          <button
-            type="button"
-            className="chatbot-panel-close"
-            onClick={closePanel}
-            aria-label={strings.closeChatAria}
-          >
-            ×
-          </button>
+          <div className="chatbot-panel-actions">
+            {hasInteracted && (
+              <button
+                type="button"
+                className="chatbot-new-search"
+                onClick={handleNewSearch}
+                aria-label={newSearchAria}
+                title={newSearchAria}
+              >
+                ↻ {newSearchLabel}
+              </button>
+            )}
+            <button
+              type="button"
+              className="chatbot-panel-close"
+              onClick={closePanel}
+              aria-label={strings.closeChatAria}
+            >
+              ×
+            </button>
+          </div>
         </header>
         <div className="chatbot-panel-body">
           {(() => {

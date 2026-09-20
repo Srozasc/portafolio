@@ -140,6 +140,38 @@
   outline-offset: 1px;
 }
 
+/* Header actions cluster: groups the new-search affordance + close button
+   so they sit together on the right edge of the panel header. */
+.chatbot-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+.chatbot-new-search {
+  background: transparent;
+  border: 0;
+  color: var(--fg-muted);
+  padding: 0.3rem 0.55rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+  transition: color 120ms ease, background 120ms ease;
+}
+.chatbot-new-search:hover {
+  color: var(--accent);
+  background: rgba(0, 0, 0, 0.04);
+}
+.chatbot-new-search:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 .chatbot-panel-body {
   flex: 1 1 auto;
   display: flex;
