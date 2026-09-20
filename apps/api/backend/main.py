@@ -23,6 +23,7 @@ CORS:
 
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -106,13 +107,27 @@ app = FastAPI(
 # startup. The Settings() here is evaluated at import time; tests that need
 # to override CORS origins can patch the env var before importing backend.main
 # (the conftest.py session fixture already does this for LLM_BASE_URL, etc.).
+#
+# `CORS_ALLOW_VERCEL_REGEX` (Phase 6) opts into a regex that matches every
+# `*.vercel.app` preview deployment, so PR previews from Vercel can hit the
+# backend without enumerating each preview URL in `CORS_ALLOW_ORIGINS`.
+# Production domains must still be listed explicitly in `CORS_ALLOW_ORIGINS`.
 settings = Settings()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.CORS_ALLOW_ORIGINS.split(","),
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+if settings.CORS_ALLOW_VERCEL_REGEX:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.CORS_ALLOW_ORIGINS.split(","),
+        allow_origin_regex=r"https://[a-zA-Z0-9-]+\.vercel\.app",
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.CORS_ALLOW_ORIGINS.split(","),
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 # Register error handlers
 register_exception_handlers(app)
@@ -127,8 +142,6 @@ app.include_router(debug_router)
 # Narrow except: only file-system errors are expected (frontend/ may not exist
 # yet on a fresh checkout). Other errors should propagate so boot problems
 # are visible.
-import logging
-
 _logger = logging.getLogger(__name__)
 try:
     app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")

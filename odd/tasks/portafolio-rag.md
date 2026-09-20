@@ -1,6 +1,6 @@
 # Feature: Portafolio RAG
 
-**Status**: Phases 0–4 done; Phase 5 pending
+**Status**: Phases 0–5 done; Phase 6 pending
 **Started**: 2026-09-17
 **Branch**: `dev` (work branch, all phases land here until PR to `main` at Phase 7)
 **Sources**:
@@ -18,6 +18,7 @@
 | 2 | `f7ee339` | `feat(rag): add projects indexer with master and per-project collections` |
 | 3 | `f5f6381` | `feat(chat): add project-aware routing and bilingual streaming responses` |
 | 4 | `250c43d` | `feat(web): build static portfolio site with i18n and project pages` |
+| 5 | `38ae109` | `feat(chat-ui): add interactive chatbot with SSE streaming and project cards` |
 
 Baseline verified before Phase 5: backend 201 pytest passing in ~30s; `astro build` direct (bypassing `pnpm` install hook) produces 8 HTML pages across ES + EN.
 
@@ -273,7 +274,33 @@ Branch: `dev`. Sub-tasks tracked in `todo`.
 
 ---
 
-## Phases 6-7 (pending)
+## Phase 6 — Deploy setup (½ day) — PENDING
+
+Branch: `dev`. Sub-tasks tracked in `todo`.
+
+- [ ] **T6.1** Create `scripts/deploy.sh` with portable steps (git pull, pip install, reindex, restart service)
+- [ ] **T6.2** Create `apps/api/systemd/portafolio.service` for systemd process management
+- [ ] **T6.3** Create `docs/deploy/generic-linux.md` with step-by-step guide for any Linux host
+- [ ] **T6.4** Create Cloudflare Tunnel config (`cloudflared`) for SSL without open ports
+- [ ] **T6.5** Document required env vars in `apps/api/.env.example`
+- [ ] **T6.6** Validate CORS config in FastAPI for Vercel preview and production domains
+- [ ] **T6.7** Configure Vercel settings/docs for `apps/web` (build command, output dir, `PUBLIC_API_URL`)
+- [ ] **T6.8** Document deployment process in `docs/deploy/`
+
+### Acceptance criteria Phase 6
+
+- [ ] `scripts/deploy.sh` works on fresh Ubuntu 22.04+ host
+- [ ] Cloudflare Tunnel documented and configured cleanly
+- [ ] CORS permits Vercel domains safely
+- [ ] Documentation complete in `docs/deploy/`
+
+### Commit (Phase 6)
+
+`chore(deploy): add portable deploy script and Vercel config`
+
+---
+
+## Phase 7 — E2E + polish (1 day) (pending)
 
 ### Phase 5 — Unverified by E2E (deferred)
 
