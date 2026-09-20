@@ -13,6 +13,19 @@ Pure CPU work, no LLM call, no extra latency or cost.
 from __future__ import annotations
 
 import re
+import unicodedata
+
+
+def _strip_accents(s: str) -> str:
+    """Remove diacritics: 'migración' -> 'migracion', 'café' -> 'cafe'.
+
+    Uses NFKD decomposition and drops the resulting combining marks. The
+    recruiter-style Spanish keyword map is ASCII (no tildes), so we normalize
+    the user query the same way before matching.
+    """
+    nfkd = unicodedata.normalize("NFKD", s)
+    return "".join(c for c in nfkd if not unicodedata.combining(c))
+
 
 # Map of canonical keyword -> human-readable expansion string.
 # Keys are lowercase; match is case-insensitive on the query.
@@ -49,15 +62,40 @@ KEYWORD_EXPANSIONS: dict[str, str] = {
     "fullstack": "fullstack frontend backend",
     "data": "data engineering pipelines procesamiento datos",
     "realtime": "tiempo real real time streaming baja latencia",
+    # Spanish-recruiter-style keywords (accent-insensitive on match).
+    "cloud": "cloud nube AWS GCP Azure kubernetes infraestructura cloud computing",
+    "migracion": "migración cloud AWS Kubernetes Terraform monolito microservicios migración cutover",
+    "nube": "nube cloud AWS GCP Azure infraestructura cloud computing",
+    "monolito": "monolito microservicios migración refactorización strangler pattern",
+    "microservicios": "microservicios arquitectura distribuida Kubernetes Docker APIs",
+    "frontend": "frontend interfaz UI React Astro TypeScript componente cliente",
+    "backend": "backend API servidor FastAPI Python REST endpoints",
+    "data engineering": "data engineering pipelines ETL Spark Kafka processing",
+    "infraestructura": "infraestructura Terraform AWS Kubernetes provisionamiento IaC",
+    "senior": "senior lead tech lead principal staff engineer mentoría",
+    "tech lead": "tech lead liderazgo técnico mentoría arquitectura decisiones",
+    "mentoring": "mentoring mentoría coaching liderazgo 1:1 feedback",
+    "orquestacion": "orquestación Kubernetes containers scheduling",
+    "integracion": "integración APIs REST GraphQL eventos messaging",
 }
 
 
-# Pre-compiled patterns for fast, case-insensitive, word-boundary matching.
-# Insertion order of KEYWORD_EXPANSIONS is preserved so expansion order is
-# deterministic (helps stable test output and reproducible embeddings).
-_KEYWORD_PATTERNS: list[tuple[re.Pattern[str], str]] = [
-    (re.compile(r"\b" + re.escape(kw) + r"\b", re.IGNORECASE), expansion)
+# Store both the original (with-tilde) key and the accent-normalized form so
+# queries typed without diacritics ("migracion") match Spanish keys, while
+# the original (with-tilde) expansion string is still appended so the
+# embedder sees proper Spanish context. Insertion order of
+# KEYWORD_EXPANSIONS is preserved so expansion order is deterministic
+# (helps stable test output and reproducible embeddings).
+_KEYWORD_FORMS: list[tuple[str, str, str]] = [
+    (kw, _strip_accents(kw.lower()), expansion)
     for kw, expansion in KEYWORD_EXPANSIONS.items()
+]
+# Pre-compiled patterns on the normalized key, paired with the original
+# expansion string. Not consumed by expand_query today, but kept so
+# external callers can reuse the same accent-insensitive lookup.
+_KEYWORD_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"\b" + re.escape(norm_kw) + r"\b", re.IGNORECASE), expansion)
+    for _orig_kw, norm_kw, expansion in _KEYWORD_FORMS
 ]
 
 
@@ -83,10 +121,16 @@ def expand_query(question: str) -> str:
     if len(tokens) > 4:
         return question
 
+    # Normalize the user query so 'migracion' and 'migración' both match.
+    question_norm = _strip_accents(question.lower())
+
     expansions_to_add: list[str] = []
     seen: set[str] = set()
-    for pattern, expansion in _KEYWORD_PATTERNS:
-        if pattern.search(question) and expansion not in seen:
+    for _orig_kw, norm_kw, expansion in _KEYWORD_FORMS:
+        if (
+            re.search(r"\b" + re.escape(norm_kw) + r"\b", question_norm)
+            and expansion not in seen
+        ):
             expansions_to_add.append(expansion)
             seen.add(expansion)
 

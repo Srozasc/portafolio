@@ -159,3 +159,103 @@ def test_keyword_expansions_dict_is_non_empty():
     # Every value is a non-empty string.
     for k, v in KEYWORD_EXPANSIONS.items():
         assert isinstance(v, str) and v.strip(), f"empty expansion for {k!r}"
+
+
+# ---------------------------------------------------------------------------
+# Accent-insensitive matching + Spanish-recruiter keywords
+# ---------------------------------------------------------------------------
+
+
+def test_migracion_without_tilde_matches():
+    """User types 'migracion a cloud' (no tildes) — still matches and expands.
+
+    The recruiter-style query has no diacritics, but the expansion map
+    carries proper Spanish ('migración') so the embedder sees rich Spanish
+    context after expansion.
+    """
+    out = expand_query("migracion a cloud")
+    # Original user wording is preserved verbatim at the start (append-only).
+    assert out.startswith("migracion a cloud")
+    # The expansion includes the proper Spanish with-tilde form.
+    assert "migración" in out
+    # And the cloud keyword also triggered its expansion.
+    assert "cloud" in out
+    assert "AWS" in out
+
+
+def test_cloud_keyword_matches():
+    """Short 'cloud' query expands with cloud-related context."""
+    out = expand_query("cloud")
+    assert out.startswith("cloud")
+    assert "nube" in out
+    assert "AWS" in out
+
+
+def test_nube_keyword_matches():
+    """Short 'nube' query expands; >4-token query containing 'nube' is unchanged."""
+    # Short query (2 tokens) expands.
+    out_short = expand_query("proyectos nube")
+    assert out_short.startswith("proyectos nube")
+    assert "AWS" in out_short
+    # Long query (6 tokens) is returned unchanged per the >4 rule, even though
+    # 'nube' is present.
+    long_q = "qué proyectos hiciste en la nube"
+    assert expand_query(long_q) == long_q
+
+
+@pytest.mark.parametrize(
+    "variant",
+    ["MIGRACIÓN", "migracion", "Migración", "migración a cloud"],
+)
+def test_accent_insensitive_matching(variant):
+    """Same keyword with/without tilde (and mixed casing) produces an expansion.
+
+    All variants must trigger the 'migracion' expansion — the match is
+    normalized via NFKD before the word-boundary regex.
+    """
+    out = expand_query(variant)
+    # Original input is preserved verbatim at the start.
+    assert out.startswith(variant)
+    # The Spanish with-tilde form appears in the expansion suffix.
+    assert "migración" in out
+
+
+def test_does_not_modify_user_text():
+    """The original substring is preserved at the start; expansion is APPENDED."""
+    question = "migracion a cloud"
+    out = expand_query(question)
+    # Original wording is unchanged at the start.
+    assert out.startswith(question)
+    # And something extra was appended (the expansion).
+    assert len(out) > len(question)
+
+
+def test_palabra_con_tilde_en_keyword_matchea_sin_tilde_en_query():
+    """Query typed WITH a tilde matches the no-tilde keyword (and vice versa).
+
+    Symmetric accent-insensitivity: 'migración' typed by the user still
+    hits the 'migracion' keyword in the map.
+    """
+    out_with_tilde = expand_query("migración")
+    out_without_tilde = expand_query("migracion")
+    # Both expand.
+    assert "migración" in out_with_tilde
+    assert "migración" in out_without_tilde
+    # Original casing is preserved at the start of each result.
+    assert out_with_tilde.startswith("migración")
+    assert out_without_tilde.startswith("migracion")
+
+
+def test_word_boundary_still_holds_after_normalization():
+    """NFKD normalization doesn't break \\b — 'raíz' does NOT match 'rag'.
+
+    'raíz' normalizes to 'raiz'. The regex \\brag\\b against 'raiz' must NOT
+    match because 'rag' is not a complete word in 'raiz'. This guards against
+    a regression where dropping combining marks turns word boundaries into
+    naive substring matches.
+    """
+    out = expand_query("raíz")
+    # The 'rag' expansion must NOT be appended.
+    assert "retrieval augmented generation" not in out
+    # With no other matching keyword, the result is the original unchanged.
+    assert out == "raíz"
