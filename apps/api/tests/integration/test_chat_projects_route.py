@@ -591,3 +591,67 @@ class TestLangDefault:
         assert fake_llm.last_system is not None
         assert "Respondé SIEMPRE en español" in fake_llm.last_system
         assert "asistente virtual del portafolio" in fake_llm.last_system
+
+
+class TestShortQueryExpansion:
+    """Short keyword queries (e.g. 'rag') must reach the LLM end-to-end.
+
+    Regression test for the query-expansion fix: a single-token question
+    used to defeat ``OpenAI text-embedding-3-small`` (trained on contexts,
+    not isolated words), so the retriever returned 0 hits and the bot
+    deflected. The fix (``backend.rag.query_expansion.expand_query``)
+    appends a richer expansion string to the retrieval query before
+    embedding, so the embedder has enough signal to match chunks.
+    """
+
+    def test_short_keyword_query_rag_reaches_llm_and_ends_with_done(
+        self, tmp_path: Path
+    ):
+        """A short query 'rag' must NOT short-circuit to the deflection path:
+        the LLM is invoked and the SSE stream ends with a ``done`` event.
+
+        This exercises the full chat flow including the new
+        ``backend.rag.query_expansion.expand_query`` integration in
+        ``ChatService.chat_projects_stream``.
+        """
+        fake_llm = FakeLLM(
+            tokens=[
+                "Tengo proyectos con RAG. ",
+                "===PROJECTS===\n",
+                json.dumps(
+                    [
+                        {
+                            "slug": "proj-rag-customer",
+                            "title": "RAG",
+                            "summary": "Chatbot RAG",
+                            "relevance": 0.9,
+                        }
+                    ]
+                ),
+                "\n===END===",
+            ]
+        )
+        _app, client, _service = make_projects_chat_app(tmp_path, fake_llm)
+
+        response = client.post(
+            "/api/chat/stream-projects",
+            json={"question": "rag", "lang": "es"},
+        )
+
+        # HTTP 200, no transport-level error
+        assert response.status_code == 200
+        assert "text/event-stream" in response.headers["content-type"]
+
+        # LLM was called exactly once (the request did NOT deflect).
+        assert fake_llm.call_count == 1
+
+        # The user-facing LLM message uses the ORIGINAL 'rag', not the
+        # expanded form (expansion is for retrieval only — design intent).
+        assert fake_llm.last_user is not None
+        assert "rag" in fake_llm.last_user
+        assert "retrieval augmented generation" not in fake_llm.last_user
+
+        # SSE stream ends with a single `done` event and no `error` event.
+        events = _collect_events(response.text)
+        assert len(events["done"]) == 1
+        assert len(events["error"]) == 0

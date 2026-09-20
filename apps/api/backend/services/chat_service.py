@@ -22,6 +22,7 @@ from backend.rag.prompts import build_chat_system_prompt, build_portfolio_chat_s
 from backend.rag.project_router import ProjectRouter, RouteKind
 from backend.rag.retriever import Retriever
 from backend.rag.vector_store import Hit, VectorStore
+from backend.rag.query_expansion import expand_query
 from backend.services.projects_service import ProjectsService
 
 
@@ -265,15 +266,18 @@ class ChatService:
         else:
             # LIST_PROJECTS and GENERAL both query the master index.
             collection = ProjectsService.INDEX_COLLECTION
-            top_k = 6
+            top_k = 10  # was 6; bumped to give short-query expansion more headroom
             forced_slug = None
 
-        # 5. Retrieve chunks
+        # 5. Retrieve chunks (short queries get keyword-expanded first so the
+        #    OpenAI embedder has enough context to match chunks — see
+        #    backend.rag.query_expansion).
+        expanded_question = expand_query(question)
         try:
             hits = self._query_store(
                 store=store,
                 embedder=embedder,
-                question=question,
+                question=expanded_question,
                 collection=collection,
                 top_k=top_k,
                 threshold=self._retriever.threshold,
