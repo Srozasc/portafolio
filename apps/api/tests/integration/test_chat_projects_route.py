@@ -412,8 +412,9 @@ class TestBilingualPromptSelection:
         )
         assert response.status_code == 200
         assert fake_llm.last_system is not None
-        # Spanish template signature
-        assert "Respondé siempre en español" in fake_llm.last_system
+        # Spanish portfolio template signature (positioned as Sebastián's assistant, not a generic helper)
+        assert "Respondé SIEMPRE en español" in fake_llm.last_system
+        assert "asistente virtual del portafolio" in fake_llm.last_system
         assert "=== INFORMACIÓN RECUPERADA ===" in fake_llm.last_system
 
     def test_bilingual_prompt_selection_lang_en(self, tmp_path: Path):
@@ -427,8 +428,9 @@ class TestBilingualPromptSelection:
         )
         assert response.status_code == 200
         assert fake_llm.last_system is not None
-        # English template signature
-        assert "Always respond in English" in fake_llm.last_system
+        # English portfolio template signature (positioned as Sebastián's assistant, not a generic helper)
+        assert "ALWAYS respond in natural, professional English" in fake_llm.last_system
+        assert "virtual assistant of" in fake_llm.last_system
         assert "=== RETRIEVED INFORMATION ===" in fake_llm.last_system
 
 
@@ -587,4 +589,5 @@ class TestLangDefault:
         )
         assert response.status_code == 200
         assert fake_llm.last_system is not None
-        assert "Respondé siempre en español" in fake_llm.last_system
+        assert "Respondé SIEMPRE en español" in fake_llm.last_system
+        assert "asistente virtual del portafolio" in fake_llm.last_system

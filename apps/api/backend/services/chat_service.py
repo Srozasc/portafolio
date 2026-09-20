@@ -18,7 +18,7 @@ from collections.abc import Iterator
 from typing import NamedTuple
 
 from backend.rag.llm_client import LLMClient, StreamError
-from backend.rag.prompts import build_chat_system_prompt
+from backend.rag.prompts import build_chat_system_prompt, build_portfolio_chat_system_prompt
 from backend.rag.project_router import ProjectRouter, RouteKind
 from backend.rag.retriever import Retriever
 from backend.rag.vector_store import Hit, VectorStore
@@ -291,7 +291,7 @@ class ChatService:
             )
             for h in hits
         ]
-        system_prompt = build_chat_system_prompt(chunks_for_prompt, lang=lang)
+        system_prompt = build_portfolio_chat_system_prompt(chunks_for_prompt, lang=lang)
 
         # 7. Build the user message with history (last 6 turns).
         user_message = self._build_user_with_history(
