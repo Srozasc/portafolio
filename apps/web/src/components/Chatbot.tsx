@@ -1,24 +1,29 @@
 /**
- * Chatbot.tsx — Phase 5 React island for the portafolio RAG frontend.
+ * Chatbot.tsx — Phase 5.5b floating navigation assistant.
  *
- * Talks to the FastAPI backend over Server-Sent Events at
- * `${PUBLIC_API_URL}/api/chat/stream-projects`. Hydrated `client:idle`
- * (configured in `index.astro`) so it doesn't block first paint.
+ * Phase 5 had this component mounted as an embedded widget on the landing
+ * page only. Phase 5.5a extended the backend to accept an optional
+ * `project_slug` field on every chat request, and Phase 5.5b (this file)
+ * turns the widget into a globally-rendered, navigation-persistent
+ * floating assistant that:
  *
- * Decisions documented inline per the Phase 5 spec:
- *   - Hydration: `client:idle` (configured at the mount site).
- *   - History cap: last 6 user+assistant pairs (12 messages).
- *   - session_id: generated via `crypto.randomUUID()` on first mount,
- *     persisted in `sessionStorage` keyed `portafolio:session_id`.
- *   - ProjectCard in chat: small inline card mirroring the structure of
- *     `ProjectCard.astro` but limited to the SSE payload fields
- *     (slug, title, summary, relevance). Links are locale-aware
- *     (`/proyectos/<slug>/` for ES, `/en/proyectos/<slug>/` for EN).
- *   - Error UX: a retry button under the failing user message re-sends
- *     the same question via the same `sendMessage` helper.
- *   - Input UX: Enter submits, Shift+Enter inserts a newline.
- *   - Empty state: a single assistant message seeded with the
- *     `empty_message` i18n string is shown on first mount.
+ *   1. Renders as a FAB bottom-right on every page (it lives in Base.astro).
+ *   2. Slides in a side panel when the FAB is clicked.
+ *   3. Survives Astro View Transitions navigations because Base.astro mounts
+ *      it under the `transition:persist` directive — the React island's
+ *      DOM nodes and React state are preserved across page changes.
+ *   4. Auto-detects the active project slug from `window.location.pathname`
+ *      and re-detects on every `astro:page-load` event, so the chat knows
+ *      which project the visitor is browsing.
+ *   5. Sends that `project_slug` (or `null`) on every chat request so the
+ *      backend can bias retrieval toward the current project.
+ *   6. Closes on backdrop click or ESC.
+ *   7. Persists `messages` to localStorage (hard refresh survival) and
+ *      `session_id` to sessionStorage (per-tab persistence).
+ *
+ * The component's inner chat UI (messages list, form, retry, project cards,
+ * SSE handling, history cap, etc.) is the same code as Phase 5; we wrapped it
+ * in a panel/FAB shell and added the persistence + URL-detection layer.
  */
 
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
@@ -55,6 +60,12 @@ interface ChatbotProps {
     errorRetry: string;
     cardView: string;
     emptyMessage: string;
+    /** Title shown in the panel header. */
+    assistantTitle: string;
+    /** ARIA label for the FAB button when the panel is closed. */
+    openChatAria: string;
+    /** ARIA label for the close button (FAB or panel header button). */
+    closeChatAria: string;
   };
 }
 
@@ -62,20 +73,95 @@ interface ChatbotProps {
 const HISTORY_CAP_PAIRS = 6;
 /** sessionStorage key for the per-tab session id. */
 const SESSION_STORAGE_KEY = "portafolio:session_id";
+/** localStorage key for the message history (refresh survival). */
+const MESSAGES_STORAGE_KEY = "portafolio:chat_messages";
+/** Cap how many messages we keep in localStorage to avoid bloating it. */
+const MESSAGES_PERSIST_CAP = 30;
 /** Default backend URL when PUBLIC_API_URL is missing (mirrors .env.example). */
 const FALLBACK_API_URL = "http://localhost:8000";
 
+/** Type guard used when rehydrating messages from localStorage. */
+const isValidStoredMessage = (value: unknown): value is Message => {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  if (v.role !== "user" && v.role !== "assistant") return false;
+  if (typeof v.content !== "string") return false;
+  if (v.projects !== undefined && !Array.isArray(v.projects)) return false;
+  return true;
+};
+
+/** Build the empty-state assistant line. Defined as a constant factory so the
+ *  `Message` type flows through `loadPersistedMessages` cleanly. */
+const emptyMessageSeed = (emptyMessage: string): Message => ({
+  role: "assistant",
+  content: emptyMessage,
+});
+
+/** Pull the project slug from a pathname like `/proyectos/proj-cloud-migration/`. */
+const extractProjectSlug = (pathname: string): string | null => {
+  const match = pathname.match(/\/(?:en\/)?proyectos\/(proj-[a-z0-9-]+)\/?/);
+  return match ? match[1] : null;
+};
+
+/**
+ * Read messages from localStorage, gracefully degrading on parse errors or
+ * missing keys. We intentionally accept an empty array back so callers can
+ * fall back to seeding the empty-state assistant line.
+ */
+const loadPersistedMessages = (emptyMessage: string): Message[] => {
+  if (typeof localStorage === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(MESSAGES_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const valid: Message[] = parsed.filter(isValidStoredMessage);
+    if (valid.length === 0) return [];
+    // Ensure the first message is the empty-state assistant line; if it
+    // somehow got stripped (corruption / older schema), prepend it so the
+    // chat never opens with the user greeting the bot to silence.
+    if (valid[0].role !== "assistant" || valid[0].content !== emptyMessage) {
+      return [emptyMessageSeed(emptyMessage), ...valid].slice(-MESSAGES_PERSIST_CAP);
+    }
+    return valid.slice(-MESSAGES_PERSIST_CAP);
+  } catch {
+    return [];
+  }
+};
+
+/** Write messages to localStorage, dropping the cap. */
+const persistMessages = (msgs: Message[]) => {
+  if (typeof localStorage === "undefined") return;
+  try {
+    const trimmed = msgs.slice(-MESSAGES_PERSIST_CAP);
+    localStorage.setItem(MESSAGES_STORAGE_KEY, JSON.stringify(trimmed));
+  } catch {
+    // Storage quota / private-mode errors are non-fatal — we keep the
+    // in-memory messages and the chat still works for this session.
+  }
+};
+
 export default function Chatbot({ locale, strings }: ChatbotProps) {
+  // -- UI state (panel vs. FAB) -------------------------------------------------
+  const [isPanelOpen, setIsPanelOpen] = useState<boolean>(false);
+
+  // -- URL-derived context -----------------------------------------------------
+  const [projectSlug, setProjectSlug] = useState<string | null>(null);
+
+  // -- Chat state (unchanged from Phase 5) --------------------------------------
   const [sessionId, setSessionId] = useState<string>("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [lastFailedQuestion, setLastFailedQuestion] = useState<string | null>(null);
+  // Track whether the initial mount rehydration has happened so we don't
+  // re-seed the empty-state line on every View Transitions rehydration.
+  const [hasRehydrated, setHasRehydrated] = useState<boolean>(false);
 
   const listRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // On mount: read or generate session_id; seed empty assistant message.
+  // -- Mount: session_id, rehydrated history, initial project slug --------------
   useEffect(() => {
     let id = "";
     try {
@@ -96,17 +182,70 @@ export default function Chatbot({ locale, strings }: ChatbotProps) {
       }
     }
     setSessionId(id);
-    setMessages([{ role: "assistant", content: strings.emptyMessage }]);
+
+    // Rehydrate messages from localStorage if present; otherwise seed the
+    // empty-state assistant line so the chat never opens blank.
+    const persisted = loadPersistedMessages(strings.emptyMessage);
+    if (persisted.length > 0) {
+      setMessages(persisted);
+    } else {
+      setMessages([{ role: "assistant", content: strings.emptyMessage }]);
+    }
+    setHasRehydrated(true);
+
+    // Initial project slug from the URL (no SPA navigation has happened yet).
+    setProjectSlug(extractProjectSlug(window.location.pathname));
   }, [strings.emptyMessage]);
 
-  // Abort any in-flight stream on unmount so we never call setState after teardown.
+  // -- Re-detect project slug on every Astro View Transitions navigation ------
+  useEffect(() => {
+    const detectProject = () => {
+      setProjectSlug(extractProjectSlug(window.location.pathname));
+    };
+    // astro:page-load fires after every Astro navigation (including the very
+    // first page load). This is the supported hook for View Transitions
+    // integrations.
+    document.addEventListener("astro:page-load", detectProject);
+    return () => document.removeEventListener("astro:page-load", detectProject);
+  }, []);
+
+  // -- Body scroll lock + ESC to close -----------------------------------------
+  useEffect(() => {
+    if (!isPanelOpen) return;
+
+    // Lock background scroll on mobile so the panel feels app-like.
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsPanelOpen(false);
+      }
+    };
+    document.addEventListener("keydown", handleKey);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [isPanelOpen]);
+
+  // -- Persist messages to localStorage whenever they change -------------------
+  useEffect(() => {
+    // Skip the first render before mount has rehydrated/seeded anything; we
+    // don't want to overwrite localStorage with a transient empty array.
+    if (!hasRehydrated) return;
+    persistMessages(messages);
+  }, [messages, hasRehydrated]);
+
+  // -- Abort any in-flight stream on unmount so we never setState after teardown.
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
     };
   }, []);
 
-  // Auto-scroll the message list to the bottom on each new chunk / message.
+  // -- Auto-scroll the message list to the bottom on each new chunk / message.
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
@@ -216,6 +355,9 @@ export default function Chatbot({ locale, strings }: ChatbotProps) {
           lang: locale,
           session_id: sessionId,
           history,
+          // Phase 5.5a: optional project context hint. Null when not on a
+          // project page; the backend treats it as "no preference".
+          project_slug: projectSlug,
         }),
         signal: controller.signal,
       });
@@ -293,87 +435,145 @@ export default function Chatbot({ locale, strings }: ChatbotProps) {
   const projectHref = (slug: string) =>
     locale === "en" ? `/en/proyectos/${slug}/` : `/proyectos/${slug}/`;
 
+  const closePanel = () => setIsPanelOpen(false);
+  const togglePanel = () => setIsPanelOpen((prev) => !prev);
+
   // Derived: is the trailing assistant bubble currently an error line?
   const lastMessage = messages[messages.length - 1];
-  const prevMessage = messages[messages.length - 2];
   const trailingError =
     !isStreaming &&
     lastMessage?.role === "assistant" &&
     lastMessage.content.startsWith(strings.errorTitle);
 
   return (
-    <div className="chatbot">
-      <div className="chatbot-list" ref={listRef}>
-        {messages.map((msg, idx) => {
-          const isUser = msg.role === "user";
-          const showRetry =
-            isUser &&
-            lastFailedQuestion === msg.content &&
-            trailingError &&
-            idx === messages.length - 2;
-          return (
-            <div
-              key={idx}
-              className={`chatbot-row chatbot-row--${msg.role}`}
-            >
-              <div className={`chatbot-bubble chatbot-bubble--${msg.role}`}>
-                <ReactMarkdown>{msg.content}</ReactMarkdown>
-                {msg.projects && msg.projects.length > 0 && (
-                  <div className="chatbot-cards">
-                    {msg.projects.map((p) => (
-                      <a
-                        key={p.slug}
-                        className="chatbot-card"
-                        href={projectHref(p.slug)}
-                      >
-                        <h4 className="chatbot-card__title">{p.title}</h4>
-                        <p className="chatbot-card__summary">{p.summary}</p>
-                        <span className="chatbot-card__cta">
-                          {strings.cardView} →
-                        </span>
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {showRetry && (
-                <button
-                  type="button"
-                  className="chatbot-retry"
-                  onClick={() => void sendMessage(msg.content)}
-                  disabled={isStreaming}
-                >
-                  {strings.errorRetry}
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      <form className="chatbot-form" onSubmit={handleSubmit}>
-        <textarea
-          className="chatbot-input"
-          rows={2}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={strings.inputPlaceholder}
-          disabled={isStreaming}
-          aria-label={strings.inputPlaceholder}
+    <div className="chatbot-fab-wrapper">
+      {/* Backdrop: dark overlay behind the panel; click to close. */}
+      {isPanelOpen && (
+        <div
+          className="chatbot-backdrop"
+          onClick={closePanel}
+          aria-hidden="true"
         />
-        <button
-          type="submit"
-          className="chatbot-send"
-          disabled={isStreaming || input.trim() === ""}
-        >
-          {strings.send}
-        </button>
-        {isStreaming && (
-          <span className="chatbot-thinking" aria-live="polite">
-            {strings.thinking}
+      )}
+
+      {/* Floating Action Button. Stays visible when the panel is open
+          (Intercom-style) but its icon flips to a close glyph and its
+          aria-label changes, so screen readers announce it as "close". */}
+      <button
+        type="button"
+        className="chatbot-fab"
+        onClick={togglePanel}
+        aria-label={isPanelOpen ? strings.closeChatAria : strings.openChatAria}
+        aria-expanded={isPanelOpen}
+        aria-controls="chatbot-panel"
+      >
+        {isPanelOpen ? (
+          // Close glyph — simple × rendered with CSS so we don't pull in
+          // an icon dependency for two glyphs.
+          <span className="chatbot-fab__icon chatbot-fab__icon--close" aria-hidden="true">
+            ×
+          </span>
+        ) : (
+          // Chat glyph — speech-bubble Unicode so we don't need an SVG.
+          <span className="chatbot-fab__icon chatbot-fab__icon--chat" aria-hidden="true">
+            💬
           </span>
         )}
-      </form>
+      </button>
+
+      {/* Slide-in side panel. */}
+      <aside
+        id="chatbot-panel"
+        className="chatbot-panel"
+        role="complementary"
+        aria-label={strings.assistantTitle}
+        aria-hidden={!isPanelOpen}
+      >
+        <header className="chatbot-panel-header">
+          <h2 className="chatbot-panel-title">{strings.assistantTitle}</h2>
+          <button
+            type="button"
+            className="chatbot-panel-close"
+            onClick={closePanel}
+            aria-label={strings.closeChatAria}
+          >
+            ×
+          </button>
+        </header>
+        <div className="chatbot-panel-body">
+          <div className="chatbot-list" ref={listRef}>
+            {messages.map((msg, idx) => {
+              const isUser = msg.role === "user";
+              const showRetry =
+                isUser &&
+                lastFailedQuestion === msg.content &&
+                trailingError &&
+                idx === messages.length - 2;
+              return (
+                <div
+                  key={idx}
+                  className={`chatbot-row chatbot-row--${msg.role}`}
+                >
+                  <div className={`chatbot-bubble chatbot-bubble--${msg.role}`}>
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    {msg.projects && msg.projects.length > 0 && (
+                      <div className="chatbot-cards">
+                        {msg.projects.map((p) => (
+                          <a
+                            key={p.slug}
+                            className="chatbot-card"
+                            href={projectHref(p.slug)}
+                          >
+                            <h4 className="chatbot-card__title">{p.title}</h4>
+                            <p className="chatbot-card__summary">{p.summary}</p>
+                            <span className="chatbot-card__cta">
+                              {strings.cardView} →
+                            </span>
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {showRetry && (
+                    <button
+                      type="button"
+                      className="chatbot-retry"
+                      onClick={() => void sendMessage(msg.content)}
+                      disabled={isStreaming}
+                    >
+                      {strings.errorRetry}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <form className="chatbot-form" onSubmit={handleSubmit}>
+            <textarea
+              className="chatbot-input"
+              rows={2}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={strings.inputPlaceholder}
+              disabled={isStreaming}
+              aria-label={strings.inputPlaceholder}
+            />
+            <button
+              type="submit"
+              className="chatbot-send"
+              disabled={isStreaming || input.trim() === ""}
+            >
+              {strings.send}
+            </button>
+            {isStreaming && (
+              <span className="chatbot-thinking" aria-live="polite">
+                {strings.thinking}
+              </span>
+            )}
+          </form>
+        </div>
+      </aside>
     </div>
   );
 }

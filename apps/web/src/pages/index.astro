@@ -2,7 +2,6 @@
 import { getCollection } from 'astro:content';
 import Base from '../layouts/Base.astro';
 import ProjectCard from '../components/ProjectCard.astro';
-import Chatbot from '../components/Chatbot';
 import es from '../i18n/es.json';
 import en from '../i18n/en.json';
 
@@ -28,21 +27,6 @@ const aboutHref = locale === 'en' ? '/en/sobre-mi/' : '/sobre-mi/';
       <a href="#chat" class="cta primary">{t.home.cta.chat}</a>
       <a href={projectsHref} class="cta secondary">{t.home.cta.projects}</a>
     </p>
-    <div id="chat" class="chat-mount">
-      <Chatbot
-        client:idle
-        locale={locale}
-        strings={{
-          inputPlaceholder: t.home.chat.input_placeholder,
-          send: t.home.chat.send,
-          thinking: t.home.chat.thinking,
-          errorTitle: t.home.chat.error_title,
-          errorRetry: t.home.chat.error_retry,
-          cardView: t.home.chat.card_view,
-          emptyMessage: t.home.chat.empty_message,
-        }}
-      />
-    </div>
   </section>
 
   {projects.length > 0 && (
@@ -116,10 +100,6 @@ const aboutHref = locale === 'en' ? '/en/sobre-mi/' : '/sobre-mi/';
   .cta.secondary:hover {
     background: #f9fafb;
     text-decoration: none;
-  }
-  .chat-mount {
-    margin: 2.5rem auto 0;
-    max-width: 36rem;
   }
 
   .featured {

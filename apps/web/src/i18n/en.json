@@ -29,7 +29,10 @@
       "error_title": "Something went wrong",
       "error_retry": "Retry",
       "card_view": "View project",
-      "empty_message": "Hi, I'm Sebastián's bot. Ask me about Python, AWS, cloud, real-time data or request a specific project."
+      "empty_message": "Hi, I'm Sebastián's bot. Ask me about Python, AWS, cloud, real-time data or request a specific project.",
+      "assistant_title": "Navigation assistant",
+      "open_chat": "Open navigation chat",
+      "close_chat": "Close"
     },
     "featured": "Featured projects",
     "about_hint": "More about me and how to reach me →"
