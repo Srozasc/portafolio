@@ -20,9 +20,9 @@ from typing import NamedTuple
 from backend.rag.llm_client import LLMClient, StreamError
 from backend.rag.prompts import build_chat_system_prompt, build_portfolio_chat_system_prompt
 from backend.rag.project_router import ProjectRouter, RouteKind
+from backend.rag.query_expansion import expand_query
 from backend.rag.retriever import Retriever
 from backend.rag.vector_store import Hit, VectorStore
-from backend.rag.query_expansion import expand_query
 from backend.services.projects_service import ProjectsService
 
 
@@ -209,6 +209,7 @@ class ChatService:
         lang: str = "es",
         history: list[dict] | None = None,
         session_id: str | None = None,
+        project_slug: str | None = None,
     ) -> Iterator[StreamEvent]:
         """Stream a project-aware answer (Phase 3 router).
 
@@ -217,13 +218,17 @@ class ChatService:
              (collections matching `projects_*` minus `projects_index`).
           2. Build a ProjectRouter with the known slugs.
           3. Classify the question -> RouteDecision (LIST / DETAIL / GENERAL).
+             The optional ``project_slug`` is forwarded as
+             ``current_project_slug`` so the router defaults to DETAIL on
+             that project when the question is ambiguous.
           4. Resolve the source collection:
              - DETAIL: `projects_<slug>` (per-project body chunks)
              - LIST or GENERAL: `projects_index` (master one-per-project)
           5. Embed + query the collection. Threshold 0.0 so we don't
              accidentally drop the index's own matches.
-          6. Build the system prompt from the hits and prepend a history
-             window (last 6 turns) to the user message.
+          6. Build the system prompt from the hits (prepending a project
+             context block if ``project_slug`` was provided) and prepend a
+             history window (last 6 turns) to the user message.
           7. Stream the LLM, accumulating prose to parse the trailing
              ===PROJECTS=== JSON block at the end.
           8. Emit a `projects` event with the resolved card items, then `done`.
@@ -235,6 +240,12 @@ class ChatService:
                 of recent turns (most recent last). Used for pronoun resolution
                 in DETAIL intent and prepended to the LLM message.
             session_id: Optional client-provided session id (currently unused).
+            project_slug: Optional slug of the project the visitor is currently
+                viewing (Phase 5.5 project-aware chat bubble). When provided
+                AND in the discovered known slugs, the router uses it as a
+                fallback hint for ambiguous questions and the system prompt
+                includes a "current context" block telling the LLM to default
+                to that project.
 
         Yields:
             StreamEvent dicts: content / projects / done / error.
@@ -246,12 +257,20 @@ class ChatService:
 
         # 1. Discover known slugs
         known_slugs = self._discover_project_slugs(store)
+        known_slugs_set = set(known_slugs)
 
         # 2. Build router
         router = ProjectRouter(known_slugs)
 
-        # 3. Route (history is already a list[dict] | None)
-        decision = router.route(question, history)
+        # 3. Route (history is already a list[dict] | None). The
+        #    project_slug is forwarded as a router hint; if it's None or
+        #    not in known_slugs the router ignores it and falls through
+        #    to GENERAL as before.
+        decision = router.route(
+            question,
+            history,
+            current_project_slug=project_slug,
+        )
 
         # 4. Resolve source collection + retrieval top_k
         history_list = history or []
@@ -287,7 +306,14 @@ class ChatService:
             yield _done()
             return
 
-        # 6. Build the system prompt from the hits (bilingual).
+        # 6. Build the system prompt from the hits (bilingual). If the
+        #    caller passed a project_slug that is in known_slugs, also
+        #    inject a "current context" block telling the LLM to default
+        #    to that project on ambiguous questions. The title is looked
+        #    up from the index metadata when a hit happens to be the
+        #    matching slug's entry; otherwise we fall back to the slug
+        #    itself (DETAIL routes query a detail collection that may
+        #    not carry the title field, so this is the safe default).
         chunks_for_prompt = [
             _ChunkFromHit(
                 section_header=h.metadata.get("section_header", ""),
@@ -295,7 +321,27 @@ class ChatService:
             )
             for h in hits
         ]
-        system_prompt = build_portfolio_chat_system_prompt(chunks_for_prompt, lang=lang)
+        project_context: dict | None = None
+        if project_slug and project_slug in known_slugs_set:
+            title_field = "title_en" if lang == "en" else "title_es"
+            resolved_title: str | None = None
+            for h in hits:
+                if h.metadata.get("slug") == project_slug:
+                    resolved_title = (
+                        h.metadata.get(title_field)
+                        or h.metadata.get("title_es")
+                        or None
+                    )
+                    break
+            project_context = {
+                "slug": project_slug,
+                "title": resolved_title or project_slug,
+            }
+        system_prompt = build_portfolio_chat_system_prompt(
+            chunks_for_prompt,
+            lang=lang,
+            project_context=project_context,
+        )
 
         # 7. Build the user message with history (last 6 turns).
         user_message = self._build_user_with_history(

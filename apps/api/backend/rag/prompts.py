@@ -9,6 +9,8 @@ Phase 3 adds SYSTEM_PROMPT_TEMPLATE_EN (English version, same structure,
 plus a trailing JSON block instruction for emitting project cards).
 """
 
+from collections.abc import Sequence
+
 from backend.rag.chunker import Chunk
 
 
@@ -95,7 +97,11 @@ Rules:
 SYSTEM_PROMPT_TEMPLATE = SYSTEM_PROMPT_TEMPLATE_ES
 
 
-def build_chat_system_prompt(chunks: list[Chunk], lang: str = "es") -> str:
+def build_chat_system_prompt(
+    chunks: Sequence[Chunk],
+    lang: str = "es",
+    project_context: dict | None = None,
+) -> str:
     """Build the system prompt by substituting formatted chunks.
 
     Each chunk is formatted as:
@@ -109,6 +115,11 @@ def build_chat_system_prompt(chunks: list[Chunk], lang: str = "es") -> str:
         chunks: List of Chunk dataclasses (from backend.rag.chunker).
         lang: "es" (default, uses SYSTEM_PROMPT_TEMPLATE_ES) or "en"
             (uses SYSTEM_PROMPT_TEMPLATE_EN).
+        project_context: Optional dict with shape {"slug": str, "title": str}
+            identifying the project the visitor is currently viewing. Kept
+            for signature parity with the portfolio builder; the generic
+            HiRag15k templates do not contain a ``{project_context}``
+            placeholder, so this argument is currently a no-op here.
 
     Returns:
         The rendered system prompt as a string.
@@ -173,7 +184,7 @@ Reglas estrictas:
 - Sé conciso (2-4 oraciones o una lista corta). No divagues.
 - No incluyas razonamiento interno ni bloques <think>...</think>.
 
-=== INFORMACIÓN RECUPERADA ===
+{project_context}=== INFORMACIÓN RECUPERADA ===
 {retrieved_chunks_with_metadata}
 === FIN ==="""
 
@@ -212,12 +223,16 @@ Strict rules:
 - Be concise (2-4 sentences or a short list). Do not ramble.
 - Do not include internal reasoning or <think>...</think> blocks.
 
-=== RETRIEVED INFORMATION ===
+{project_context}=== RETRIEVED INFORMATION ===
 {retrieved_chunks_with_metadata}
 === END==="""
 
 
-def build_portfolio_chat_system_prompt(chunks: list[Chunk], lang: str = "es") -> str:
+def build_portfolio_chat_system_prompt(
+    chunks: Sequence[Chunk],
+    lang: str = "es",
+    project_context: dict | None = None,
+) -> str:
     """Build the system prompt for the portfolio chat endpoint.
 
     Uses the portfolio-specific templates (POSITIONED as Sebastián's
@@ -227,6 +242,13 @@ def build_portfolio_chat_system_prompt(chunks: list[Chunk], lang: str = "es") ->
     Args:
         chunks: List of Chunk dataclasses (from backend.rag.chunker).
         lang: "es" (default, uses PORTFOLIO_ES) or "en" (uses PORTFOLIO_EN).
+        project_context: Optional dict with shape ``{"slug": str, "title": str}``
+            identifying the project the visitor is currently viewing. If
+            provided, a "CURRENT CONTEXT" block is prepended to the
+            retrieved excerpts telling the LLM to default to this project
+            on ambiguous questions. When ``None`` (default), the block is
+            omitted and the prompt falls through to the standard chunks-only
+            layout.
 
     Returns:
         The rendered system prompt as a string.
@@ -236,6 +258,26 @@ def build_portfolio_chat_system_prompt(chunks: list[Chunk], lang: str = "es") ->
         if lang == "en"
         else SYSTEM_PROMPT_TEMPLATE_PORTFOLIO_ES
     )
+
+    # Substitute project context block (if any).
+    if project_context:
+        slug = project_context.get("slug", "") or ""
+        title = project_context.get("title", "") or ""
+        if lang == "en":
+            context_block = (
+                f"The visitor is currently viewing the project \"{slug}\": "
+                f"{title}. If the question is ambiguous and could refer to "
+                f"this project, prioritize answering about it.\n\n"
+            )
+        else:
+            context_block = (
+                f"El visitante está viendo el proyecto \"{slug}\": "
+                f"{title}. Si la pregunta es ambigua y puede referirse a "
+                f"este proyecto, priorizá responder sobre él.\n\n"
+            )
+        template = template.replace("{project_context}", context_block)
+    else:
+        template = template.replace("{project_context}", "")
 
     if not chunks:
         chunk_block = (

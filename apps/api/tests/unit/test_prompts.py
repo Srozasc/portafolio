@@ -9,10 +9,12 @@ import unicodedata
 from pathlib import Path
 
 import pytest
-
-from backend.rag.prompts import SYSTEM_PROMPT_TEMPLATE, build_chat_system_prompt
 from backend.rag.chunker import Chunk
-
+from backend.rag.prompts import (
+    SYSTEM_PROMPT_TEMPLATE,
+    build_chat_system_prompt,
+    build_portfolio_chat_system_prompt,
+)
 
 # ---------------------------------------------------------------------------
 # Byte-for-byte pinning test (Decision 7 / REQ-CHS-003)
@@ -160,3 +162,103 @@ class TestBuildChatSystemPrompt:
         ]
         result = build_chat_system_prompt(chunks)
         assert "{retrieved_chunks_with_metadata}" not in result
+
+
+# ---------------------------------------------------------------------------
+# Phase 5.5: project_context injection in the portfolio builder
+# ---------------------------------------------------------------------------
+
+
+class TestPortfolioProjectContext:
+    """build_portfolio_chat_system_prompt() injects a project context block
+    when ``project_context`` is provided, and omits it otherwise.
+
+    The block tells the LLM which project the visitor is currently viewing
+    and to default to that project on ambiguous questions. Two localizations
+    are exercised (es, en). The literal placeholder ``{project_context}``
+    must never leak into the rendered output.
+    """
+
+    def test_portfolio_prompt_includes_current_project_context_when_provided_es(self):
+        """lang='es' + project_context -> slug, title, and localized phrase present."""
+        result = build_portfolio_chat_system_prompt(
+            [],
+            lang="es",
+            project_context={
+                "slug": "proj-cloud-migration",
+                "title": "Migración de monolito a microservicios",
+            },
+        )
+        assert "proj-cloud-migration" in result
+        assert "Migración de monolito a microservicios" in result
+        assert "El visitante está viendo" in result
+        # No literal placeholder leaks.
+        assert "{project_context}" not in result
+
+    def test_portfolio_prompt_includes_current_project_context_when_provided_en(self):
+        """lang='en' + project_context -> slug, title, and English phrase present."""
+        result = build_portfolio_chat_system_prompt(
+            [],
+            lang="en",
+            project_context={
+                "slug": "proj-cloud-migration",
+                "title": "Monolith to Microservices Migration",
+            },
+        )
+        assert "proj-cloud-migration" in result
+        assert "Monolith to Microservices Migration" in result
+        assert "The visitor is currently viewing" in result
+        assert "{project_context}" not in result
+
+    def test_portfolio_prompt_omits_context_block_when_no_project_context(self):
+        """project_context=None -> no localized phrase, no literal placeholder."""
+        result = build_portfolio_chat_system_prompt([], lang="es", project_context=None)
+        assert "El visitante está viendo" not in result
+        assert "The visitor is currently viewing" not in result
+        assert "{project_context}" not in result
+
+    def test_portfolio_prompt_omits_context_block_when_default_arg(self):
+        """Omitting project_context (default None) behaves like passing None."""
+        result = build_portfolio_chat_system_prompt([], lang="en")
+        assert "The visitor is currently viewing" not in result
+        assert "{project_context}" not in result
+
+    def test_portfolio_prompt_preserves_retrieved_chunks_with_project_context(self):
+        """project_context injection does not break the chunk substitution."""
+        chunks = [
+            Chunk(
+                text="Contenido del proyecto.",
+                source="/test/file.md",
+                section_header="Intro",
+                chunk_index=0,
+                char_start=0,
+                char_end=25,
+                token_count=5,
+            )
+        ]
+        result = build_portfolio_chat_system_prompt(
+            chunks,
+            lang="es",
+            project_context={"slug": "proj-x", "title": "X"},
+        )
+        assert "Contenido del proyecto." in result
+        assert "=== INFORMACIÓN RECUPERADA ===" in result
+        assert "{retrieved_chunks_with_metadata}" not in result
+        assert "{project_context}" not in result
+
+    def test_legacy_build_chat_accepts_project_context_for_signature_parity(self):
+        """The legacy build_chat_system_prompt accepts project_context for parity.
+
+        The generic template has no {project_context} placeholder, so the
+        argument is a no-op; passing it must not raise and must not inject
+        a context phrase into the rendered output.
+        """
+        result = build_chat_system_prompt(
+            [],
+            lang="es",
+            project_context={"slug": "proj-x", "title": "X"},
+        )
+        assert "El visitante está viendo" not in result
+        assert "{project_context}" not in result
+        # Existing substitution still works.
+        assert "(No se recuperó ningún fragmento relevante.)" in result

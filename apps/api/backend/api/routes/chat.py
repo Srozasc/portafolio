@@ -25,7 +25,6 @@ from fastapi.responses import StreamingResponse
 from backend.api.schemas import ChatRequest, ProjectsChatRequest
 from backend.services.chat_service import ChatService
 
-
 router = APIRouter(prefix="/api", tags=["chat"])
 
 
@@ -108,6 +107,7 @@ async def chat_stream_projects(
                 lang=body.lang,
                 history=history,
                 session_id=body.session_id,
+                project_slug=body.project_slug,
             ):
                 yield f"data: {json.dumps(event)}\n\n"
         except Exception:

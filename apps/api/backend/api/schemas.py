@@ -81,6 +81,16 @@ class ProjectsChatRequest(BaseModel):
         description="Optional recent conversation turns (most recent last). "
         "Used for pronoun resolution (e.g. 'el primero').",
     )
+    project_slug: str | None = Field(
+        default=None,
+        description=(
+            "Slug of the project the visitor is currently viewing, if any. "
+            "Used by the router as a hint when the question is ambiguous "
+            "(falls back to DETAIL_PROJECT(slug) instead of LIST/GENERAL). "
+            "If the question explicitly mentions another slug, the explicit "
+            "mention wins."
+        ),
+    )
 
 
 class ProjectCard(BaseModel):

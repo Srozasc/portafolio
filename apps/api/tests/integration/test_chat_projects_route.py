@@ -655,3 +655,167 @@ class TestShortQueryExpansion:
         events = _collect_events(response.text)
         assert len(events["done"]) == 1
         assert len(events["error"]) == 0
+
+
+# ---------------------------------------------------------------------------
+# Phase 5.5: project-aware chat (request field + router hint + prompt block)
+# ---------------------------------------------------------------------------
+
+
+class TestProjectContextAwareness:
+    """When the request carries a ``project_slug``, the chat routes the
+    ambiguous question to that project and injects a "current context"
+    block into the system prompt.
+
+    Backend half (Phase 5.5a). The frontend half (Phase 5.5b/c) will
+    supply the slug via the project-aware chat bubble; here we simulate
+    the request body directly and verify the service behaviour end-to-end
+    via the SSE stream.
+    """
+
+    def test_ambiguous_question_with_project_context_routes_to_detail(
+        self, tmp_path: Path
+    ):
+        """An ambiguous question + project_slug -> LLM called, SSE ends with done.
+
+        The question ``¿qué decisiones técnicas tomaste?`` carries no slug,
+        no pronoun, and no list-intent keyword, so the only thing that can
+        route it to DETAIL_PROJECT is the project-context fallback step in
+        ``ProjectRouter.route``. The seeded ``proj-data-pipeline`` is the
+        context slug; the LLM is scripted to emit a ``===PROJECTS===``
+        block referencing the same slug so the card check passes.
+        """
+        fake_llm = FakeLLM(
+            tokens=[
+                "Sebastián eligió migrar a microservicios. ",
+                "===PROJECTS===\n",
+                json.dumps(
+                    [
+                        {
+                            "slug": "proj-data-pipeline",
+                            "title": "Pipeline",
+                            "summary": "Resumen",
+                            "relevance": 1.0,
+                        }
+                    ]
+                ),
+                "\n===END===",
+            ]
+        )
+        _app, client, _service = make_projects_chat_app(tmp_path, fake_llm)
+
+        response = client.post(
+            "/api/chat/stream-projects",
+            json={
+                "question": "¿qué decisiones técnicas tomaste?",
+                "lang": "es",
+                "project_slug": "proj-data-pipeline",
+            },
+        )
+
+        assert response.status_code == 200
+        assert "text/event-stream" in response.headers["content-type"]
+
+        # The LLM was actually called (the request did not deflect).
+        assert fake_llm.call_count == 1
+
+        # SSE stream ends with a single ``done`` event and no ``error``.
+        events = _collect_events(response.text)
+        assert len(events["done"]) == 1
+        assert len(events["error"]) == 0
+
+        # The forced-DETAIL card surfaces the project_slug with relevance 1.0
+        # because the router's project-context fallback fires for the
+        # ambiguous question.
+        assert len(events["projects"]) == 1
+        items = events["projects"][0]["items"]
+        assert len(items) == 1
+        assert items[0]["slug"] == "proj-data-pipeline"
+        assert items[0]["relevance"] == 1.0
+
+    def test_project_context_appears_in_system_prompt(self, tmp_path: Path):
+        """The project slug + context phrase appear in the LLM system prompt."""
+        fake_llm = FakeLLM(
+            tokens=[
+                "Sobre el proyecto... ",
+                "===PROJECTS===\n",
+                json.dumps(
+                    [
+                        {
+                            "slug": "proj-data-pipeline",
+                            "title": "Pipeline",
+                            "summary": "Resumen",
+                            "relevance": 1.0,
+                        }
+                    ]
+                ),
+                "\n===END===",
+            ]
+        )
+        _app, client, _service = make_projects_chat_app(tmp_path, fake_llm)
+
+        response = client.post(
+            "/api/chat/stream-projects",
+            json={
+                "question": "qué decisiones tomaste",
+                "lang": "es",
+                "project_slug": "proj-data-pipeline",
+            },
+        )
+
+        assert response.status_code == 200
+        assert fake_llm.last_system is not None
+
+        # The slug is forwarded into the system prompt.
+        assert "proj-data-pipeline" in fake_llm.last_system
+        # The localized context phrase is present.
+        assert "El visitante está viendo" in fake_llm.last_system
+        # The literal placeholder must not leak into the rendered prompt.
+        assert "{project_context}" not in fake_llm.last_system
+
+    def test_project_context_unknown_slug_is_ignored(self, tmp_path: Path):
+        """An unknown project_slug is ignored; router falls through to GENERAL.
+
+        Verifies that the project-context hint is gated by ``known_slugs``
+        in both the router and the prompt builder, so a malformed or
+        stale slug from the client does not break the response.
+        """
+        fake_llm = FakeLLM(tokens=["Respuesta general."])
+        _app, client, _service = make_projects_chat_app(tmp_path, fake_llm)
+
+        response = client.post(
+            "/api/chat/stream-projects",
+            json={
+                "question": "qué decisiones tomaste",
+                "lang": "es",
+                "project_slug": "proj-does-not-exist",
+            },
+        )
+
+        assert response.status_code == 200
+        assert fake_llm.call_count == 1
+        # Unknown slug -> no "current context" block in the prompt.
+        assert fake_llm.last_system is not None
+        assert "El visitante está viendo" not in fake_llm.last_system
+        assert "proj-does-not-exist" not in fake_llm.last_system
+        # Stream still completes cleanly.
+        events = _collect_events(response.text)
+        assert len(events["done"]) == 1
+        assert len(events["error"]) == 0
+
+    def test_project_context_none_preserves_previous_behaviour(self, tmp_path: Path):
+        """Omitting project_slug -> no context block, behaviour as before."""
+        fake_llm = FakeLLM(tokens=["Respuesta."])
+        _app, client, _service = make_projects_chat_app(tmp_path, fake_llm)
+
+        response = client.post(
+            "/api/chat/stream-projects",
+            json={"question": "qué decisiones tomaste", "lang": "es"},
+        )
+
+        assert response.status_code == 200
+        assert fake_llm.last_system is not None
+        # No "current context" block when project_slug is omitted.
+        assert "El visitante está viendo" not in fake_llm.last_system
+        assert "The visitor is currently viewing" not in fake_llm.last_system
+        assert "{project_context}" not in fake_llm.last_system

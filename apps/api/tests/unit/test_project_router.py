@@ -10,9 +10,7 @@ Covers routing priority:
 from __future__ import annotations
 
 import pytest
-
 from backend.rag.project_router import ProjectRouter, RouteDecision, RouteKind
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -305,3 +303,89 @@ class TestRouteKindEnum:
         assert RouteKind.LIST_PROJECTS.value == "LIST_PROJECTS"
         assert RouteKind.DETAIL_PROJECT.value == "DETAIL_PROJECT"
         assert RouteKind.GENERAL.value == "GENERAL"
+
+
+# ---------------------------------------------------------------------------
+# Class: TestRouteCurrentProjectSlug
+# ---------------------------------------------------------------------------
+
+
+class TestRouteCurrentProjectSlug:
+    """Phase 5.5: the router accepts current_project_slug as a fallback hint.
+
+    When the visitor is viewing a specific project (e.g. via the chat bubble's
+    project-aware state) and the question is ambiguous (no explicit slug,
+    no pronoun, no list-intent keywords), the router routes to
+    DETAIL_PROJECT(current_project_slug). Explicit slug mentions and
+    list-intent keywords still win over this hint.
+    """
+
+    def test_route_with_current_project_slug_and_ambiguous_question_defaults_to_detail(
+        self, router
+    ):
+        """Ambiguous question + current_project_slug -> DETAIL on that slug."""
+        decision = router.route(
+            "¿qué decisiones tomaste?",
+            history=[],
+            current_project_slug="proj-cloud-migration",
+        )
+        assert decision.kind == RouteKind.DETAIL_PROJECT
+        assert decision.slug == "proj-cloud-migration"
+        assert "proj-cloud-migration" in decision.reason
+
+    def test_route_with_current_project_slug_but_explicit_slug_wins(self, router):
+        """An explicit slug mention in the question beats the current-project hint."""
+        decision = router.route(
+            "tell me about proj-data-pipeline",
+            history=[],
+            current_project_slug="proj-cloud-migration",
+        )
+        assert decision.kind == RouteKind.DETAIL_PROJECT
+        assert decision.slug == "proj-data-pipeline"
+
+    def test_route_with_current_project_slug_and_list_intent_wins(self, router):
+        """List-intent keywords beat the current-project hint -> LIST_PROJECTS."""
+        decision = router.route(
+            "qué proyectos tienes con python",
+            history=[],
+            current_project_slug="proj-cloud-migration",
+        )
+        assert decision.kind == RouteKind.LIST_PROJECTS
+        assert decision.slug is None
+
+    def test_route_with_current_project_slug_unknown_slug_ignored(self, router):
+        """current_project_slug not in known_slugs is treated as no context."""
+        decision = router.route(
+            "qué decisiones tomaste?",
+            history=[],
+            current_project_slug="proj-does-not-exist",
+        )
+        # Unknown slug -> router falls through to GENERAL (step 5).
+        assert decision.kind == RouteKind.GENERAL
+
+    def test_route_with_no_current_project_slug_behaves_as_before(self, router):
+        """Omitting current_project_slug preserves the previous behavior."""
+        # Ambiguous question -> GENERAL (default fallback).
+        decision = router.route("¿qué decisiones tomaste?", history=[])
+        assert decision.kind == RouteKind.GENERAL
+        assert decision.slug is None
+
+    def test_route_with_current_project_slug_pronoun_still_wins(self, router):
+        """Pronoun in question still resolves via history, beating the current hint."""
+        history = [
+            {"role": "assistant", "content": "I built proj-data-pipeline."},
+        ]
+        decision = router.route(
+            "el primero",
+            history=history,
+            current_project_slug="proj-cloud-migration",
+        )
+        # Step 2 (pronoun) fires before step 4 (current project).
+        assert decision.kind == RouteKind.DETAIL_PROJECT
+        assert decision.slug == "proj-data-pipeline"
+
+    def test_route_with_current_project_slug_default_arg_is_none(self, router):
+        """current_project_slug defaults to None (backward-compatible signature)."""
+        decision = router.route("¿qué decisiones tomaste?", history=[])
+        assert decision.slug is None
+        assert decision.kind == RouteKind.GENERAL

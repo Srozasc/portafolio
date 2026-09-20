@@ -109,6 +109,7 @@ class ProjectRouter:
         self,
         question: str,
         history: list[dict] | None = None,
+        current_project_slug: str | None = None,
     ) -> RouteDecision:
         """Classify the user's question.
 
@@ -117,6 +118,13 @@ class ProjectRouter:
             history: Optional list of {"role": "user"|"assistant", "content": "..."}
                 of recent turns (most recent last). Used for pronoun resolution
                 in DETAIL intent.
+            current_project_slug: Optional slug of the project the visitor is
+                currently viewing (e.g. via the chat bubble's project-aware
+                state). Used as a fallback hint: when the question is
+                ambiguous (no explicit slug mention, no pronoun, no list-intent
+                keywords), route to DETAIL_PROJECT(current_project_slug).
+                If current_project_slug is None or not in self._known_slugs,
+                this step is a no-op (the router falls through to GENERAL).
 
         Returns:
             RouteDecision with kind=LIST_PROJECTS / DETAIL_PROJECT(slug) /
@@ -157,7 +165,23 @@ class ProjectRouter:
                 reason=f"list intent detected, tech_hint={tech_hint}",
             )
 
-        # 4. Fallback: general overview (queries projects_index broadly)
+        # 4. Project-context fallback. If the visitor is currently viewing a
+        # specific project (passed by the frontend) and the question is
+        # ambiguous (none of the above classifications fired), default to
+        # DETAIL on that project. This makes the chat feel "stuck to"
+        # whatever page the visitor is on. Explicit slug mentions (step 1)
+        # and pronouns (step 2) and list-intent (step 3) still win.
+        if current_project_slug and current_project_slug in self._known_slugs:
+            return RouteDecision(
+                kind=RouteKind.DETAIL_PROJECT,
+                slug=current_project_slug,
+                reason=(
+                    f"ambiguous question; defaulting to current project "
+                    f"'{current_project_slug}'"
+                ),
+            )
+
+        # 5. Fallback: general overview (queries projects_index broadly)
         return RouteDecision(kind=RouteKind.GENERAL, reason="fallback general overview")
 
     # ---------------------------------------------------------------------------
@@ -189,9 +213,8 @@ class ProjectRouter:
 
         # 1. Direct substring match on multi-word phrases
         for token in self.LIST_TOKENS:
-            if " " in token or "-" in token:
-                if token in text_lower:
-                    return True
+            if (" " in token or "-" in token) and token in text_lower:
+                return True
 
         # 2. Word-boundary match on single-word tech keywords
         # Use regex to avoid partial matches (e.g. "pythonic" matching "python")
