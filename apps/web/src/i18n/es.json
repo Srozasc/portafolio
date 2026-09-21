@@ -43,7 +43,20 @@
       "new_search_aria": "Iniciar nueva búsqueda"
     },
     "featured": "Proyectos destacados",
-    "about_hint": "Más sobre mí y cómo contactarme →"
+    "about_hint": "Más sobre mí y cómo contactarme →",
+    "tutorial": {
+      "badge": "Bienvenida",
+      "title": "Tu portafolio, en conversación.",
+      "sub": "El editor responde preguntas sobre los proyectos indexados — por stack, dominio o idea. Abrí el chat y probá.",
+      "step1_title": "Abrí el chat",
+      "step1_desc": "Tocá el botón azul abajo a la derecha, o el botón «Preguntale al bot» en la portada.",
+      "step2_title": "Preguntá lo que quieras",
+      "step2_desc": "Por stack (python, aws), dominio (data) o idea (side projects).",
+      "step3_title": "Recibí prosa + reseñas",
+      "step3_desc": "El editor devuelve una respuesta y, si hay match, una lista de proyectos con enlace a la página de detalle.",
+      "no_show": "No mostrar de nuevo",
+      "start_chat": "Empezar a chatear"
+    }
   },
   "proyectos": {
     "title": "Proyectos",

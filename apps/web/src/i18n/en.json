@@ -43,7 +43,20 @@
       "new_search_aria": "Start new search"
     },
     "featured": "Featured projects",
-    "about_hint": "More about me and how to reach me →"
+    "about_hint": "More about me and how to reach me →",
+    "tutorial": {
+      "badge": "Welcome",
+      "title": "Your portfolio, in conversation.",
+      "sub": "The editor answers questions about the indexed projects — by stack, domain or idea. Open the chat and try it out.",
+      "step1_title": "Open the chat",
+      "step1_desc": "Tap the blue button at the bottom-right, or the «Ask the bot» button on the homepage.",
+      "step2_title": "Ask anything",
+      "step2_desc": "By stack (python, aws), domain (data) or idea (side projects).",
+      "step3_title": "Get prose + reviews",
+      "step3_desc": "The editor returns a response and, if there's a match, a list of projects with links to detail pages.",
+      "no_show": "Don't show again",
+      "start_chat": "Start chatting"
+    }
   },
   "proyectos": {
     "title": "Projects",
