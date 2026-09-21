@@ -119,6 +119,19 @@ interface ChatbotProps {
     new_search?: string;
     /** ARIA label for the same button. */
     new_search_aria?: string;
+    /** Onboarding tutorial modal copy. All optional so older layouts that
+     *  don't supply them still compile — the modal stays closed. */
+    tutorialBadge?: string;
+    tutorialTitle?: string;
+    tutorialSub?: string;
+    tutorialStep1Title?: string;
+    tutorialStep1Desc?: string;
+    tutorialStep2Title?: string;
+    tutorialStep2Desc?: string;
+    tutorialStep3Title?: string;
+    tutorialStep3Desc?: string;
+    tutorialNoShow?: string;
+    tutorialStartChat?: string;
   };
 }
 
@@ -492,6 +505,13 @@ export default function Chatbot({ locale, availableTags, projects, strings }: Ch
   // welcome view would never appear.
   const hasInteracted = messages.some((m) => m.role === "user");
 
+  // -- Onboarding tutorial modal state -----------------------------------------
+  // `tutorialOpen` flips the overlay on after a 600ms delay (so the page
+  // settles before we obscure it). `tutorialNoShow` mirrors the "don't show
+  // again" checkbox; it's the only thing that persists to localStorage.
+  const [tutorialOpen, setTutorialOpen] = useState<boolean>(false);
+  const [tutorialNoShow, setTutorialNoShow] = useState<boolean>(false);
+
   const listRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -602,6 +622,26 @@ export default function Chatbot({ locale, availableTags, projects, strings }: Ch
     return () => {
       abortRef.current?.abort();
     };
+  }, []);
+
+  // -- Onboarding tutorial: show once on first visit ---------------------------
+  // We read a single localStorage flag and, if the visitor hasn't dismissed
+  // it with "don't show again", pop the modal after 600ms so the page has
+  // time to settle. Empty deps: re-running on prop changes would let a
+  // language flip re-trigger the modal every time, which would be hostile.
+  useEffect(() => {
+    let alreadySeen = false;
+    try {
+      alreadySeen = localStorage.getItem("portafolio:chat_tutorial_seen") === "1";
+    } catch {
+      // localStorage may throw in private mode; treat as "not seen" so the
+      // modal still appears at least once during this session.
+    }
+    if (alreadySeen) return;
+    const timer = window.setTimeout(() => {
+      setTutorialOpen(true);
+    }, 600);
+    return () => window.clearTimeout(timer);
   }, []);
 
   // -- Auto-scroll the message list to the bottom on each new chunk / message.
@@ -821,6 +861,63 @@ export default function Chatbot({ locale, availableTags, projects, strings }: Ch
   const newSearchAria =
     strings.new_search_aria ?? (locale === "en" ? "Start new search" : "Iniciar nueva búsqueda");
 
+  // Tutorial copy fallbacks. Same idea: optional i18n keys so older
+  // layouts compile, but every new key has a sensible locale default so
+  // the modal still renders if a layout hasn't been updated yet.
+  const tutorialCopy = {
+    badge: strings.tutorialBadge ?? (locale === "en" ? "Welcome" : "Bienvenida"),
+    title: strings.tutorialTitle ?? (locale === "en"
+      ? "Your portfolio, in <em>conversation</em>."
+      : "Tu portafolio, en <em>conversación</em>."),
+    sub: strings.tutorialSub ?? (locale === "en"
+      ? "The editor answers questions about the indexed projects — by stack, domain or idea. Open the chat and try it out."
+      : "El editor responde preguntas sobre los proyectos indexados — por stack, dominio o idea. Abrí el chat y probá."),
+    step1Title: strings.tutorialStep1Title ?? (locale === "en" ? "Open the chat" : "Abrí el chat"),
+    step1Desc: strings.tutorialStep1Desc ?? (locale === "en"
+      ? "Tap the <strong>blue</strong> button at the bottom-right, or the <strong>«Ask the bot»</strong> button on the homepage."
+      : "Tocá el botón <strong>azul</strong> abajo a la derecha, o el botón <strong>«Preguntale al bot»</strong> en la portada."),
+    step2Title: strings.tutorialStep2Title ?? (locale === "en" ? "Ask anything" : "Preguntá lo que quieras"),
+    step2Desc: strings.tutorialStep2Desc ?? (locale === "en"
+      ? "By stack (<code>python</code>, <code>aws</code>), domain (<code>data</code>) or idea (<code>side projects</code>)."
+      : "Por stack (<code>python</code>, <code>aws</code>), dominio (<code>data</code>) o idea (<code>side projects</code>)."),
+    step3Title: strings.tutorialStep3Title ?? (locale === "en" ? "Get prose + reviews" : "Recibí prosa + reseñas"),
+    step3Desc: strings.tutorialStep3Desc ?? (locale === "en"
+      ? "The editor returns a response and, if there's a match, a list of projects with links to detail pages."
+      : "El editor devuelve una respuesta y, si hay match, una lista de proyectos con enlace a la página de detalle."),
+    noShow: strings.tutorialNoShow ?? (locale === "en" ? "Don't show again" : "No mostrar de nuevo"),
+    startChat: strings.tutorialStartChat ?? (locale === "en" ? "Start chatting" : "Empezar a chatear"),
+  };
+
+  /** Close the tutorial overlay. Persist the "don't show again" choice ONLY
+   *  when the checkbox was checked — otherwise the modal reappears on the
+   *  next visit (intentional: dismissals without a flag are treated as
+   *  "not ready", so the visitor can't permanently ignore the tutorial). */
+  const dismissTutorial = () => {
+    setTutorialOpen(false);
+    if (tutorialNoShow) {
+      try {
+        localStorage.setItem("portafolio:chat_tutorial_seen", "1");
+      } catch {
+        // Private-mode storage errors are non-fatal.
+      }
+    }
+  };
+
+  /** Toggle the "don't show again" checkbox. Checking it persists the flag
+   *  immediately so a future refresh skips the modal — the visitor doesn't
+   *  have to dismiss twice for their choice to stick. */
+  const handleTutorialNoShowChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = e.target.checked;
+    setTutorialNoShow(checked);
+    if (checked) {
+      try {
+        localStorage.setItem("portafolio:chat_tutorial_seen", "1");
+      } catch {
+        // Private-mode storage errors are non-fatal.
+      }
+    }
+  };
+
   // Derived: is the trailing assistant bubble currently an error line?
   const lastMessage = messages[messages.length - 1];
   const trailingError =
@@ -830,6 +927,186 @@ export default function Chatbot({ locale, availableTags, projects, strings }: Ch
 
   return (
     <div className="chatbot-fab-wrapper">
+      {/*
+        Onboarding tutorial modal. Mounted as a sibling of the FAB wrapper
+        so it covers the whole viewport without disturbing the FAB/panel
+        state machine. The CSS in Chatbot.css handles the slide-in,
+        backdrop blur, and `body:has(.chatbot-tutorial--visible) { overflow:
+        hidden }` scroll lock, so we don't add any inline styles.
+      */}
+      <div
+        className={`chatbot-tutorial${tutorialOpen ? " chatbot-tutorial--visible" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="chatbot-tutorial-title"
+        aria-describedby="chatbot-tutorial-sub"
+        aria-hidden={!tutorialOpen}
+      >
+        <div className="chatbot-tutorial__panel">
+          <header className="chatbot-tutorial__header">
+            <span className="chatbot-tutorial__badge">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+              </svg>
+              {tutorialCopy.badge}
+            </span>
+            <h2
+              id="chatbot-tutorial-title"
+              className="chatbot-tutorial__title"
+              dangerouslySetInnerHTML={{ __html: tutorialCopy.title }}
+            />
+            <p id="chatbot-tutorial-sub" className="chatbot-tutorial__sub">
+              {tutorialCopy.sub}
+            </p>
+          </header>
+
+          <ol className="chatbot-tutorial__steps">
+            <li className="chatbot-tutorial__step">
+              <span className="chatbot-tutorial__stepIcon" aria-hidden="true">
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                  <polyline points="10 17 15 12 10 7" />
+                  <line x1="15" y1="12" x2="3" y2="12" />
+                </svg>
+              </span>
+              <h3 className="chatbot-tutorial__stepTitle">{tutorialCopy.step1Title}</h3>
+              <p
+                className="chatbot-tutorial__stepDesc"
+                dangerouslySetInnerHTML={{ __html: tutorialCopy.step1Desc }}
+              />
+            </li>
+            <li className="chatbot-tutorial__step">
+              <span className="chatbot-tutorial__stepIcon" aria-hidden="true">
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+              </span>
+              <h3 className="chatbot-tutorial__stepTitle">{tutorialCopy.step2Title}</h3>
+              <p
+                className="chatbot-tutorial__stepDesc"
+                dangerouslySetInnerHTML={{ __html: tutorialCopy.step2Desc }}
+              />
+            </li>
+            <li className="chatbot-tutorial__step">
+              <span className="chatbot-tutorial__stepIcon" aria-hidden="true">
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="9" y1="13" x2="15" y2="13" />
+                  <line x1="9" y1="17" x2="13" y2="17" />
+                </svg>
+              </span>
+              <h3 className="chatbot-tutorial__stepTitle">{tutorialCopy.step3Title}</h3>
+              <p className="chatbot-tutorial__stepDesc">{tutorialCopy.step3Desc}</p>
+            </li>
+          </ol>
+
+          {/*
+            Decorative preview block — mirrors what the visitor will see in
+            the actual chat. Pure illustration; non-interactive.
+          */}
+          <div className="chatbot-tutorial__preview" aria-hidden="true">
+            <div className="chatbot-tutorial__previewHead">
+              <span className="chatbot-tutorial__previewDot" style={{ background: "#EF4444" }} />
+              <span className="chatbot-tutorial__previewDot" style={{ background: "#F59E0B" }} />
+              <span className="chatbot-tutorial__previewDot" style={{ background: "#22C55E" }} />
+              <span className="chatbot-tutorial__previewTitle">Editor</span>
+              <span className="chatbot-tutorial__previewStatus">● en vivo</span>
+            </div>
+            <div className="chatbot-tutorial__previewBody">
+              <div className="chatbot-tutorial__previewMsg chatbot-tutorial__previewMsg--user">
+                muéstrame proyectos con python
+              </div>
+              <div className="chatbot-tutorial__previewMsg chatbot-tutorial__previewMsg--bot">
+                Hay <strong>siete proyectos</strong> con <em>Python</em>: <em>proj-cloud-migration</em>, <em>HiRag15k</em>, <em>proj-finance-cli</em> y otros más.
+              </div>
+              <div className="chatbot-tutorial__previewResults">
+                <div className="chatbot-tutorial__previewResult">
+                  <div className="chatbot-tutorial__previewThumb">CM</div>
+                  <div>
+                    <strong>proj-cloud-migration</strong>
+                    <span>Migración a AWS multi-cuenta</span>
+                  </div>
+                </div>
+                <div className="chatbot-tutorial__previewResult">
+                  <div className="chatbot-tutorial__previewThumb chatbot-tutorial__previewThumb--alt" style={{ background: "#06B6D4" }}>
+                    R
+                  </div>
+                  <div>
+                    <strong>HiRag15k</strong>
+                    <span>Wrapper RAG open-source</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <footer className="chatbot-tutorial__footer">
+            <label className="chatbot-tutorial__checkbox">
+              <input
+                type="checkbox"
+                checked={tutorialNoShow}
+                onChange={handleTutorialNoShowChange}
+              />
+              <span>{tutorialCopy.noShow}</span>
+            </label>
+            <button type="button" className="chatbot-tutorial__btn" onClick={dismissTutorial}>
+              {tutorialCopy.startChat}
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M5 12h14" />
+                <path d="m12 5 7 7-7 7" />
+              </svg>
+            </button>
+          </footer>
+        </div>
+      </div>
       {/* Backdrop: dark overlay behind the panel; click to close. */}
       {isPanelOpen && (
         <div

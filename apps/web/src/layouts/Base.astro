@@ -117,6 +117,21 @@ const projectsForChat = allProjects.map((p) => ({
         welcomeSkip: t.home.chat.welcome_skip,
         clearSelection: t.home.chat.clear_selection,
         backToTags: t.home.chat.back_to_tags,
+        // Onboarding tutorial modal — sourced from t.home.tutorial.* so the
+        // modal renders the locale-matched copy. Chatbot falls back to
+        // locale-aware defaults if any key is missing, but the layout is
+        // the canonical source for them.
+        tutorialBadge: t.home.tutorial.badge,
+        tutorialTitle: t.home.tutorial.title,
+        tutorialSub: t.home.tutorial.sub,
+        tutorialStep1Title: t.home.tutorial.step1_title,
+        tutorialStep1Desc: t.home.tutorial.step1_desc,
+        tutorialStep2Title: t.home.tutorial.step2_title,
+        tutorialStep2Desc: t.home.tutorial.step2_desc,
+        tutorialStep3Title: t.home.tutorial.step3_title,
+        tutorialStep3Desc: t.home.tutorial.step3_desc,
+        tutorialNoShow: t.home.tutorial.no_show,
+        tutorialStartChat: t.home.tutorial.start_chat,
       }}
     />
   </body>
