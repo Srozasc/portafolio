@@ -1,0 +1,1969 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>portafolio — Una conversación</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+
+  <style>
+    /* =====================================================================
+       portafolio — Bento Chat (floating variant)
+       ---------------------------------------------------------------------
+       Same visual language as the page-embedded bento variant; the chat now
+       floats as a FAB-triggered side panel over a representative home page.
+       Design sources (ui-ux-pro-max-skill):
+         - Style:       "Minimalism & Swiss Style" (clean, spacious, grid-based)
+         - Typography:  "Minimalist Portfolio" (Space Grotesk + Inter pairing)
+         - Color:       minimalism single-accent rule (indigo #6366F1)
+       ===================================================================== */
+
+    :root {
+      --bg:           #FAFAF9;
+      --bg-tint:      #F5F5F4;
+      --card:         #FFFFFF;
+      --card-edge:    #E7E5E4;
+      --ink:          #18181B;
+      --ink-muted:    #52525B;
+      --ink-dim:      #A1A1AA;
+      --accent:       #6366F1;
+      --accent-deep:  #4F46E5;
+      --accent-soft:  #EEF2FF;
+
+      --display: 'Space Grotesk', system-ui, sans-serif;
+      --body:    'Inter', system-ui, -apple-system, sans-serif;
+
+      --r-card:  24px;
+      --r-input: 16px;
+      --r-pill:  999px;
+
+      /* Chat panel sizing */
+      --panel-w: 420px;
+    }
+
+    /* -- Reset ----------------------------------------------------- */
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    html { background: var(--bg); color: var(--ink); }
+    body {
+      font-family: var(--body);
+      font-size: 16px;
+      line-height: 1.55;
+      font-weight: 400;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      color: var(--ink);
+    }
+    button, input, textarea { font: inherit; color: inherit; }
+    button { cursor: pointer; background: transparent; border: 0; padding: 0; }
+    a { color: inherit; text-decoration: none; }
+    ::selection { background: var(--accent); color: white; }
+
+    /* -- Aurora background (very desaturated) ---------------------- */
+
+    .aurora {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .aurora::before,
+    .aurora::after {
+      content: '';
+      position: absolute;
+      width: 60vw;
+      height: 60vw;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.45;
+    }
+    .aurora::before {
+      background: radial-gradient(circle, #C7D2FE 0%, transparent 70%);
+      top: -20vw;
+      left: -10vw;
+    }
+    .aurora::after {
+      background: radial-gradient(circle, #FBCFE8 0%, transparent 70%);
+      bottom: -25vw;
+      right: -15vw;
+    }
+
+    /* -- Page wrapper ---------------------------------------------- */
+
+    .page {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: clamp(1.25rem, 3vw, 2.5rem) clamp(1rem, 3vw, 2rem) 6rem;
+    }
+
+    /* -- Top nav --------------------------------------------------- */
+
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 1.25rem;
+      margin-bottom: 2.5rem;
+      border-bottom: 1px solid var(--card-edge);
+    }
+    .nav__brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.625rem;
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 1.125rem;
+      letter-spacing: -0.02em;
+    }
+    .nav__mark {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--accent) 0%, #C026D3 100%);
+      display: inline-block;
+      box-shadow: 0 1px 2px rgba(99, 102, 241, 0.2);
+    }
+    .nav__links {
+      display: inline-flex;
+      gap: 0.25rem;
+      font-size: 0.9rem;
+      color: var(--ink-muted);
+    }
+    .nav__link {
+      padding: 0.4rem 0.875rem;
+      border-radius: var(--r-pill);
+      transition: background 160ms ease, color 160ms ease;
+    }
+    .nav__link:hover { background: var(--bg-tint); color: var(--ink); }
+
+    /* -- Hero ------------------------------------------------------ */
+
+    .hero {
+      padding: 2rem 0 3rem;
+      max-width: 720px;
+    }
+    .hero__eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--accent);
+      background: var(--accent-soft);
+      padding: 0.3rem 0.7rem;
+      border-radius: var(--r-pill);
+      margin-bottom: 1.25rem;
+    }
+    .hero__eyebrow::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: inline-block;
+    }
+    .hero__title {
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: clamp(2rem, 5vw, 3rem);
+      letter-spacing: -0.025em;
+      line-height: 1.05;
+      margin: 0 0 1rem;
+      color: var(--ink);
+    }
+    .hero__sub {
+      color: var(--ink-muted);
+      font-size: 1.05rem;
+      margin: 0 0 1.75rem;
+      max-width: 56ch;
+    }
+    .hero__ctas {
+      display: inline-flex;
+      gap: 0.625rem;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.7rem 1.25rem;
+      border-radius: var(--r-input);
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: background 160ms ease, color 160ms ease, transform 80ms ease, box-shadow 160ms ease;
+    }
+    .btn--primary {
+      background: var(--ink);
+      color: white;
+    }
+    .btn--primary:hover {
+      background: var(--accent);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+    }
+    .btn--ghost {
+      background: var(--card);
+      color: var(--ink);
+      border: 1px solid var(--card-edge);
+    }
+    .btn--ghost:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .btn:active { transform: scale(0.98); }
+
+    /* -- Section heading ------------------------------------------- */
+
+    .sec {
+      margin-top: 4rem;
+    }
+    .sec__head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 1.25rem;
+      border-bottom: 1px solid var(--card-edge);
+      padding-bottom: 0.75rem;
+    }
+    .sec__title {
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 1.4rem;
+      letter-spacing: -0.015em;
+      margin: 0;
+    }
+    .sec__sub {
+      font-size: 0.85rem;
+      color: var(--ink-dim);
+    }
+
+    /* -- Projects grid --------------------------------------------- */
+
+    .projects {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1rem;
+    }
+    .project {
+      background: var(--card);
+      border: 1px solid var(--card-edge);
+      border-radius: var(--r-card);
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.625rem;
+      transition: transform 240ms cubic-bezier(0.34, 1.56, 0.64, 1),
+                  box-shadow 240ms ease,
+                  border-color 240ms ease;
+    }
+    .project:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04),
+                  0 12px 24px -6px rgba(0, 0, 0, 0.06);
+      border-color: rgba(99, 102, 241, 0.25);
+    }
+    .project__thumb {
+      width: 100%;
+      height: 120px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--accent) 0%, #C026D3 100%);
+      margin-bottom: 0.25rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .project__thumb--b { background: linear-gradient(135deg, #06B6D4 0%, #3B82F6 100%); }
+    .project__thumb--c { background: linear-gradient(135deg, #10B981 0%, #06B6D4 100%); }
+    .project__thumb--d { background: linear-gradient(135deg, #F59E0B 0%, #EF4444 100%); }
+    .project__thumb::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 30% 30%, rgba(255,255,255,0.3) 0, transparent 50%),
+        radial-gradient(circle at 70% 70%, rgba(255,255,255,0.15) 0, transparent 50%);
+    }
+    .project__title {
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 1.05rem;
+      letter-spacing: -0.01em;
+      margin: 0;
+    }
+    .project__desc {
+      font-size: 0.88rem;
+      color: var(--ink-muted);
+      margin: 0;
+      line-height: 1.5;
+    }
+    .project__tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+      margin-top: auto;
+    }
+    .tag {
+      font-size: 0.72rem;
+      font-weight: 500;
+      padding: 0.2rem 0.55rem;
+      border: 1px solid var(--card-edge);
+      border-radius: var(--r-pill);
+      color: var(--ink-muted);
+      background: var(--card);
+    }
+
+    /* -- About + Contact two-column -------------------------------- */
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    @media (max-width: 720px) {
+      .row { grid-template-columns: 1fr; }
+    }
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--card-edge);
+      border-radius: var(--r-card);
+      padding: 1.5rem;
+    }
+    .panel__title {
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 1rem;
+      letter-spacing: -0.01em;
+      margin: 0 0 0.75rem;
+    }
+    .panel p {
+      color: var(--ink-muted);
+      font-size: 0.95rem;
+      margin: 0 0 0.75rem;
+      line-height: 1.55;
+    }
+    .panel p strong { color: var(--ink); font-weight: 600; }
+    .contact__row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--card-edge);
+      font-size: 0.88rem;
+    }
+    .contact__row:last-child { border-bottom: 0; padding-bottom: 0; }
+    .contact__icon {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      background: var(--bg-tint);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ink-muted);
+      flex: 0 0 auto;
+    }
+    .contact__value {
+      font-family: var(--display);
+      font-weight: 500;
+      color: var(--ink);
+      margin: 0;
+    }
+    .contact__label {
+      font-size: 0.72rem;
+      color: var(--ink-dim);
+      margin: 0;
+    }
+
+    /* -- Footer --------------------------------------------------- */
+
+    .footer {
+      margin-top: 4rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--card-edge);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      font-size: 0.78rem;
+      color: var(--ink-dim);
+    }
+    .footer em {
+      font-style: normal;
+      font-family: var(--display);
+      font-weight: 500;
+      color: var(--ink-muted);
+    }
+
+    /* ===================================================================
+       CHAT (floating panel + FAB)
+       =================================================================== */
+
+    /* Backdrop */
+    .chat-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(24, 24, 27, 0.2);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+      z-index: 9990;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 200ms ease;
+    }
+    .chat-backdrop--open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* FAB */
+    .fab {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 9992;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: white;
+      box-shadow:
+        0 4px 12px rgba(99, 102, 241, 0.3),
+        0 8px 24px rgba(99, 102, 241, 0.18);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
+                  background 160ms ease,
+                  box-shadow 200ms ease;
+    }
+    .fab:hover {
+      background: var(--accent-deep);
+      transform: translateY(-2px) scale(1.04);
+      box-shadow:
+        0 6px 16px rgba(99, 102, 241, 0.35),
+        0 12px 32px rgba(99, 102, 241, 0.22);
+    }
+    .fab:active { transform: scale(0.96); }
+    .fab__icon {
+      display: inline-flex;
+      transition: transform 200ms ease;
+    }
+    .fab--open .fab__icon { transform: rotate(90deg); }
+    /* Pulse ring to draw attention when closed. */
+    .fab::before {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      border: 2px solid var(--accent);
+      opacity: 0;
+      animation: fab-pulse 2.4s ease-out infinite;
+    }
+    .fab--open::before { display: none; }
+    @keyframes fab-pulse {
+      0%   { transform: scale(0.9); opacity: 0.6; }
+      80%  { transform: scale(1.4); opacity: 0; }
+      100% { transform: scale(1.4); opacity: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .fab::before { animation: none; }
+    }
+
+    /* -- Onboarding modal (full-screen) ---------------------------- */
+    /* Cannot be dismissed via backdrop or Escape — only via the
+    "Empezar a chatear" button (which persists when the "no show"
+    checkbox is checked). */
+
+    .tutorial {
+      position: fixed;
+      inset: 0;
+      z-index: 9995;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(1rem, 3vw, 2rem);
+      background:
+        radial-gradient(ellipse at top, rgba(99, 102, 241, 0.18), transparent 60%),
+        rgba(24, 24, 27, 0.55);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 320ms ease;
+    }
+    .tutorial--visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    /* Lock the body scroll while the tutorial is up. */
+    body:has(.tutorial--visible) { overflow: hidden; }
+
+    .tutorial__panel {
+      width: 100%;
+      max-width: 640px;
+      max-height: calc(100vh - 2 * clamp(1rem, 3vw, 2rem));
+      overflow-y: auto;
+      background: var(--card);
+      border: 1px solid var(--card-edge);
+      border-radius: 28px;
+      padding: clamp(1.5rem, 3vw, 2.5rem);
+      box-shadow:
+        0 4px 8px -2px rgba(0, 0, 0, 0.05),
+        0 24px 48px -12px rgba(99, 102, 241, 0.25),
+        0 48px 96px -24px rgba(0, 0, 0, 0.15);
+      transform: translateY(16px) scale(0.97);
+      transition:
+        transform 380ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .tutorial--visible .tutorial__panel {
+      transform: translateY(0) scale(1);
+    }
+
+    .tutorial__header {
+      text-align: center;
+      margin-bottom: 1.75rem;
+    }
+    .tutorial__badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--accent);
+      background: var(--accent-soft);
+      padding: 0.3rem 0.75rem;
+      border-radius: var(--r-pill);
+      margin-bottom: 1.25rem;
+    }
+    .tutorial__title {
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: clamp(1.6rem, 3.5vw, 2.25rem);
+      letter-spacing: -0.025em;
+      line-height: 1.1;
+      color: var(--ink);
+      margin: 0 0 0.875rem;
+    }
+    .tutorial__title em {
+      font-style: italic;
+      font-weight: 500;
+      color: var(--accent);
+    }
+    .tutorial__sub {
+      color: var(--ink-muted);
+      font-size: 1rem;
+      line-height: 1.55;
+      max-width: 44ch;
+      margin: 0 auto;
+    }
+
+    .tutorial__steps {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 1.75rem;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.875rem;
+      counter-reset: step;
+    }
+    @media (max-width: 640px) {
+      .tutorial__steps { grid-template-columns: 1fr; }
+    }
+    .tutorial__step {
+      display: flex;
+      flex-direction: column;
+      gap: 0.625rem;
+      padding: 1rem;
+      border: 1px solid var(--card-edge);
+      border-radius: 16px;
+      background: var(--bg-tint);
+    }
+    .tutorial__stepIcon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--card);
+      color: var(--accent);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--card-edge);
+    }
+    .tutorial__stepTitle {
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 0.92rem;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      margin: 0;
+    }
+    .tutorial__stepDesc {
+      font-size: 0.83rem;
+      line-height: 1.5;
+      color: var(--ink-muted);
+      margin: 0;
+    }
+    .tutorial__stepDesc code {
+      font-family: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+      font-size: 0.82em;
+      background: var(--card);
+      color: var(--accent);
+      padding: 0.05em 0.4em;
+      border-radius: 4px;
+      border: 1px solid var(--card-edge);
+    }
+    .tutorial__stepDesc strong {
+      color: var(--ink);
+      font-weight: 600;
+    }
+
+    /* Mini preview — decorative only, no JS interactivity. */
+    .tutorial__preview {
+      border: 1px solid var(--card-edge);
+      border-radius: 16px;
+      background: var(--bg);
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+    }
+    .tutorial__previewHead {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.625rem 0.875rem;
+      background: var(--bg-tint);
+      border-bottom: 1px solid var(--card-edge);
+    }
+    .tutorial__previewDot {
+      width: 9px; height: 9px;
+      border-radius: 50%;
+    }
+    .tutorial__previewTitle {
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 0.78rem;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      margin-left: 0.5rem;
+    }
+    .tutorial__previewStatus {
+      margin-left: auto;
+      font-family: var(--mono, ui-monospace);
+      font-size: 0.72rem;
+      color: var(--accent);
+    }
+    .tutorial__previewBody {
+      padding: 1rem;
+      display: grid;
+      gap: 0.625rem;
+    }
+    .tutorial__previewMsg {
+      padding: 0.5rem 0.75rem;
+      border-radius: 12px;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      max-width: 85%;
+    }
+    .tutorial__previewMsg--user {
+      background: var(--ink);
+      color: white;
+      justify-self: end;
+      border-bottom-right-radius: 4px;
+    }
+    .tutorial__previewMsg--bot {
+      background: var(--card);
+      color: var(--ink);
+      border: 1px solid var(--card-edge);
+      justify-self: start;
+      border-bottom-left-radius: 4px;
+    }
+    .tutorial__previewMsg strong { color: var(--ink); font-weight: 600; }
+    .tutorial__previewMsg em {
+      font-style: normal;
+      color: var(--accent);
+      font-weight: 500;
+    }
+    .tutorial__previewResults {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      padding: 0 0.25rem;
+    }
+    @media (max-width: 520px) {
+      .tutorial__previewResults { grid-template-columns: 1fr; }
+    }
+    .tutorial__previewResult {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+      padding: 0.5rem;
+      border: 1px solid var(--card-edge);
+      border-radius: 10px;
+      background: var(--card);
+    }
+    .tutorial__previewResult > div { min-width: 0; }
+    .tutorial__previewResult strong {
+      display: block;
+      font-family: var(--display);
+      font-size: 0.78rem;
+      color: var(--ink);
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .tutorial__previewResult span {
+      display: block;
+      font-size: 0.72rem;
+      color: var(--ink-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tutorial__previewThumb {
+      flex: 0 0 auto;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--accent) 0%, #C026D3 100%);
+      color: white;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 0.75rem;
+    }
+
+    .tutorial__footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .tutorial__checkbox {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--ink-muted);
+      cursor: pointer;
+      user-select: none;
+    }
+    .tutorial__checkbox input {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border: 1.5px solid var(--card-edge);
+      border-radius: 4px;
+      background: var(--card);
+      cursor: pointer;
+      transition: background 160ms ease, border-color 160ms ease;
+      flex: 0 0 auto;
+      position: relative;
+    }
+    .tutorial__checkbox input:checked {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    .tutorial__checkbox input:checked::after {
+      content: '';
+      display: block;
+      width: 4px;
+      height: 8px;
+      border: solid white;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg) translate(0.5px, -1px);
+      margin: 0 auto;
+    }
+    .tutorial__btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: var(--body);
+      font-size: 0.95rem;
+      font-weight: 600;
+      padding: 0.75rem 1.5rem;
+      background: var(--ink);
+      color: white;
+      border-radius: 14px;
+      transition: background 160ms ease, transform 80ms ease,
+                  box-shadow 200ms ease;
+    }
+    .tutorial__btn:hover {
+      background: var(--accent);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    }
+    .tutorial__btn:active { transform: scale(0.98); }
+    .tutorial__btn:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+    }
+
+    /* Panel */
+    .chat-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      max-width: var(--panel-w);
+      background: var(--card);
+      border-left: 1px solid var(--card-edge);
+      box-shadow: -8px 0 32px rgba(0, 0, 0, 0.08);
+      z-index: 9991;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 320ms cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    .chat-panel--open {
+      transform: translateX(0);
+    }
+    @media (max-width: 640px) {
+      .chat-panel {
+        max-width: none;
+        width: 100%;
+      }
+    }
+
+    .chat-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--card-edge);
+      background: var(--card);
+    }
+    .chat-header__avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent) 0%, #C026D3 100%);
+      color: white;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    .chat-header__main { flex: 1; min-width: 0; }
+    .chat-header__title {
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 0.95rem;
+      letter-spacing: -0.01em;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .chat-header__status {
+      display: inline-block;
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 2.4s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: 0.4; }
+    }
+    .chat-header__sub {
+      font-size: 0.78rem;
+      color: var(--ink-dim);
+      margin: 0.05rem 0 0;
+    }
+    .chat-header__close {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      background: var(--bg-tint);
+      color: var(--ink-muted);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      transition: background 160ms ease, color 160ms ease;
+    }
+    .chat-header__close:hover {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    /* Welcome view (first time only) */
+    .chat-welcome {
+      padding: 1.5rem 1.25rem 1rem;
+      border-bottom: 1px solid var(--card-edge);
+    }
+    .chat-welcome__title {
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 1.1rem;
+      letter-spacing: -0.01em;
+      margin: 0 0 0.5rem;
+    }
+    .chat-welcome__sub {
+      color: var(--ink-muted);
+      font-size: 0.88rem;
+      margin: 0 0 1rem;
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.4rem 0.8rem;
+      border: 1px solid var(--card-edge);
+      border-radius: var(--r-pill);
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--ink-muted);
+      background: var(--card);
+      transition: all 160ms ease;
+    }
+    .chip:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .chip__count {
+      font-size: 0.7rem;
+      color: var(--ink-dim);
+      font-variant-numeric: tabular-nums;
+    }
+    .chip:hover .chip__count { color: var(--accent); opacity: 0.7; }
+
+    /* Thread */
+    .chat-thread {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      padding: 1.25rem;
+      overflow-y: auto;
+      min-height: 0;
+      scrollbar-width: thin;
+      scrollbar-color: var(--card-edge) transparent;
+    }
+    .msg {
+      display: flex;
+      gap: 0.625rem;
+      align-items: flex-start;
+      animation: slideUp 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .msg__avatar {
+      flex: 0 0 auto;
+      width: 30px;
+      height: 30px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent) 0%, #C026D3 100%);
+      color: white;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 0.8rem;
+    }
+    .msg--user .msg__avatar {
+      background: var(--ink);
+    }
+    .msg__body {
+      flex: 1;
+      min-width: 0;
+      font-size: 0.92rem;
+      line-height: 1.55;
+      color: var(--ink);
+    }
+    .msg__name {
+      font-size: 0.74rem;
+      font-weight: 600;
+      color: var(--ink-muted);
+      margin: 0 0 0.15rem;
+    }
+    .msg--user .msg__name { color: var(--ink); }
+    .msg__body p { margin: 0 0 0.5em; }
+    .msg__body p:last-child { margin-bottom: 0; }
+    .msg__body code {
+      font-family: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+      font-size: 0.85em;
+      background: var(--bg-tint);
+      padding: 0.05em 0.35em;
+      border-radius: 4px;
+      border: 1px solid var(--card-edge);
+    }
+
+    /* Project results inside messages */
+    .results {
+      display: grid;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+    .result {
+      display: grid;
+      grid-template-columns: 40px 1fr auto;
+      gap: 0.75rem;
+      align-items: center;
+      padding: 0.625rem;
+      border: 1px solid var(--card-edge);
+      border-radius: 12px;
+      background: var(--card);
+      transition: border-color 160ms ease, background 160ms ease;
+    }
+    .result:hover {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .result__thumb {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent) 0%, #C026D3 100%);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 0.78rem;
+    }
+    .result__thumb--b { background: linear-gradient(135deg, #06B6D4 0%, #3B82F6 100%); }
+    .result__thumb--c { background: linear-gradient(135deg, #10B981 0%, #06B6D4 100%); }
+    .result__thumb--d { background: linear-gradient(135deg, #F59E0B 0%, #EF4444 100%); }
+    .result__title {
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 0.88rem;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      margin: 0 0 0.1rem;
+    }
+    .result__desc {
+      font-size: 0.78rem;
+      color: var(--ink-muted);
+      margin: 0;
+      line-height: 1.4;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      line-clamp: 2;
+    }
+    .result__cta {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--accent);
+      white-space: nowrap;
+    }
+
+    /* Typing indicator */
+    .typing {
+      display: inline-flex;
+      gap: 4px;
+      padding: 0.25rem 0;
+    }
+    .typing__bar {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--ink-dim);
+      animation: typing 1.2s ease-in-out infinite;
+    }
+    .typing__bar:nth-child(2) { animation-delay: 0.15s; }
+    .typing__bar:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes typing {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+      30%           { transform: translateY(-3px); opacity: 1; }
+    }
+
+    /* Input */
+    .chat-input {
+      border-top: 1px solid var(--card-edge);
+      padding: 0.875rem 1.25rem 1rem;
+      background: var(--card);
+    }
+    .chat-input__row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 0.5rem;
+      border: 1px solid var(--card-edge);
+      border-radius: var(--r-input);
+      padding: 0.375rem 0.375rem 0.375rem 0.875rem;
+      background: var(--card);
+      transition: border-color 160ms ease, box-shadow 160ms ease;
+    }
+    .chat-input__row:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+    }
+    .chat-input__field {
+      border: 0;
+      outline: 0;
+      background: transparent;
+      font-family: var(--body);
+      font-size: 0.92rem;
+      line-height: 1.4;
+      color: var(--ink);
+      resize: none;
+      padding: 0.4rem 0;
+      min-height: 1.3rem;
+      max-height: 7rem;
+    }
+    .chat-input__field::placeholder { color: var(--ink-dim); }
+    .chat-input__send {
+      font-family: var(--body);
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 0.5rem 1rem;
+      background: var(--ink);
+      color: white;
+      border-radius: 12px;
+      transition: background 160ms ease, transform 80ms ease, opacity 160ms ease;
+    }
+    .chat-input__send:hover:not(:disabled) { background: var(--accent); }
+    .chat-input__send:active:not(:disabled) { transform: scale(0.98); }
+    .chat-input__send:disabled { opacity: 0.3; cursor: not-allowed; }
+    .chat-input__hint {
+      margin-top: 0.5rem;
+      font-size: 0.72rem;
+      color: var(--ink-dim);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .chat-input__hint kbd {
+      font-family: var(--body);
+      font-size: 0.7rem;
+      background: var(--bg-tint);
+      border: 1px solid var(--card-edge);
+      border-radius: 4px;
+      padding: 0 0.35rem;
+      color: var(--ink-muted);
+      margin: 0 0.15rem;
+    }
+
+    /* -- Mobile tweaks ------------------------------------------- */
+
+    @media (max-width: 640px) {
+      .fab {
+        bottom: 1rem;
+        right: 1rem;
+        width: 54px;
+        height: 54px;
+      }
+    }
+    @media (max-width: 520px) {
+      .nav { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+      .nav__links { width: 100%; flex-wrap: wrap; }
+      .hero__title { font-size: clamp(1.75rem, 8vw, 2.25rem); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Aurora background -->
+  <div class="aurora" aria-hidden="true"></div>
+
+  <!-- ====================== PAGE ====================== -->
+  <div class="page">
+    <nav class="nav" aria-label="Primary">
+      <a href="#" class="nav__brand">
+        <span class="nav__mark" aria-hidden="true"></span>
+        <span>portafolio</span>
+      </a>
+      <div class="nav__links">
+        <a class="nav__link" href="#">Proyectos</a>
+        <a class="nav__link" href="#">Sobre mí</a>
+        <a class="nav__link" href="#">Contacto</a>
+      </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero__eyebrow">
+        <span>Backend &amp; data · Python · AWS · LLMs</span>
+      </div>
+      <h1 class="hero__title">
+        Servicios confiables que escalan sin perder el contexto.
+      </h1>
+      <p class="hero__sub">
+        Construyo backends en Python y los opero en AWS. Migraciones limpias,
+        observabilidad, y un ojo clínico sobre los timeouts. El archivo completo
+        se puede hojear por chat.
+      </p>
+      <div class="hero__ctas">
+        <button type="button" class="btn btn--primary" id="openChatCta">
+          Preguntale al bot
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </button>
+        <a class="btn btn--ghost" href="#proyectos">Ver proyectos</a>
+      </div>
+    </section>
+
+    <!-- Projects -->
+    <section class="sec" id="proyectos">
+      <div class="sec__head">
+        <h2 class="sec__title">Proyectos seleccionados</h2>
+        <span class="sec__sub">4 de 22</span>
+      </div>
+      <div class="projects">
+        <a class="project" href="#">
+          <div class="project__thumb" aria-hidden="true"></div>
+          <h3 class="project__title">proj-cloud-migration</h3>
+          <p class="project__desc">Migración de workloads legacy a AWS multi-cuenta, con Terraform y validación de drift.</p>
+          <div class="project__tags">
+            <span class="tag">Python</span>
+            <span class="tag">AWS</span>
+            <span class="tag">Terraform</span>
+          </div>
+        </a>
+        <a class="project" href="#">
+          <div class="project__thumb project__thumb--b" aria-hidden="true"></div>
+          <h3 class="project__title">HiRag15k</h3>
+          <p class="project__desc">Wrapper open-source sobre LangChain para retrieval jerárquico en colecciones grandes.</p>
+          <div class="project__tags">
+            <span class="tag">Python</span>
+            <span class="tag">RAG</span>
+            <span class="tag">ChromaDB</span>
+          </div>
+        </a>
+        <a class="project" href="#">
+          <div class="project__thumb project__thumb--c" aria-hidden="true"></div>
+          <h3 class="project__title">proj-fx-pipeline</h3>
+          <p class="project__desc">Pipeline diario de tipos de cambio desde APIs públicas hacia Snowflake.</p>
+          <div class="project__tags">
+            <span class="tag">Python</span>
+            <span class="tag">Spark</span>
+            <span class="tag">Airflow</span>
+          </div>
+        </a>
+        <a class="project" href="#">
+          <div class="project__thumb project__thumb--d" aria-hidden="true"></div>
+          <h3 class="project__title">proj-receipts-ocr</h3>
+          <p class="project__desc">Side project serverless con Textract para tickets de supermercado.</p>
+          <div class="project__tags">
+            <span class="tag">AWS</span>
+            <span class="tag">Lambda</span>
+            <span class="tag">Textract</span>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <!-- About + Contact -->
+    <section class="sec">
+      <div class="row">
+        <div class="panel">
+          <h2 class="panel__title">Sobre mí</h2>
+          <p>
+            <strong>Backend &amp; data engineer</strong> con cinco años escribiendo
+            servicios en Python. Pasé por startups y equipos de plataforma, y hoy
+            me especializo en <strong>RAG</strong>, <strong>pipelines</strong>
+            y migraciones a <strong>AWS</strong>.
+          </p>
+          <p>
+            Disfruto particularmente los proyectos donde la nube fue el medio,
+            no el fin — side projects que viven en Lambda para no pagar nunca, o
+            migraciones que enseñaron qué partes del monolito no valía la pena
+            levantar.
+          </p>
+        </div>
+        <div class="panel">
+          <h2 class="panel__title">Contacto</h2>
+          <div class="contact__row">
+            <div class="contact__icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            </div>
+            <div>
+              <p class="contact__label">Email</p>
+              <p class="contact__value">tu@email.com</p>
+            </div>
+          </div>
+          <div class="contact__row">
+            <div class="contact__icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+            </div>
+            <div>
+              <p class="contact__label">LinkedIn</p>
+              <p class="contact__value">/in/tu-usuario</p>
+            </div>
+          </div>
+          <div class="contact__row">
+            <div class="contact__icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+            </div>
+            <div>
+              <p class="contact__label">GitHub</p>
+              <p class="contact__value">/tu-usuario</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span><em>experiment · alt del widget flotante</em></span>
+      <span>bento floating · v2</span>
+    </footer>
+  </div>
+
+  <!-- ====================== CHAT (floating) ====================== -->
+  <div class="chat-backdrop" id="chatBackdrop" aria-hidden="true"></div>
+
+  <!-- Onboarding modal — full-screen overlay with backdrop blur. Shown
+       on first visit only; cannot be dismissed by clicking the backdrop
+       or pressing Escape (the user must click "Empezar a chatear"). -->
+  <div
+    class="tutorial"
+    id="tutorial"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="tutorialTitle"
+    aria-describedby="tutorialBody"
+    aria-hidden="true"
+  >
+    <div class="tutorial__panel" role="document">
+      <header class="tutorial__header">
+        <div class="tutorial__badge" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          <span>Bienvenida</span>
+        </div>
+        <h2 class="tutorial__title" id="tutorialTitle">
+          Tu portafolio, en <em>conversación</em>.
+        </h2>
+        <p class="tutorial__sub" id="tutorialBody">
+          El editor responde preguntas sobre los proyectos indexados — por stack,
+          dominio o idea. Abrí el chat y probá.
+        </p>
+      </header>
+
+      <!-- 3 pasos -->
+      <ol class="tutorial__steps">
+        <li class="tutorial__step">
+          <div class="tutorial__stepIcon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+          </div>
+          <div>
+            <h3 class="tutorial__stepTitle">Abrí el chat</h3>
+            <p class="tutorial__stepDesc">
+              Tocá el botón <strong>violeta</strong> abajo a la derecha, o el botón
+              <strong>“Preguntale al bot”</strong> en la portada.
+            </p>
+          </div>
+        </li>
+        <li class="tutorial__step">
+          <div class="tutorial__stepIcon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </div>
+          <div>
+            <h3 class="tutorial__stepTitle">Preguntá lo que quieras</h3>
+            <p class="tutorial__stepDesc">
+              Por stack (<code>python</code>, <code>aws</code>), dominio
+              (<code>data</code>) o idea (<code>side projects</code>).
+            </p>
+          </div>
+        </li>
+        <li class="tutorial__step">
+          <div class="tutorial__stepIcon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
+          </div>
+          <div>
+            <h3 class="tutorial__stepTitle">Recibí prosa + reseñas</h3>
+            <p class="tutorial__stepDesc">
+              El editor devuelve una respuesta y, si hay match, una lista de
+              proyectos con enlace a la página de detalle.
+            </p>
+          </div>
+        </li>
+      </ol>
+
+      <!-- Mini preview del chat -->
+      <div class="tutorial__preview" aria-hidden="true">
+        <div class="tutorial__previewHead">
+          <span class="tutorial__previewDot" style="background:#EF4444;"></span>
+          <span class="tutorial__previewDot" style="background:#F59E0B;"></span>
+          <span class="tutorial__previewDot" style="background:#22C55E;"></span>
+          <span class="tutorial__previewTitle">Editor</span>
+          <span class="tutorial__previewStatus">● en vivo</span>
+        </div>
+        <div class="tutorial__previewBody">
+          <div class="tutorial__previewMsg tutorial__previewMsg--user">
+            muéstrame proyectos con python
+          </div>
+          <div class="tutorial__previewMsg tutorial__previewMsg--bot">
+            Hay <strong>siete proyectos</strong> con Python. Los tres más
+            representativos son <em>proj-cloud-migration</em> (2024),
+            <em>HiRag15k</em> (2023) y <em>proj-finance-cli</em> (2022).
+          </div>
+          <div class="tutorial__previewResults">
+            <div class="tutorial__previewResult">
+              <span class="tutorial__previewThumb">CM</span>
+              <div>
+                <strong>proj-cloud-migration</strong>
+                <span>Migración a AWS multi-cuenta</span>
+              </div>
+            </div>
+            <div class="tutorial__previewResult">
+              <span class="tutorial__previewThumb" style="background:linear-gradient(135deg,#06B6D4,#3B82F6);">R</span>
+              <div>
+                <strong>HiRag15k</strong>
+                <span>Wrapper RAG open-source</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <footer class="tutorial__footer">
+        <label class="tutorial__checkbox">
+          <input type="checkbox" id="tutorialNoShow" />
+          <span>No mostrar de nuevo</span>
+        </label>
+        <button type="button" class="tutorial__btn" id="tutorialDismiss">
+          Empezar a chatear
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </button>
+      </footer>
+    </div>
+  </div>
+
+  <button
+    type="button"
+    class="fab"
+    id="fab"
+    aria-label="Abrir chat"
+    aria-expanded="false"
+    aria-controls="chatPanel"
+  >
+    <span class="fab__icon" aria-hidden="true">
+      <!-- Chat bubble glyph -->
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+      </svg>
+    </span>
+  </button>
+
+  <aside
+    id="chatPanel"
+    class="chat-panel"
+    role="complementary"
+    aria-label="Chat con el editor"
+    aria-hidden="true"
+  >
+    <header class="chat-header">
+      <div class="chat-header__avatar" aria-hidden="true">E</div>
+      <div class="chat-header__main">
+        <h2 class="chat-header__title">
+          <span class="chat-header__status" aria-hidden="true"></span>
+          Editor
+        </h2>
+        <p class="chat-header__sub">Responde sobre el archivo de proyectos</p>
+      </div>
+      <button
+        type="button"
+        class="chat-header__close"
+        id="chatClose"
+        aria-label="Cerrar chat"
+      >×</button>
+    </header>
+
+    <!-- Welcome view: shown on first open -->
+    <div class="chat-welcome" id="chatWelcome">
+      <h3 class="chat-welcome__title">¿Qué querés saber?</h3>
+      <p class="chat-welcome__sub">
+        Pedí por stack, dominio o idea. Algunos ejemplos:
+      </p>
+      <div class="chips" id="chips">
+        <button type="button" class="chip" data-tag="Python">Python<span class="chip__count">7</span></button>
+        <button type="button" class="chip" data-tag="AWS">AWS<span class="chip__count">5</span></button>
+        <button type="button" class="chip" data-tag="data">Data<span class="chip__count">4</span></button>
+        <button type="button" class="chip" data-tag="RAG">RAG<span class="chip__count">3</span></button>
+        <button type="button" class="chip" data-tag="side-project">Side projects<span class="chip__count">6</span></button>
+        <button type="button" class="chip" data-tag="Astro">Astro<span class="chip__count">3</span></button>
+      </div>
+    </div>
+
+    <!-- Thread -->
+    <div class="chat-thread" id="chatThread" aria-live="polite"></div>
+
+    <!-- Input -->
+    <form class="chat-input" id="chatForm" autocomplete="off">
+      <div class="chat-input__row">
+        <textarea
+          id="chatField"
+          class="chat-input__field"
+          rows="1"
+          placeholder="Escribí tu pregunta…"
+          aria-label="Su pregunta para el editor"
+        ></textarea>
+        <button type="submit" class="chat-input__send" id="chatSend" disabled>Enviar</button>
+      </div>
+      <div class="chat-input__hint">
+        <span><kbd>Enter</kbd> enviar · <kbd>Esc</kbd> cerrar</span>
+        <span id="chatStatus">Listo</span>
+      </div>
+    </form>
+  </aside>
+
+  <script>
+    /* =====================================================================
+       Floating chat — same shape as the page-embedded bento variant.
+       All DOM construction uses createElement + textContent (no innerHTML).
+    ===================================================================== */
+
+    // -- DOM handles -----------------------------------------------
+    const backdrop = document.getElementById('chatBackdrop');
+    const fab      = document.getElementById('fab');
+    const panel    = document.getElementById('chatPanel');
+    const closeBtn = document.getElementById('chatClose');
+    const thread   = document.getElementById('chatThread');
+    const welcome  = document.getElementById('chatWelcome');
+    const form     = document.getElementById('chatForm');
+    const field    = document.getElementById('chatField');
+    const sendBtn  = document.getElementById('chatSend');
+    const status   = document.getElementById('chatStatus');
+    const openCta  = document.getElementById('openChatCta');
+
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    // -- Open / close ----------------------------------------------
+
+    let isOpen = false;
+    let hasInteracted = false;
+
+    function openChat() {
+      if (isOpen) return;
+      isOpen = true;
+      panel.classList.add('chat-panel--open');
+      panel.setAttribute('aria-hidden', 'false');
+      backdrop.classList.add('chat-backdrop--open');
+      backdrop.setAttribute('aria-hidden', 'false');
+      fab.classList.add('fab--open');
+      fab.setAttribute('aria-expanded', 'true');
+      fab.setAttribute('aria-label', 'Cerrar chat');
+      // Defer focus until the slide-in animation has started.
+      setTimeout(() => field.focus(), 200);
+    }
+    function closeChat() {
+      if (!isOpen) return;
+      isOpen = false;
+      panel.classList.remove('chat-panel--open');
+      panel.setAttribute('aria-hidden', 'true');
+      backdrop.classList.remove('chat-backdrop--open');
+      backdrop.setAttribute('aria-hidden', 'true');
+      fab.classList.remove('fab--open');
+      fab.setAttribute('aria-expanded', 'false');
+      fab.setAttribute('aria-label', 'Abrir chat');
+      fab.focus();
+    }
+
+    fab.addEventListener('click', () => (isOpen ? closeChat() : openChat()));
+    closeBtn.addEventListener('click', closeChat);
+    backdrop.addEventListener('click', closeChat);
+    if (openCta) openCta.addEventListener('click', openChat);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isOpen) closeChat();
+    });
+
+    // -- Response bank ---------------------------------------------
+
+    const RESPONSES = [
+      {
+        match: /\b(python|django|fastapi|flask)\b/i,
+        paragraphs: [
+          'Hay <strong>siete proyectos</strong> etiquetados con Python en el archivo. La mayoría corre sobre FastAPI o Django REST Framework, con un patrón estable: tipado estricto, migraciones automatizadas, y un ojo clínico sobre los timeouts.',
+          'Los tres más representativos son un pipeline de migración cloud (proj-cloud-migration, 2024), un wrapper RAG open-source (HiRag15k, 2023), y un side project de budgeting personal (proj-finance-cli, 2022).',
+        ],
+        results: [
+          { thumb: 'CM', cls: '',     title: 'proj-cloud-migration', desc: 'Migración de workloads legacy a AWS multi-cuenta, con Terraform y validación de drift.' },
+          { thumb: 'R',  cls: 'b',    title: 'HiRag15k',             desc: 'Wrapper open-source sobre LangChain para retrieval jerárquico en colecciones grandes.' },
+          { thumb: 'F',  cls: 'c',    title: 'proj-finance-cli',     desc: 'Side project para trackear gastos en CSV con categorización por reglas.' },
+        ],
+      },
+      {
+        match: /\b(aws|cloud|terraform|ec2|lambda|s3)\b/i,
+        paragraphs: [
+          'Cinco proyectos tocan AWS — desde pipelines de migración hasta side projects serverless. La mayoría asume multi-cuenta y un patrón landing-zone con Control Tower.',
+          'Los side projects viven en Lambda para no pagar nunca; las migraciones enseñaron qué partes del monolito no valía la pena levantar.',
+        ],
+        results: [
+          { thumb: 'CM', cls: '',  title: 'proj-cloud-migration', desc: 'Migración de workloads legacy a AWS multi-cuenta.' },
+          { thumb: 'O',  cls: 'b', title: 'proj-receipts-ocr',    desc: 'Side project serverless con Textract para tickets de supermercado.' },
+        ],
+      },
+      {
+        match: /\b(data|etl|spark|airflow|datalake)\b/i,
+        paragraphs: [
+          'Cuatro proyectos con tag data. Los más sólidos son pipelines sobre Spark y Airflow, con un patrón estable: staging limpia, capa curated, y gold para servir.',
+          'La mitad son pipelines productivos en equipos grandes, la mitad son experimentos personales para entender mejor el tooling.',
+        ],
+        results: [
+          { thumb: 'FX', cls: 'c', title: 'proj-fx-pipeline', desc: 'Pipeline diario de tipos de cambio desde APIs públicas hacia Snowflake.' },
+          { thumb: 'SM', cls: 'd', title: 'proj-saas-metrics', desc: 'Side project — dbt project que calcula MRR, churn y expansion con tests exhaustivos.' },
+        ],
+      },
+      {
+        match: /\b(rag|llm|embedding|chroma|langchain|openai)\b/i,
+        paragraphs: [
+          'Tres proyectos tocan LLMs o retrieval-augmented generation. El más serio es HiRag15k, un wrapper sobre LangChain para retrieval jerárquico — escrito antes de que el patrón RAG se volviera mainstream.',
+          'El actual portafolio (esta misma página) es el cuarto: indexa los proyectos en ChromaDB y los devuelve en prosa conversacional.',
+        ],
+        results: [
+          { thumb: 'R', cls: 'b', title: 'HiRag15k',         desc: 'Wrapper open-source sobre LangChain para retrieval jerárquico.' },
+          { thumb: 'P', cls: '',  title: 'this-portfolio',   desc: 'Portafolio navegable por conversación. Dos pasos: master index, después detail collection.' },
+        ],
+      },
+      {
+        match: /\b(side|personal|hobby)\b/i,
+        paragraphs: [
+          'Hay seis side projects en el archivo. Algunos son juguete, otros son producto — todos comparten una característica: viven en AWS free tier o en una Raspberry Pi.',
+          'Los que mejor envejecen: proj-receipts-ocr (Textract + Lambda, 2021) y proj-finance-cli (Python + Rich, 2022). El autor todavía los abre.',
+        ],
+        results: [
+          { thumb: 'F', cls: 'c', title: 'proj-finance-cli',  desc: 'Side project para trackear gastos en CSV con categorización por reglas.' },
+          { thumb: 'O', cls: 'b', title: 'proj-receipts-ocr', desc: 'Side project serverless con Textract para tickets de supermercado.' },
+        ],
+      },
+      {
+        match: /\b(hola|buenos|buenas|hello|hi)\b/i,
+        paragraphs: [
+          'Hola. Le doy la bienvenida al archivo. Para empezar con buen pie, sugerí una de dos cosas: pedir un rubro concreto (Python, AWS, data, side projects), o hacer una pregunta amplia y dejarme a mí decidir qué proyectos tienen algo que decir.',
+        ],
+        results: [],
+      },
+      {
+        match: /.*/,
+        paragraphs: [
+          'Su consulta no matcheó con ninguno de los proyectos indexados. Eso no significa que no haya material — puede significar que la formulación es demasiado amplia, o que apunta a un dominio que todavía no está cargado.',
+          'Sugiero reformular con un stack concreto (<code>python</code>, <code>aws</code>, <code>rag</code>…) o pedirme un rubro entero.',
+        ],
+        results: [],
+      },
+    ];
+
+    function pickResponse(text) {
+      for (const r of RESPONSES) {
+        if (r.match.test(text)) return r;
+      }
+      return RESPONSES[RESPONSES.length - 1];
+    }
+
+    // -- DOM builders (no innerHTML anywhere) ---------------------
+
+    function buildUserBlock(text) {
+      const art = document.createElement('article');
+      art.className = 'msg msg--user';
+
+      const av = document.createElement('div');
+      av.className = 'msg__avatar';
+      av.textContent = 'V';
+
+      const body = document.createElement('div');
+      body.className = 'msg__body';
+      const name = document.createElement('p');
+      name.className = 'msg__name';
+      name.textContent = 'Visitante';
+      const p = document.createElement('p');
+      p.textContent = text;
+      body.appendChild(name);
+      body.appendChild(p);
+
+      art.appendChild(av);
+      art.appendChild(body);
+      return art;
+    }
+
+    function buildBotBlock(resp) {
+      const art = document.createElement('article');
+      art.className = 'msg msg--assistant';
+
+      const av = document.createElement('div');
+      av.className = 'msg__avatar';
+      av.textContent = 'E';
+
+      const body = document.createElement('div');
+      body.className = 'msg__body';
+      const name = document.createElement('p');
+      name.className = 'msg__name';
+      name.textContent = 'Editor';
+      body.appendChild(name);
+
+      const prose = document.createElement('div');
+      prose.className = 'prose';
+      body.appendChild(prose);
+
+      if (resp.results && resp.results.length) {
+        const grid = document.createElement('div');
+        grid.className = 'results';
+        for (const r of resp.results) {
+          const row = document.createElement('a');
+          row.className = 'result';
+          row.href = '#';
+          row.addEventListener('click', (e) => e.preventDefault());
+
+          const thumb = document.createElement('div');
+          thumb.className = 'result__thumb' + (r.cls ? ' result__thumb--' + r.cls : '');
+          thumb.textContent = r.thumb;
+
+          const main = document.createElement('div');
+          main.className = 'result__main';
+          const t = document.createElement('h4');
+          t.className = 'result__title';
+          t.textContent = r.title;
+          const d = document.createElement('p');
+          d.className = 'result__desc';
+          d.textContent = r.desc;
+          main.appendChild(t);
+          main.appendChild(d);
+
+          const cta = document.createElement('div');
+          cta.className = 'result__cta';
+          cta.textContent = 'Ver →';
+
+          row.appendChild(thumb);
+          row.appendChild(main);
+          row.appendChild(cta);
+          grid.appendChild(row);
+        }
+        body.appendChild(grid);
+      }
+
+      art.appendChild(av);
+      art.appendChild(body);
+      return { block: art, prose };
+    }
+
+    function buildTypingBlock() {
+      const art = document.createElement('article');
+      art.className = 'msg msg--assistant';
+
+      const av = document.createElement('div');
+      av.className = 'msg__avatar';
+      av.textContent = 'E';
+
+      const body = document.createElement('div');
+      body.className = 'msg__body';
+      const typing = document.createElement('div');
+      typing.className = 'typing';
+      typing.setAttribute('aria-label', 'escribiendo');
+      for (let i = 0; i < 3; i++) {
+        const bar = document.createElement('span');
+        bar.className = 'typing__bar';
+        typing.appendChild(bar);
+      }
+      body.appendChild(typing);
+
+      art.appendChild(av);
+      art.appendChild(body);
+      return art;
+    }
+
+    async function typeProse(container, paragraphs) {
+      container.textContent = '';  // safe: clearing a container we own
+      for (const html of paragraphs) {
+        const p = document.createElement('p');
+        container.appendChild(p);
+        await typeHtmlInto(p, html);
+      }
+    }
+
+    async function typeHtmlInto(target, html) {
+      const re = /<\/?(strong|em|code)>/g;
+      const tokens = [];
+      let last = 0;
+      let m;
+      while ((m = re.exec(html)) !== null) {
+        if (m.index > last) tokens.push({ type: 'text', value: html.slice(last, m.index) });
+        tokens.push({ type: 'tag', value: m[1], closing: m[0].startsWith('</') });
+        last = m.index + m[0].length;
+      }
+      if (last < html.length) tokens.push({ type: 'text', value: html.slice(last) });
+
+      let cursor = target;
+      for (const tok of tokens) {
+        if (tok.type === 'text') {
+          for (const ch of tok.value) {
+            cursor.appendChild(document.createTextNode(ch));
+            await sleep(7 + Math.random() * 5);
+          }
+        } else if (tok.type === 'tag' && !tok.closing) {
+          const el = document.createElement(tok.value);
+          target.appendChild(el);
+          cursor = el;
+        } else if (tok.type === 'tag' && tok.closing) {
+          cursor = target;
+        }
+      }
+    }
+
+    // -- Submit handler -------------------------------------------
+
+    function dismissWelcome() {
+      if (!welcome) return;
+      welcome.style.transition = 'opacity 200ms ease, max-height 200ms ease, padding 200ms ease, border-color 200ms ease';
+      welcome.style.opacity = '0';
+      welcome.style.maxHeight = '0';
+      welcome.style.padding = '0 1.25rem';
+      welcome.style.borderColor = 'transparent';
+      welcome.style.overflow = 'hidden';
+      setTimeout(() => { welcome.style.display = 'none'; }, 240);
+    }
+
+    async function submitQuestion(text) {
+      const v = text.trim();
+      if (!v) return;
+
+      // First interaction: dismiss the welcome view.
+      if (!hasInteracted) {
+        hasInteracted = true;
+        dismissWelcome();
+      }
+
+      field.disabled = true;
+      sendBtn.disabled = true;
+      status.textContent = 'Buscando…';
+
+      thread.appendChild(buildUserBlock(v));
+      thread.scrollTop = thread.scrollHeight;
+
+      const typing = buildTypingBlock();
+      thread.appendChild(typing);
+      thread.scrollTop = thread.scrollHeight;
+
+      const resp = pickResponse(v);
+      await sleep(380 + Math.random() * 320);
+
+      typing.remove();
+      const { block, prose } = buildBotBlock(resp);
+      thread.appendChild(block);
+
+      await typeProse(prose, resp.paragraphs);
+
+      status.textContent = 'Listo';
+      field.disabled = false;
+      sendBtn.disabled = field.value.trim() === '';
+      field.focus();
+      thread.scrollTop = thread.scrollHeight;
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const v = field.value;
+      field.value = '';
+      sendBtn.disabled = true;
+      autoSize();
+      void submitQuestion(v);
+    });
+
+    field.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        form.requestSubmit();
+      }
+    });
+
+    field.addEventListener('input', () => {
+      sendBtn.disabled = field.value.trim() === '';
+      autoSize();
+    });
+
+    function autoSize() {
+      field.style.height = 'auto';
+      field.style.height = Math.min(field.scrollHeight, 112) + 'px';
+    }
+
+    // -- Chips: pre-fill the input on click -----------------------
+
+    document.querySelectorAll('.chip').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tag = btn.dataset.tag;
+        const q = tag.toLowerCase().includes('side')
+          ? 'muéstrame tus side projects'
+          : 'muéstrame proyectos con ' + tag;
+        field.value = q;
+        sendBtn.disabled = false;
+        field.focus();
+        autoSize();
+      });
+    });
+
+    // -- Onboarding tutorial --------------------------------------
+    // Shown once on first visit (or until dismissed with the "no
+    // show again" checkbox). Key is localStorage so it survives reloads
+    // but stays scoped to this machine (not synced, not cross-user).
+
+    const TUTORIAL_KEY = 'portafolio:tutorial_seen';
+    const tutorial       = document.getElementById('tutorial');
+    const tutorialDismiss = document.getElementById('tutorialDismiss');
+    const tutorialNoShow  = document.getElementById('tutorialNoShow');
+
+    function showTutorial() {
+      if (!tutorial) return;
+      tutorial.setAttribute('aria-hidden', 'false');
+      // Two RAFs so the transition runs from the hidden state.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => tutorial.classList.add('tutorial--visible'));
+      });
+    }
+    function hideTutorial(persist) {
+      if (!tutorial) return;
+      tutorial.classList.remove('tutorial--visible');
+      tutorial.setAttribute('aria-hidden', 'true');
+      if (persist) {
+        try { localStorage.setItem(TUTORIAL_KEY, '1'); } catch { /* private mode */ }
+      }
+    }
+
+    let tutorialSeen = false;
+    try { tutorialSeen = localStorage.getItem(TUTORIAL_KEY) === '1'; } catch { /* private mode */ }
+
+    if (!tutorialSeen) {
+      // Delay so the user has time to land on the page first.
+      setTimeout(showTutorial, 600);
+    }
+
+    // The tutorial is intentionally un-dismissable via backdrop click or
+    // Escape: the user must click "Empezar a chatear" to proceed. This
+    // is the whole point of the larger modal — it cannot be ignored.
+    if (tutorialDismiss) {
+      tutorialDismiss.addEventListener('click', () => {
+        hideTutorial(true);  // always persist on the explicit dismiss action
+      });
+    }
+    if (tutorialNoShow) {
+      tutorialNoShow.addEventListener('change', () => {
+        // Persist immediately on toggle so the choice is honored even if
+        // the user closes the tab without clicking "Empezar a chatear".
+        if (tutorialNoShow.checked) {
+          try { localStorage.setItem(TUTORIAL_KEY, '1'); } catch { /* private mode */ }
+        }
+      });
+    }
+  </script>
+</body>
+</html>

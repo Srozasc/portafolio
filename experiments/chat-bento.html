@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>portafolio — Una conversación</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+
+  <style>
+    /* =====================================================================
+       portafolio — Bento Chat
+       ---------------------------------------------------------------------
+       Design sources (all from ui-ux-pro-max-skill):
+         - Style:       "Minimalism & Swiss Style" (clean, spacious, grid-based)
+         - Typography:  "Minimalist Portfolio" (Space Grotesk + Inter pairing)
+         - Color:       minimalism single-accent rule + modern portfolio trend
+       Mood:    limpio, profesional, moderno. Creatividad viene del layout
+                asimétrico y los gradient borders — no de decoración.
+       Layout:  bento grid 12-col. La card del chat ocupa el bloque grande
+                central; las cards satélite (stacks, info, contacto) lo
+                enmarcan asimétricamente.
+       ===================================================================== */
+
+    :root {
+      /* Color tokens — single-accent minimalism + one neutral ramp. */
+      --bg:           #FAFAF9;          /* stone-50 — warm off-white */
+      --bg-tint:      #F5F5F4;          /* stone-100 — subtle alt surface */
+      --card:         #FFFFFF;
+      --card-edge:    #E7E5E4;          /* stone-200 — hairline border */
+      --ink:          #18181B;          /* zinc-900 — primary text */
+      --ink-muted:    #52525B;          /* zinc-600 — secondary text */
+      --ink-dim:      #A1A1AA;          /* zinc-400 — meta, hints */
+      --accent:       #6366F1;          /* indigo-500 — single vibrant accent */
+      --accent-deep:  #4F46E5;          /* indigo-600 — hover / pressed */
+      --accent-soft:  #EEF2FF;          /* indigo-50 — accent tint */
+
+      /* Type */
+      --display: 'Space Grotesk', system-ui, sans-serif;
+      --body:    'Inter', system-ui, -apple-system, sans-serif;
+
+      /* Spacing — generous, Swiss-style */
+      --r-card: 24px;
+      --r-input: 16px;
+      --r-pill: 999px;
+    }
+
+    /* -- Reset ----------------------------------------------------- */
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    html { background: var(--bg); color: var(--ink); }
+    body {
+      font-family: var(--body);
+      font-size: 16px;
+      line-height: 1.55;
+      font-weight: 400;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      color: var(--ink);
+    }
+    button, input, textarea { font: inherit; color: inherit; }
+    button { cursor: pointer; background: transparent; border: 0; padding: 0; }
+    a { color: inherit; text-decoration: none; }
+    ::selection { background: var(--accent); color: white; }
+
+    /* -- Aurora background (very desaturated, almost invisible) --- */
+
+    .aurora {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .aurora::before,
+    .aurora::after {
+      content: '';
+      position: absolute;
+      width: 60vw;
+      height: 60vw;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.45;
+    }
+    .aurora::before {
+      background: radial-gradient(circle, #C7D2FE 0%, transparent 70%);  /* indigo-200 */
+      top: -20vw;
+      left: -10vw;
+    }
+    .aurora::after {
+      background: radial-gradient(circle, #FBCFE8 0%, transparent 70%);  /* pink-200 */
+      bottom: -25vw;
+      right: -15vw;
+    }
+
+    /* -- App wrapper ----------------------------------------------- */
+
+    .app {
+      position: relative;
+      z-index: 1;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: clamp(1.25rem, 3vw, 2.5rem) clamp(1rem, 3vw, 2rem) 2rem;
+    }
+
+    /* -- Top nav (slim, minimal) ----------------------------------- */
+
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 1.5rem;
+      margin-bottom: 2rem;
+      border-bottom: 1px solid var(--card-edge);
+    }
+    .nav__brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.625rem;
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 1.125rem;
+      letter-spacing: -0.02em;
+    }
+    .nav__mark {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--accent) 0%, #C026D3 100%);  /* indigo → fuchsia */
+      display: inline-block;
+      box-shadow: 0 1px 2px rgba(99, 102, 241, 0.2);
+    }
+    .nav__links {
+      display: inline-flex;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+      color: var(--ink-muted);
+    }
+    .nav__link {
+      padding: 0.4rem 0.875rem;
+      border-radius: var(--r-pill);
+      transition: background 160ms ease, color 160ms ease;
+    }
+    .nav__link:hover { background: var(--bg-tint); color: var(--ink); }
+    .nav__link--active {
+      background: var(--ink);
+      color: white;
+    }
+    .nav__link--active:hover { background: var(--ink); color: white; }
+
+    /* -- Bento grid ------------------------------------------------ */
+
+    .bento {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      grid-auto-rows: minmax(min-content, auto);
+      gap: 1rem;
+    }
+    @media (max-width: 880px) {
+      .bento { grid-template-columns: 1fr; }
+    }
+
+    /* Card base */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--card-edge);
+      border-radius: var(--r-card);
+      padding: 1.5rem;
+      position: relative;
+      overflow: hidden;
+      transition: transform 240ms cubic-bezier(0.34, 1.56, 0.64, 1),
+                  box-shadow 240ms ease,
+                  border-color 240ms ease;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow:
+        0 4px 6px -1px rgba(0, 0, 0, 0.04),
+        0 12px 24px -6px rgba(0, 0, 0, 0.06);
+      border-color: rgba(99, 102, 241, 0.25);
+    }
+    .card--accent {  /* the chat hero card */
+      grid-column: span 8;
+      grid-row: span 2;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    @media (max-width: 880px) {
+      .card--accent { grid-column: span 1; grid-row: span 1; }
+    }
+
+    /* Card sizes — bento asymmetry */
+    .card--md  { grid-column: span 4; }
+    .card--sm  { grid-column: span 4; }
+    .card--wide{ grid-column: span 8; }
+    @media (max-width: 880px) {
+      .card--md, .card--sm, .card--wide { grid-column: span 1; }
+    }
+
+    /* -- Hero card content ---------------------------------------- */
+
+    .hero {
+      padding: 1.75rem 1.75rem 0;
+      border-bottom: 1px solid var(--card-edge);
+    }
+    .hero__eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--accent);
+      background: var(--accent-soft);
+      padding: 0.3rem 0.7rem;
+      border-radius: var(--r-pill);
+      margin-bottom: 1rem;
+    }
+    .hero__eyebrow::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: inline-block;
+      animation: pulse 2.4s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: 0.4; }
+    }
+    .hero__title {
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: clamp(1.5rem, 2.5vw, 2rem);
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      margin: 0 0 0.5rem;
+      color: var(--ink);
+    }
+    .hero__sub {
+      color: var(--ink-muted);
+      font-size: 0.95rem;
+      margin: 0;
+      max-width: 38ch;
+    }
+
+    /* -- Thread (the chat inside the hero card) ------------------- */
+
+    .thread {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      padding: 1.5rem 1.75rem;
+      overflow-y: auto;
+      min-height: 240px;
+      max-height: 380px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--card-edge) transparent;
+    }
+
+    .msg {
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-start;
+      animation: slideUp 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .msg__avatar {
+      flex: 0 0 auto;
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      background: var(--bg-tint);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--ink-muted);
+      border: 1px solid var(--card-edge);
+    }
+    .msg--user .msg__avatar {
+      background: var(--ink);
+      color: white;
+      border-color: var(--ink);
+    }
+    .msg__body {
+      flex: 1;
+      min-width: 0;
+      font-size: 0.95rem;
+      line-height: 1.55;
+      color: var(--ink);
+    }
+    .msg__name {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--ink-muted);
+      margin: 0 0 0.15rem;
+      letter-spacing: 0.02em;
+    }
+    .msg--user .msg__name { color: var(--ink); }
+    .msg__body p { margin: 0 0 0.5em; }
+    .msg__body p:last-child { margin-bottom: 0; }
+    .msg__body code {
+      font-family: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+      font-size: 0.85em;
+      background: var(--bg-tint);
+      padding: 0.05em 0.35em;
+      border-radius: 4px;
+      border: 1px solid var(--card-edge);
+    }
+
+    /* Project cards rendered inside messages */
+    .results {
+      display: grid;
+      gap: 0.5rem;
+      margin-top: 0.875rem;
+    }
+    .result {
+      display: grid;
+      grid-template-columns: 48px 1fr auto;
+      gap: 0.875rem;
+      align-items: center;
+      padding: 0.75rem;
+      border: 1px solid var(--card-edge);
+      border-radius: 14px;
+      background: var(--card);
+      transition: border-color 160ms ease, background 160ms ease;
+    }
+    .result:hover {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .result__thumb {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent) 0%, #C026D3 100%);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    .result__thumb--b { background: linear-gradient(135deg, #06B6D4 0%, #3B82F6 100%); }
+    .result__thumb--c { background: linear-gradient(135deg, #10B981 0%, #06B6D4 100%); }
+    .result__thumb--d { background: linear-gradient(135deg, #F59E0B 0%, #EF4444 100%); }
+    .result__main { min-width: 0; }
+    .result__title {
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 0.95rem;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      margin: 0 0 0.1rem;
+    }
+    .result__desc {
+      font-size: 0.8rem;
+      color: var(--ink-muted);
+      margin: 0;
+      line-height: 1.4;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      line-clamp: 2;
+    }
+    .result__cta {
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--accent);
+      white-space: nowrap;
+    }
+
+    /* Typing indicator */
+    .typing {
+      display: inline-flex;
+      gap: 4px;
+      padding: 0.25rem 0;
+    }
+    .typing__bar {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--ink-dim);
+      animation: typing 1.2s ease-in-out infinite;
+    }
+    .typing__bar:nth-child(2) { animation-delay: 0.15s; }
+    .typing__bar:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes typing {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+      30%           { transform: translateY(-3px); opacity: 1; }
+    }
+
+    /* -- Input row (REPL) inside hero card ----------------------- */
+
+    .repl {
+      border-top: 1px solid var(--card-edge);
+      padding: 1rem 1.25rem 1.25rem;
+      background: var(--card);
+    }
+    .repl__row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 0.5rem;
+      border: 1px solid var(--card-edge);
+      border-radius: var(--r-input);
+      padding: 0.375rem 0.375rem 0.375rem 1rem;
+      background: var(--card);
+      transition: border-color 160ms ease, box-shadow 160ms ease;
+    }
+    .repl__row:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+    }
+    .repl__input {
+      border: 0;
+      outline: 0;
+      background: transparent;
+      font-family: var(--body);
+      font-size: 0.95rem;
+      line-height: 1.4;
+      color: var(--ink);
+      resize: none;
+      padding: 0.5rem 0;
+      min-height: 1.4rem;
+      max-height: 7rem;
+    }
+    .repl__input::placeholder { color: var(--ink-dim); }
+    .repl__send {
+      font-family: var(--body);
+      font-size: 0.88rem;
+      font-weight: 600;
+      padding: 0.55rem 1.1rem;
+      background: var(--ink);
+      color: white;
+      border-radius: 12px;
+      transition: background 160ms ease, transform 80ms ease, opacity 160ms ease;
+    }
+    .repl__send:hover:not(:disabled) { background: var(--accent); }
+    .repl__send:active:not(:disabled) { transform: scale(0.98); }
+    .repl__send:disabled { opacity: 0.3; cursor: not-allowed; }
+    .repl__hint {
+      margin-top: 0.625rem;
+      font-size: 0.75rem;
+      color: var(--ink-dim);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .repl__hint kbd {
+      font-family: var(--body);
+      font-size: 0.72rem;
+      background: var(--bg-tint);
+      border: 1px solid var(--card-edge);
+      border-radius: 4px;
+      padding: 0 0.35rem;
+      color: var(--ink-muted);
+      margin: 0 0.15rem;
+    }
+
+    /* -- Small cards (satellites) ---------------------------------- */
+
+    .mini__head {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .mini__icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--bg-tint);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+    }
+    .mini__title {
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 0.95rem;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      margin: 0;
+    }
+    .mini__sub {
+      font-size: 0.78rem;
+      color: var(--ink-dim);
+      margin: 0 0 1rem;
+    }
+
+    /* Stack picker (chips) */
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.45rem 0.85rem;
+      border: 1px solid var(--card-edge);
+      border-radius: var(--r-pill);
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--ink-muted);
+      background: var(--card);
+      transition: all 160ms ease;
+    }
+    .chip:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .chip__count {
+      font-size: 0.7rem;
+      color: var(--ink-dim);
+      font-variant-numeric: tabular-nums;
+    }
+    .chip:hover .chip__count { color: var(--accent); opacity: 0.7; }
+
+    /* About card */
+    .about {
+      font-size: 0.92rem;
+      line-height: 1.55;
+      color: var(--ink-muted);
+    }
+    .about strong { color: var(--ink); font-weight: 600; }
+    .about__list {
+      list-style: none;
+      padding: 0;
+      margin: 0.75rem 0 0;
+      display: grid;
+      gap: 0.5rem;
+    }
+    .about__list li {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--ink-muted);
+    }
+    .about__list li::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex: 0 0 auto;
+      align-self: center;
+    }
+
+    /* Contact card */
+    .contact__row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.625rem 0;
+      border-bottom: 1px solid var(--card-edge);
+      font-size: 0.85rem;
+    }
+    .contact__row:last-child { border-bottom: 0; padding-bottom: 0; }
+    .contact__row:first-of-type { padding-top: 0; }
+    .contact__icon {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      background: var(--bg-tint);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ink-muted);
+      flex: 0 0 auto;
+    }
+    .contact__label {
+      font-size: 0.72rem;
+      color: var(--ink-dim);
+      margin: 0;
+    }
+    .contact__value {
+      font-family: var(--display);
+      font-weight: 500;
+      font-size: 0.88rem;
+      color: var(--ink);
+      margin: 0;
+      letter-spacing: -0.01em;
+    }
+
+    /* -- Footer ---------------------------------------------------- */
+
+    .footer {
+      margin-top: 2rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--card-edge);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      font-size: 0.78rem;
+      color: var(--ink-dim);
+    }
+    .footer em {
+      font-style: normal;
+      font-family: var(--display);
+      font-weight: 500;
+      color: var(--ink-muted);
+      letter-spacing: -0.01em;
+    }
+
+    /* -- Mobile tweaks -------------------------------------------- */
+
+    @media (max-width: 880px) {
+      .nav__links { gap: 0.25rem; font-size: 0.85rem; }
+      .nav__link { padding: 0.35rem 0.7rem; }
+      .thread { max-height: none; }
+    }
+    @media (max-width: 520px) {
+      .nav { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+      .nav__links { width: 100%; flex-wrap: wrap; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Aurora background -->
+  <div class="aurora" aria-hidden="true"></div>
+
+  <div class="app">
+    <!-- ============ Top nav ============ -->
+    <nav class="nav" aria-label="Primary">
+      <a href="#" class="nav__brand">
+        <span class="nav__mark" aria-hidden="true"></span>
+        <span>portafolio</span>
+      </a>
+      <div class="nav__links">
+        <a class="nav__link nav__link--active" href="#">Chat</a>
+        <a class="nav__link" href="#">Proyectos</a>
+        <a class="nav__link" href="#">Sobre mí</a>
+        <a class="nav__link" href="#">Contacto</a>
+      </div>
+    </nav>
+
+    <!-- ============ Bento grid ============ -->
+    <div class="bento">
+
+      <!-- HERO card: chat -->
+      <section class="card card--accent" aria-label="Chat con el editor">
+        <header class="hero">
+          <div class="hero__eyebrow">
+            <span>En vivo · indexado para búsqueda</span>
+          </div>
+          <h1 class="hero__title">Preguntá lo que quieras saber del trabajo.</h1>
+          <p class="hero__sub">
+            Soy el editor de este portafolio. Busco entre los proyectos indexados y devuelvo prosa
+            con enlaces a las páginas de detalle.
+          </p>
+        </header>
+
+        <!-- Chat thread -->
+        <div class="thread" id="thread" aria-live="polite">
+          <!-- Seed message -->
+          <article class="msg msg--assistant">
+            <div class="msg__avatar">E</div>
+            <div class="msg__body">
+              <p class="msg__name">Editor</p>
+              <p>
+                Hola. Para empezar podés pedirme un stack concreto — <code>python</code>,
+                <code>aws</code>, <code>rag</code> — o una idea más amplia, como
+                <em>"side projects"</em>. Si no hay match, te lo digo.
+              </p>
+            </div>
+          </article>
+        </div>
+
+        <!-- REPL input -->
+        <form class="repl" id="repl" autocomplete="off">
+          <div class="repl__row">
+            <textarea
+              id="input"
+              class="repl__input"
+              rows="1"
+              placeholder="Escribí tu pregunta…"
+              aria-label="Su pregunta para el editor"
+            ></textarea>
+            <button type="submit" class="repl__send" id="sendBtn" disabled>Enviar</button>
+          </div>
+          <div class="repl__hint">
+            <span><kbd>Enter</kbd> enviar · <kbd>Shift</kbd>+<kbd>Enter</kbd> nueva línea</span>
+            <span id="status">Listo</span>
+          </div>
+        </form>
+      </section>
+
+      <!-- Stacks card (top-right) -->
+      <section class="card card--md" aria-label="Stacks">
+        <div class="mini__head">
+          <div class="mini__icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          </div>
+          <div>
+            <h2 class="mini__title">Stacks</h2>
+            <p class="mini__sub">Tocá para probar</p>
+          </div>
+        </div>
+        <div class="chips" id="chips">
+          <button type="button" class="chip" data-tag="Python">Python<span class="chip__count">7</span></button>
+          <button type="button" class="chip" data-tag="AWS">AWS<span class="chip__count">5</span></button>
+          <button type="button" class="chip" data-tag="cloud">Cloud<span class="chip__count">5</span></button>
+          <button type="button" class="chip" data-tag="data">Data<span class="chip__count">4</span></button>
+          <button type="button" class="chip" data-tag="RAG">RAG<span class="chip__count">3</span></button>
+          <button type="button" class="chip" data-tag="side-project">Side projects<span class="chip__count">6</span></button>
+          <button type="button" class="chip" data-tag="FastAPI">FastAPI<span class="chip__count">4</span></button>
+          <button type="button" class="chip" data-tag="Astro">Astro<span class="chip__count">3</span></button>
+        </div>
+      </section>
+
+      <!-- About card (small, right) -->
+      <section class="card card--sm" aria-label="Sobre el autor">
+        <div class="mini__head">
+          <div class="mini__icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <h2 class="mini__title">Sobre mí</h2>
+        </div>
+        <p class="about">
+          <strong>Backend &amp; data</strong> con Python, AWS y LLMs.
+          Construyo servicios que escalan y los hago confiables con
+          observabilidad y migraciones limpias.
+        </p>
+        <ul class="about__list">
+          <li>5+ años en producción</li>
+          <li>Open source: <code>HiRag15k</code></li>
+          <li>ES / EN bilingüe</li>
+        </ul>
+      </section>
+
+      <!-- Contact card (wide, bottom) -->
+      <section class="card card--wide" aria-label="Contacto">
+        <div class="mini__head">
+          <div class="mini__icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </div>
+          <h2 class="mini__title">Contacto</h2>
+        </div>
+        <div class="contact__row">
+          <div class="contact__icon" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </div>
+          <div>
+            <p class="contact__label">Email</p>
+            <p class="contact__value">tu@email.com</p>
+          </div>
+        </div>
+        <div class="contact__row">
+          <div class="contact__icon" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+          </div>
+          <div>
+            <p class="contact__label">LinkedIn</p>
+            <p class="contact__value">/in/tu-usuario</p>
+          </div>
+        </div>
+        <div class="contact__row">
+          <div class="contact__icon" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+          </div>
+          <div>
+            <p class="contact__label">GitHub</p>
+            <p class="contact__value">/tu-usuario</p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ============ Footer ============ -->
+    <footer class="footer">
+      <span><em>experiment · alt del widget flotante</em></span>
+      <span>bento · minimal · single accent</span>
+    </footer>
+  </div>
+
+  <script>
+    /* =====================================================================
+       Stand-in chat engine. The real backend shape is preserved so swapping
+       to /api/chat/stream-projects is a one-function change.
+       All DOM writes use createElement + textContent — no innerHTML.
+    ===================================================================== */
+
+    const thread  = document.getElementById('thread');
+    const repl    = document.getElementById('repl');
+    const input   = document.getElementById('input');
+    const sendBtn = document.getElementById('sendBtn');
+    const status  = document.getElementById('status');
+
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    /* -- Response bank --------------------------------------------- */
+
+    const RESPONSES = [
+      {
+        match: /\b(python|django|fastapi|flask)\b/i,
+        paragraphs: [
+          'Hay <strong>siete proyectos</strong> etiquetados con Python en el archivo. La mayoría corre sobre FastAPI o Django REST Framework, con un patrón estable: tipado estricto, migraciones automatizadas, y un ojo clínico sobre los timeouts.',
+          'Los tres más representativos son un pipeline de migración cloud (proj-cloud-migration, 2024), un wrapper RAG open-source (HiRag15k, 2023), y un side project de budgeting personal (proj-finance-cli, 2022).',
+        ],
+        results: [
+          { thumb: 'CM', cls: '',     title: 'proj-cloud-migration', desc: 'Migración de workloads legacy a AWS multi-cuenta, con Terraform y validación de drift.' },
+          { thumb: 'R',  cls: 'b',    title: 'HiRag15k',             desc: 'Wrapper open-source sobre LangChain para retrieval jerárquico en colecciones grandes.' },
+          { thumb: 'F',  cls: 'c',    title: 'proj-finance-cli',     desc: 'Side project para trackear gastos en CSV con categorización por reglas.' },
+        ],
+      },
+      {
+        match: /\b(aws|cloud|terraform|ec2|lambda|s3)\b/i,
+        paragraphs: [
+          'Cinco proyectos tocan AWS — desde pipelines de migración hasta side projects serverless. La mayoría asume multi-cuenta y un patrón landing-zone con Control Tower.',
+          'Los side projects viven en Lambda para no pagar nunca; las migraciones enseñaron qué partes del monolito no valía la pena levantar.',
+        ],
+        results: [
+          { thumb: 'CM', cls: '',  title: 'proj-cloud-migration', desc: 'Migración de workloads legacy a AWS multi-cuenta.' },
+          { thumb: 'O',  cls: 'b', title: 'proj-receipts-ocr',    desc: 'Side project serverless con Textract para tickets de supermercado.' },
+        ],
+      },
+      {
+        match: /\b(data|etl|spark|airflow|datalake)\b/i,
+        paragraphs: [
+          'Cuatro proyectos con tag data. Los más sólidos son pipelines sobre Spark y Airflow, con un patrón estable: staging limpia, capa curated, y gold para servir.',
+          'La mitad son pipelines productivos en equipos grandes, la mitad son experimentos personales para entender mejor el tooling.',
+        ],
+        results: [
+          { thumb: 'FX', cls: 'c', title: 'proj-fx-pipeline', desc: 'Pipeline diario de tipos de cambio desde APIs públicas hacia Snowflake.' },
+          { thumb: 'SM', cls: 'd', title: 'proj-saas-metrics', desc: 'Side project — dbt project que calcula MRR, churn y expansion con tests exhaustivos.' },
+        ],
+      },
+      {
+        match: /\b(rag|llm|embedding|chroma|langchain|openai)\b/i,
+        paragraphs: [
+          'Tres proyectos tocan LLMs o retrieval-augmented generation. El más serio es HiRag15k, un wrapper sobre LangChain para retrieval jerárquico — escrito antes de que el patrón RAG se volviera mainstream.',
+          'El actual portafolio (esta misma página) es el cuarto: indexa los proyectos en ChromaDB y los devuelve en prosa conversacional.',
+        ],
+        results: [
+          { thumb: 'R', cls: 'b', title: 'HiRag15k',         desc: 'Wrapper open-source sobre LangChain para retrieval jerárquico.' },
+          { thumb: 'P', cls: '',  title: 'this-portfolio',   desc: 'Portafolio navegable por conversación. Dos pasos: master index, después detail collection.' },
+        ],
+      },
+      {
+        match: /\b(side|personal|hobby)\b/i,
+        paragraphs: [
+          'Hay seis side projects en el archivo. Algunos son juguete, otros son producto — todos comparten una característica: viven en AWS free tier o en una Raspberry Pi.',
+          'Los que mejor envejecen: proj-receipts-ocr (Textract + Lambda, 2021) y proj-finance-cli (Python + Rich, 2022). El autor todavía los abre.',
+        ],
+        results: [
+          { thumb: 'F', cls: 'c', title: 'proj-finance-cli',  desc: 'Side project para trackear gastos en CSV con categorización por reglas.' },
+          { thumb: 'O', cls: 'b', title: 'proj-receipts-ocr', desc: 'Side project serverless con Textract para tickets de supermercado.' },
+        ],
+      },
+      {
+        match: /\b(hola|buenos|buenas|hello|hi)\b/i,
+        paragraphs: [
+          'Hola. Le doy la bienvenida al archivo. Para empezar con buen pie, sugerí una de dos cosas: pedir un rubro concreto (Python, AWS, data, side projects), o hacer una pregunta amplia y dejarme a mí decidir qué proyectos tienen algo que decir.',
+        ],
+        results: [],
+      },
+      {
+        match: /.*/,
+        paragraphs: [
+          'Su consulta no matcheó con ninguno de los proyectos indexados. Eso no significa que no haya material — puede significar que la formulación es demasiado amplia, o que apunta a un dominio que todavía no está cargado.',
+          'Sugiero reformular con un stack concreto (<code>python</code>, <code>aws</code>, <code>rag</code>…) o pedirme un rubro entero.',
+        ],
+        results: [],
+      },
+    ];
+
+    function pickResponse(text) {
+      for (const r of RESPONSES) {
+        if (r.match.test(text)) return r;
+      }
+      return RESPONSES[RESPONSES.length - 1];
+    }
+
+    /* -- DOM builders (no innerHTML anywhere) --------------------- */
+
+    function makeAvatar(letter, isUser) {
+      const a = document.createElement('div');
+      a.className = 'msg__avatar' + (isUser ? ' msg--user' : '');
+      a.textContent = letter;
+      return a;
+    }
+
+    function buildUserBlock(text) {
+      const art = document.createElement('article');
+      art.className = 'msg msg--user';
+
+      const av = document.createElement('div');
+      av.className = 'msg__avatar';
+      av.textContent = 'V';
+
+      const body = document.createElement('div');
+      body.className = 'msg__body';
+      const name = document.createElement('p');
+      name.className = 'msg__name';
+      name.textContent = 'Visitante';
+      const p = document.createElement('p');
+      p.textContent = text;
+      body.appendChild(name);
+      body.appendChild(p);
+
+      art.appendChild(av);
+      art.appendChild(body);
+      return art;
+    }
+
+    function buildBotBlock(resp) {
+      const art = document.createElement('article');
+      art.className = 'msg msg--assistant';
+
+      const av = document.createElement('div');
+      av.className = 'msg__avatar';
+      av.textContent = 'E';
+
+      const body = document.createElement('div');
+      body.className = 'msg__body';
+      const name = document.createElement('p');
+      name.className = 'msg__name';
+      name.textContent = 'Editor';
+      body.appendChild(name);
+
+      // Paragraphs container — typewriter fills this.
+      const prose = document.createElement('div');
+      prose.className = 'prose';
+      body.appendChild(prose);
+
+      // Optional results grid
+      if (resp.results && resp.results.length) {
+        const grid = document.createElement('div');
+        grid.className = 'results';
+        for (const r of resp.results) {
+          const row = document.createElement('a');
+          row.className = 'result';
+          row.href = '#';
+          row.addEventListener('click', (e) => e.preventDefault());
+
+          const thumb = document.createElement('div');
+          thumb.className = 'result__thumb' + (r.cls ? ' result__thumb--' + r.cls : '');
+          thumb.textContent = r.thumb;
+
+          const main = document.createElement('div');
+          main.className = 'result__main';
+          const t = document.createElement('h4');
+          t.className = 'result__title';
+          t.textContent = r.title;
+          const d = document.createElement('p');
+          d.className = 'result__desc';
+          d.textContent = r.desc;
+          main.appendChild(t);
+          main.appendChild(d);
+
+          const cta = document.createElement('div');
+          cta.className = 'result__cta';
+          cta.textContent = 'Ver →';
+
+          row.appendChild(thumb);
+          row.appendChild(main);
+          row.appendChild(cta);
+          grid.appendChild(row);
+        }
+        body.appendChild(grid);
+      }
+
+      art.appendChild(av);
+      art.appendChild(body);
+      return { block: art, prose };
+    }
+
+    function buildTypingBlock() {
+      const art = document.createElement('article');
+      art.className = 'msg msg--assistant';
+
+      const av = document.createElement('div');
+      av.className = 'msg__avatar';
+      av.textContent = 'E';
+
+      const body = document.createElement('div');
+      body.className = 'msg__body';
+      const typing = document.createElement('div');
+      typing.className = 'typing';
+      typing.setAttribute('aria-label', 'escribiendo');
+      for (let i = 0; i < 3; i++) {
+        const bar = document.createElement('span');
+        bar.className = 'typing__bar';
+        typing.appendChild(bar);
+      }
+      body.appendChild(typing);
+
+      art.appendChild(av);
+      art.appendChild(body);
+      return art;
+    }
+
+    /* -- Typewriter (typed HTML is built from safe inline elements) */
+
+    async function typeProse(container, paragraphs) {
+      container.innerHTML = '';  // safe: clearing a container, not assigning user data
+      for (const html of paragraphs) {
+        const p = document.createElement('p');
+        container.appendChild(p);
+        await typeHtmlInto(p, html);
+      }
+    }
+    // The only safe use of innerHTML above is to clear a container we own.
+    // The actual paragraph rendering below uses createElement only.
+
+    async function typeHtmlInto(target, html) {
+      // Tokenize into: text, <strong>, </strong>, <em>, </em>, <code>, </code>
+      const tokens = [];
+      const re = /<\/?(strong|em|code)>/g;
+      let last = 0;
+      let m;
+      while ((m = re.exec(html)) !== null) {
+        if (m.index > last) tokens.push({ type: 'text', value: html.slice(last, m.index) });
+        tokens.push({ type: 'tag', value: m[1], closing: m[0].startsWith('</') });
+        last = m.index + m[0].length;
+      }
+      if (last < html.length) tokens.push({ type: 'text', value: html.slice(last) });
+
+      let cursor = target;
+      for (const tok of tokens) {
+        if (tok.type === 'text') {
+          for (const ch of tok.value) {
+            cursor.appendChild(document.createTextNode(ch));
+            await sleep(7 + Math.random() * 5);
+          }
+        } else if (tok.type === 'tag' && !tok.closing) {
+          const el = document.createElement(tok.value);
+          target.appendChild(el);
+          cursor = el;
+        } else if (tok.type === 'tag' && tok.closing) {
+          cursor = target;
+        }
+      }
+    }
+
+    /* -- Submit handler -------------------------------------------- */
+
+    async function submitQuestion(text) {
+      const v = text.trim();
+      if (!v) return;
+
+      input.disabled = true;
+      sendBtn.disabled = true;
+      status.textContent = 'Buscando…';
+
+      // User message
+      thread.appendChild(buildUserBlock(v));
+      thread.scrollTop = thread.scrollHeight;
+
+      // Typing indicator (replaced by bot block)
+      const typing = buildTypingBlock();
+      thread.appendChild(typing);
+      thread.scrollTop = thread.scrollHeight;
+
+      const resp = pickResponse(v);
+      await sleep(380 + Math.random() * 320);
+
+      typing.remove();
+      const { block, prose } = buildBotBlock(resp);
+      thread.appendChild(block);
+
+      await typeProse(prose, resp.paragraphs);
+
+      status.textContent = 'Listo';
+      input.disabled = false;
+      sendBtn.disabled = input.value.trim() === '';
+      input.focus();
+      thread.scrollTop = thread.scrollHeight;
+    }
+
+    repl.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const v = input.value;
+      input.value = '';
+      sendBtn.disabled = true;
+      autoSize();
+      void submitQuestion(v);
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        repl.requestSubmit();
+      }
+    });
+
+    input.addEventListener('input', () => {
+      sendBtn.disabled = input.value.trim() === '';
+      autoSize();
+    });
+
+    function autoSize() {
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 112) + 'px';
+    }
+
+    /* -- Chips: pre-fill the input on click ------------------------ */
+
+    document.querySelectorAll('.chip').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tag = btn.dataset.tag;
+        const q = tag.toLowerCase().includes('side')
+          ? 'muéstrame tus side projects'
+          : 'muéstrame proyectos con ' + tag;
+        input.value = q;
+        sendBtn.disabled = false;
+        input.focus();
+        autoSize();
+      });
+    });
+
+    input.focus();
+  </script>
+</body>
+</html>
