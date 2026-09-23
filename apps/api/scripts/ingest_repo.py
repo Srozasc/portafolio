@@ -13,10 +13,11 @@ Implemented in this iteration:
   - validate_frontmatter      Python mirror of apps/web/src/content/config.ts
   - build_frontmatter         GitHub repo -> portfolio frontmatter
   - write_project_md          atomic write (tmp + rename), --force aware
+  - detect_language           heuristica ES/EN con stopwords (fallback 'en')
+  - rewrite_image_urls_to_absolute    ![alt](path) y <img src> → raw.githubusercontent.com
 
-Pending tasks (see odd/tasks/ingest-repo-from-github.md): language detection,
-image-URL rewriting, LLM translation, role/client prompt, branch + draft PR,
---force / --update, docs + E2E smoke test.
+Pending tasks (see odd/tasks/ingest-repo-from-github.md): LLM translation,
+role/client prompt, branch + draft PR, --force / --update, docs + E2E smoke test.
 
 Exit codes:
     0 - success (including dry-run)
@@ -386,6 +387,197 @@ def build_frontmatter(
             "case_study": None,
         },
     }
+
+
+# ---------------------------------------------------------------------------
+# Language detection & image rewriting
+# ---------------------------------------------------------------------------
+
+#: Spanish stopwords used by :func:`detect_language` to score how likely a
+#: README is in Spanish. Curated to cover articles, prepositions, common
+#: pronouns, auxiliary verbs and frequent adverbs.
+ES_STOPWORDS: frozenset[str] = frozenset({
+    # artículos
+    "el", "la", "los", "las", "un", "una", "unos", "unas",
+    # preposiciones
+    "de", "del", "en", "a", "por", "con", "para", "sin", "sobre",
+    "entre", "hasta", "desde", "al",
+    # conjunciones / relativo
+    "y", "o", "pero", "ni", "que", "si", "como", "cuando", "donde",
+    "mientras", "aunque", "porque",
+    # pronombres
+    "yo", "tu", "él", "ella", "nosotros", "ellos", "ellas",
+    "me", "te", "se", "nos", "le", "les", "lo",
+    "mi", "su", "nuestro", "vuestro", "sus",
+    "este", "esta", "estos", "estas", "ese", "esa", "esos", "esas",
+    "aquel", "aquella", "aquellos", "aquellas",
+    # verbos comunes
+    "es", "son", "ser", "estar", "está", "están", "era", "eran",
+    "fue", "fueron", "ha", "han", "había", "he", "has", "hay",
+    "tiene", "tienen", "tenía",
+    # adverbios
+    "no", "sí", "muy", "más", "menos", "también", "ya", "aún",
+    "todavía", "aquí", "allí", "ahora", "entonces", "bien",
+    # otros
+    "todo", "todos", "cada",
+})
+
+#: English stopwords used by :func:`detect_language` to score how likely a
+#: README is in English. Curated to mirror ES_STOPWORDS for symmetry.
+EN_STOPWORDS: frozenset[str] = frozenset({
+    # artículos
+    "the", "a", "an",
+    # preposiciones
+    "of", "in", "on", "to", "for", "with", "at", "by", "from",
+    "into", "over", "under", "between", "through", "during",
+    "before", "after", "about", "against", "without",
+    # conjunciones / relativo
+    "and", "or", "but", "nor", "so", "yet", "because", "if",
+    "when", "where", "while", "although", "since", "unless",
+    "until",
+    # pronombres
+    "i", "you", "he", "she", "it", "we", "they",
+    "me", "him", "her", "us", "them",
+    "my", "your", "his", "its", "our", "their",
+    "this", "that", "these", "those",
+    # verbos auxiliares / comunes
+    "is", "are", "was", "were", "be", "been", "being",
+    "have", "has", "had", "having",
+    "do", "does", "did", "doing",
+    "will", "would", "should", "could", "can", "may", "might", "must",
+    # adverbios
+    "not", "no", "yes", "very", "more", "less", "also", "just",
+    "only", "even", "still", "already", "here", "there",
+    "now", "then", "well", "too", "much", "many", "some", "any",
+    "all", "every",
+})
+
+# Noise patterns stripped before counting stopwords.
+_FENCED_CODE = re.compile(r"```.*?```", re.DOTALL)
+_INLINE_CODE = re.compile(r"`[^`]+`")
+_URL = re.compile(r"https?://\S+")
+_HTML_TAG = re.compile(r"<[^>]+>")
+
+# Tokenizer for language detection. Matches runs of letters incl. Spanish
+# accented chars (Unicode Latin-1 Supplement).
+_WORDS = re.compile(r"[a-záéíóúñü]+", re.IGNORECASE)
+
+# Markdown image: `![alt](path)` with optional title `![alt](path "title")`.
+# Group 3 captures the title (including the leading space) or empty string.
+# Lazy match so alt may contain brackets/text within reason.
+_MD_IMAGE = re.compile(
+    r'!\[(.*?)\]\(([^)\s]+)((?:\s+"[^"]*")?)\)',
+    re.DOTALL,
+)
+
+# HTML <img> whole-tag matcher (case-insensitive).
+_HTML_IMG_TAG = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
+
+# src="..." or src='...' inside an <img> tag.
+_HTML_IMG_SRC = re.compile(r'src=(["\'])([^"\']*?)\1', re.IGNORECASE)
+
+
+def detect_language(readme_text: str) -> str:
+    """Detect whether a README is primarily Spanish or English.
+
+    Heuristic: strip code blocks, inline code, URLs and HTML tags; count
+    stopword matches (tokens of length >= 3 only, to avoid 1-2 char
+    ambiguous words like ``"a"``, ``"y"``, ``"of"``) for ES and EN;
+    return ``"es"`` if ES wins, otherwise ``"en"``. Empty/blank input and
+    ties fall back to ``"en"``.
+
+    Returns:
+        ``"es"`` or ``"en"``.
+    """
+    if not readme_text or not readme_text.strip():
+        return "en"
+
+    txt = _FENCED_CODE.sub(" ", readme_text)
+    txt = _INLINE_CODE.sub(" ", txt)
+    txt = _URL.sub(" ", txt)
+    txt = _HTML_TAG.sub(" ", txt)
+
+    tokens = [t.lower() for t in _WORDS.findall(txt) if len(t) >= 3]
+    if not tokens:
+        return "en"
+
+    es = sum(1 for t in tokens if t in ES_STOPWORDS)
+    en = sum(1 for t in tokens if t in EN_STOPWORDS)
+
+    return "es" if es > en else "en"
+
+
+def rewrite_image_urls_to_absolute(
+    readme_text: str,
+    owner: str,
+    repo: str,
+    branch: str,
+) -> str:
+    """Rewrite relative image URLs in a README to absolute raw.githubusercontent URLs.
+
+    Handles both Markdown ``![alt](path)`` (with optional title) and HTML
+    ``<img src="path">`` forms. Leaves alone: absolute URLs (http/https),
+    data URLs, mailto, and anchor links (``#anchor``). Relative paths are
+    resolved from the repo root (where READMEs sit); ``..`` segments
+    clamp at the root.
+    """
+    if not readme_text:
+        return readme_text
+
+    base = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/"
+
+    def _resolve(path: str) -> str | None:
+        if not path:
+            return None
+        if path.startswith(("http://", "https://", "data:", "mailto:", "#")):
+            return None
+        # Strip leading ./ segments
+        cleaned = path
+        while cleaned.startswith("./"):
+            cleaned = cleaned[2:]
+        # Resolve . and .. segments against the repo root (empty).
+        parts = cleaned.split("/")
+        resolved: list[str] = []
+        for p in parts:
+            if p == "" or p == ".":
+                continue
+            if p == "..":
+                if resolved:
+                    resolved.pop()
+                continue
+            resolved.append(p)
+        return base + "/".join(resolved)
+
+    def _replace_md(m: re.Match[str]) -> str:
+        alt = m.group(1)
+        path = m.group(2)
+        title = m.group(3)
+        new = _resolve(path)
+        if new is None:
+            return m.group(0)
+        return f"![{alt}]({new}{title})"
+
+    def _replace_html(m: re.Match[str]) -> str:
+        tag = m.group(0)
+        src_match = _HTML_IMG_SRC.search(tag)
+        if src_match is None:
+            return tag
+        quote = src_match.group(1)
+        path = src_match.group(2)
+        new = _resolve(path)
+        if new is None:
+            return tag
+        # Rewrite only the src="path" within the tag, preserving everything
+        # around it (alt, class, style, etc.).
+        return (
+            tag[: src_match.start()]
+            + f"src={quote}{new}{quote}"
+            + tag[src_match.end() :]
+        )
+
+    text = _MD_IMAGE.sub(_replace_md, readme_text)
+    text = _HTML_IMG_TAG.sub(_replace_html, text)
+    return text
 
 
 # ---------------------------------------------------------------------------
