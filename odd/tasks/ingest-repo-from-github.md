@@ -1,6 +1,16 @@
 # Feature: Ingest repo from GitHub (script CLI)
 
-**Status**: in progress (Tarea 1 en curso)
+**Status**: in progress (Tareas 1-3 done; Tarea 4 en curso)
+
+## Commits landed on `dev`
+
+| Tarea | Commit SHA | Subject |
+| --- | --- | --- |
+| 1 | `0a26c0f` | `feat(api): agregar scaffold del CLI ingest_repo con cliente GitHub` |
+| docs (T1) | `647be9e` | `docs(tasks): registrar feature ingest-repo-from-github` |
+| 2 | `691d8ec` | `feat(api): mapear repo de GitHub a frontmatter del portafolio y escribir .md` |
+| 3 | `5c6e734` | `feat(api): detectar idioma del README y reescribir URLs de imagenes a absolutas` |
+
 **Started**: 2026-09-22
 **Branch**: `dev` (perfil solo-freelancer; el script al ejecutarse creará sus propios branches por-repo)
 **Sources**:
@@ -31,31 +41,40 @@ CLI Python en `apps/api/scripts/ingest_repo.py` que recibe **un repo puntual** d
 
 ## Tasks
 
-### Tarea 1 — Scaffold del CLI + cliente GitHub (en curso)
+### Tarea 1 — Scaffold del CLI + cliente GitHub — DONE
 
-- [ ] **T1.1** Tests: `parse_repo_ref("owner/repo")` → `("owner", "repo")`; URL `https://github.com/owner/repo[.git]` → mismo; string inválido → `ValueError`
-- [ ] **T1.2** Tests: `slugify_repo_name("My-Repo")` → `"proj-my-repo"`; preserva `[a-z0-9-]`; trunca a 60 chars
-- [ ] **T1.3** Tests: `GitHubClient(token=None)` lanza si GitHub responde 401; `get_repo(owner, repo)` parsea `created_at` → año int; `get_readme(owner, repo)` retorna markdown raw
-- [ ] **T1.4** Implementación: `apps/api/scripts/ingest_repo.py` con `parse_repo_ref`, `slugify_repo_name`, `GitHubClient` (httpx + headers), argparse para `--token`, `--repo`, `--projects-dir`, `--out-dir`
-- [ ] **T1.5** Verificar: `python apps/api/scripts/ingest_repo.py --repo octocat/Hello-World --projects-dir apps/api/data/projects/ --dry-run` imprime metadata del repo sin escribir nada
-- [ ] **T1.6** Work-unit commit en `dev`: `feat(api): add ingest_repo CLI scaffold with GitHub client`
+Commits:
 
-### Tarea 2 — Mapeo a frontmatter + escritura del `.md`
+- `0a26c0f` `feat(api): agregar scaffold del CLI ingest_repo con cliente GitHub` (código + tests + `__init__.py`)
+- `647be9e` `docs(tasks): registrar feature ingest-repo-from-github` (este task file)
 
-- [ ] **T2.1** Tests: `build_frontmatter(...)` produce dict válido según schema Zod; `slug` matchea `/^proj-[a-z0-9-]+$/`; campos bilingües con contenido real en el idioma detectado y placeholder explícito `# TODO translate` en el otro
-- [ ] **T2.2** Tests: `write_project_md(...)` escribe archivo atómicamente (tmp + rename); aborta si el `.md` ya existe sin `--force`
-- [ ] **T2.3** Implementación: `build_frontmatter(repo_data, detected_lang, translated_fields)` y `write_project_md(frontmatter, body, out_dir)`
-- [ ] **T2.4** Validación Zod (importar schema de `apps/web/src/content/config.ts`... o redefinir como constante Python compartida): validar antes de escribir
-- [ ] **T2.5** Verificar: dry-run contra `octocat/Hello-World` produce un frontmatter válido y un cuerpo markdown con el README
-- [ ] **T2.6** Work-unit commit en `dev`: `feat(api): map GitHub repo to portfolio frontmatter and write .md`
+- [x] **T1.1** Tests: `parse_repo_ref("owner/repo")` → `("owner", "repo")`; URL `https://github.com/owner/repo[.git]` → mismo; string inválido → `ValueError` — **13/13 verde**
+- [x] **T1.2** Tests: `slugify_repo_name("My-Repo")` → `"proj-my-repo"`; preserva `[a-z0-9-]`; trunca a 60 chars — **15/15 verde**
+- [x] **T1.3** Tests: `GitHubClient(token=None)` lanza si GitHub responde 401; `get_repo(owner, repo)` parsea `created_at` → año int; `get_readme(owner, repo)` retorna markdown raw — **8/8 verde**
+- [x] **T1.4** Implementación: `apps/api/scripts/ingest_repo.py` con `parse_repo_ref`, `slugify_repo_name`, `GitHubClient` (httpx + headers), argparse para `--token`, `--repo`, `--projects-dir`, `--dry-run`
+- [x] **T1.5** Verificar: `--help` muestra argparse correcto; `--repo invalid` retorna exit 1 con mensaje claro; dry-run scaffold OK
+- [x] **T1.6** Work-unit commit en `dev`: `0a26c0f` + `647be9e`
 
-### Tarea 3 — Detección de idioma del README + transformación de imágenes
+### Tarea 2 — Mapeo a frontmatter + escritura del `.md` — DONE
 
-- [ ] **T3.1** Tests: `detect_language(readme_text)` retorna `"es"` para texto español, `"en"` para inglés, `"en"` como fallback
-- [ ] **T3.2** Tests: `rewrite_image_urls_to_absolute(readme_text, owner, repo, branch)` reemplaza `./foo.png` y `../bar.png` por `https://raw.githubusercontent.com/<owner>/<repo>/<branch>/<path>`
-- [ ] **T3.3** Implementación: detector de idioma simple (heurística: stopwords ES vs EN, langdetect opcional como fallback). Reescritor de URLs de imágenes con regex.
-- [ ] **T3.4** Verificar: README bilingüe detectado correctamente; imágenes relativas reescritas
-- [ ] **T3.5** Work-unit commit en `dev`: `feat(api): detect README language and absolutize image URLs`
+Commit: `691d8ec` (incluye modernization de typings para ruff limpio: `tuple[...]`, `str | None`, `Self`, imports re-ordenados).
+
+- [x] **T2.1** Tests: `build_frontmatter(...)` produce dict válido según schema Zod; `slug` matchea `/^proj-[a-z0-9-]+$/`; campos bilingües con contenido real en el idioma detectado y placeholder `_(traduccion pendiente)_` Zod-safe en el otro — **22/22 verde**
+- [x] **T2.2** Tests: `write_project_md(...)` escribe archivo atómicamente (tmp + rename); aborta si el `.md` ya existe sin `--force`; falla limpio sin `.md.tmp`; round-trip YAML; UTF-8 — **10/10 verde**
+- [x] **T2.3** Implementación: `build_frontmatter(repo_data, role, detected_lang)` y `write_project_md(frontmatter, body, out_dir, *, force=False)`
+- [x] **T2.4** `validate_frontmatter(fm)` (Python mirror del schema Zod): slug regex, year [2000,2100] int (bool rechazado), tags/stack non-empty string list, summary ≥ 20 chars, links.repo/demo http(s)
+- [x] **T2.5** Tests integration (`test_returns_zod_valid_dict_en`/`_es`, `test_output_is_yaml_round_trippable`) confirman end-to-end
+- [x] **T2.6** Work-unit commit en `dev`: `691d8ec`
+
+### Tarea 3 — Detección de idioma del README + transformación de imágenes — DONE
+
+Commit: `5c6e734`.
+
+- [x] **T3.1** Tests: `detect_language(readme_text)` retorna `"es"` para texto español, `"en"` para inglés (incluyendo empty input, empate, idioma desconocido, README con code blocks / inline code / URLs / HTML) — **21/21 verde**
+- [x] **T3.2** Tests: `rewrite_image_urls_to_absolute(readme_text, owner, repo, branch)` reescribe Markdown `![alt](path)` (con y sin title, `./`, `../`, paths anidados, anclas, data:, mailto:) y HTML `<img src="...">` (comillas dobles y simples) — **27/27 verde**
+- [x] **T3.3** Implementación: detector con listas de stopwords ES/EN (frozensets, ruff-clean sin duplicados B033); strip pre-cuenta de code blocks, inline code, URLs y HTML. Reescritor de imágenes con regex (Markdown image con title opcional como grupo capturing; HTML `<img>` tag reescrito preservando el resto de los atributos). Tokens < 3 chars se ignoran para evitar ambigüedad entre idiomas.
+- [x] **T3.4** Smoke tests cubren READMEs bilingües, imágenes relativas de varios niveles, parent paths, anclas y combinaciones
+- [x] **T3.5** Work-unit commit en `dev`: `5c6e734`
 
 ### Tarea 4 — Pasada de LLM para los campos del idioma secundario
 
