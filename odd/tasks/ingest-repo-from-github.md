@@ -1,6 +1,6 @@
 # Feature: Ingest repo from GitHub (script CLI)
 
-**Status**: in progress (Tareas 1-4 done; Tarea 5 en curso)
+**Status**: in progress (Tareas 1-5 done; Tarea 6 en curso)
 
 ## Commits landed on `dev`
 
@@ -11,6 +11,7 @@
 | 2 | `691d8ec` | `feat(api): mapear repo de GitHub a frontmatter del portafolio y escribir .md` |
 | 3 | `5c6e734` | `feat(api): detectar idioma del README y reescribir URLs de imagenes a absolutas` |
 | 4 | `5991f4b` | `feat(api): extender LLMClient con chat() no-streaming y agregar translate_fields al script` |
+| 5 | `465139a` | `feat(api): cargar role desde .portafolio.yml o prompt interactivo en el script` |
 
 **Started**: 2026-09-22
 **Branch**: `dev` (perfil solo-freelancer; el script al ejecutarse creará sus propios branches por-repo)
@@ -98,13 +99,26 @@ Commit: `5991f4b`.
 - **Fallback key-por-key (T4.4)**: no es all-or-nothing. Si el LLM traduce bien `title` pero el JSON no tiene `summary`, el `title` traducido queda y `summary` cae al original. Logging de warning para auditoría.
 - **ruff UP035**: `from typing import Iterator` reemplazado por `from collections.abc import Iterator` (typing.Iterator deprecado desde 3.9).
 
-### Tarea 5 — Modo interactivo del `role_*` + opt-in via `.portafolio.yml`
+### Tarea 5 — Modo interactivo del `role_*` + opt-in via `.portafolio.yml` — DONE
 
-- [ ] **T5.1** Tests: `parse_portafolio_yml(raw_yaml)` retorna dict; ausencias toleradas; formato inválido → warning, no aborta
-- [ ] **T5.2** Tests: `prompt_for_role(lang)` (función a testear con mock de `input()`) retorna string no vacío
-- [ ] **T5.3** Implementación: descarga `.portafolio.yml` desde la API de GitHub (`/repos/{owner}/{repo}/contents/.portafolio.yml`); si existe, lee `role`, `client`, `summary_extra`, `impact`; si no, prompt al usuario (con default razonable: "Tech Lead" / "Engineer")
-- [ ] **T5.4** Modo no-interactive (`--non-interactive`): aborta con error claro si falta info que solo el humano puede dar
-- [ ] **T5.5** Work-unit commit en `dev`: `feat(api): ingest role/client from .portafolio.yml or interactive prompt`
+Commit: `465139a`.
+
+- [x] **T5.1** `parse_portafolio_yml(raw_text)` retorna dict con campos reconocidos (role, client, summary_extra, impact); ausencias toleradas; YAML inválido / no-dict / tipo incorrecto → warning + dict vacío (no aborta) — **17/17 verde**
+- [x] **T5.2** `prompt_for_role(lang)` usa `input()` con monkeypatch en tests; default por idioma (es: "Ingeniero", en: "Tech Lead"); blank → default; prompt text contiene keyword de rol en idioma correcto — **8/8 verde**
+- [x] **T5.3** `load_role_from_repo(client, owner, repo, branch, *, non_interactive, detected_lang)` combinadora: intenta `.portafolio.yml`, fallback `.portafolio.yaml`. GitHubClient.get_file_content nuevo método raw (404 → None, 401/403/≥400/network → GitHubError) — **5/5 verde (get_file_content) + 7/7 verde (load_role_from_repo)**
+- [x] **T5.4** Modo `--non-interactive` (CLI flag): si falta YAML con role válido → raise `MissingRoleError` con mensaje claro sobre cómo resolver. Capturado en `main()` y reportado como `ERROR: ...` con exit 1 — **cubierto en T5.3**
+- [x] **T5.5** Work-unit commit en `dev`: `465139a`
+
+**Total tests/scripts/**: 179 (T1-T4) + 38 (T5) = 217 verde.
+
+**Decisiones de implementación documentadas:**
+
+- **Tolerancia a fallos en YAML (T5.1)**: el parser nunca raise. Errores se loguean con `logger.warning(...)` y devuelven `dict` vacío o parcial. `null`/`~`/string vacío → tratado como missing (key omitida).
+- **Tipo strict por campo**: `role`/`client`/`summary_extra` deben ser `str` no-vacía; `impact` debe ser `list[str]` (items no-string se filtran). Keys con tipo incorrecto se omiten silenciosamente (no warning por key individual).
+- **`.portafolio.yml` antes que `.yaml`** (T5.3): convención documentada; el fallback solo se activa si `.yml` da 404.
+- **`prompt_for_role` no re-prompt**: blank → default inmediato (UX simple, menos fricción).
+- **Bug latente corregido durante review**: el worker original puso `load_role_from_repo` FUERA del `with GitHubClient(...) as client:`, lo que llamaba `get_file_content` sobre un client ya cerrado en runtime. Movido adentro del `with` para que el client siga vivo durante la descarga del YAML.
+- **Integration diferida a T8**: el `main()` actual llama `load_role_from_repo` y muestra el role en el summary, pero todavía no usa el role para construir el frontmatter (eso requiere integrar `build_frontmatter` con `write_project_md` + `translate_fields`, que es el wiring completo del CLI — va en T8 smoke test E2E).
 
 ### Tarea 6 — Branch + commit + PR en draft
 
