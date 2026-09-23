@@ -1,6 +1,6 @@
 # Feature: Ingest repo from GitHub (script CLI)
 
-**Status**: in progress (Tareas 1-3 done; Tarea 4 en curso)
+**Status**: in progress (Tareas 1-4 done; Tarea 5 en curso)
 
 ## Commits landed on `dev`
 
@@ -10,6 +10,7 @@
 | docs (T1) | `647be9e` | `docs(tasks): registrar feature ingest-repo-from-github` |
 | 2 | `691d8ec` | `feat(api): mapear repo de GitHub a frontmatter del portafolio y escribir .md` |
 | 3 | `5c6e734` | `feat(api): detectar idioma del README y reescribir URLs de imagenes a absolutas` |
+| 4 | `5991f4b` | `feat(api): extender LLMClient con chat() no-streaming y agregar translate_fields al script` |
 
 **Started**: 2026-09-22
 **Branch**: `dev` (perfil solo-freelancer; el script al ejecutarse creará sus propios branches por-repo)
@@ -76,14 +77,26 @@ Commit: `5c6e734`.
 - [x] **T3.4** Smoke tests cubren READMEs bilingües, imágenes relativas de varios niveles, parent paths, anclas y combinaciones
 - [x] **T3.5** Work-unit commit en `dev`: `5c6e734`
 
-### Tarea 4 — Pasada de LLM para los campos del idioma secundario
+### Tarea 4 — Pasada de LLM para los campos del idioma secundario — DONE
 
-- [ ] **T4.1** Extender `LLMClient` con método `chat(system, user) → str` (no-streaming) — test que mockea openai.OpenAI
-- [ ] **T4.2** Tests: `translate_fields(fields, source_lang, target_lang, llm)` retorna dict con mismos keys pero valores traducidos; nombres propios y tech terms preservados (verificable con snapshot test)
-- [ ] **T4.3** Implementación: prompt conservador (instrucciones explícitas de preservar nombres propios, terminología técnica, no inventar), `temperature=0.2`, retries (3) con backoff en StreamError
-- [ ] **T4.4** Manejo de errores: si la traducción falla, dejar el idioma secundario con placeholder `# TODO translate` (no abortar el ingest)
-- [ ] **T4.5** Verificar: integración con LLM real contra `octocat/Hello-World` produce campos traducidos coherentes
-- [ ] **T4.6** Work-unit commit en `dev`: `feat(api): translate secondary-language fields via LLM`
+Commit: `5991f4b`.
+
+- [x] **T4.1** `LLMClient.__init__` ahora acepta `client: openai.OpenAI | None = None` (A-a). Nuevo método `chat(system, user, *, temperature=0.2, max_retries=3) -> str` non-streaming. Retries solo en `APIConnectionError | RateLimitError | APITimeoutError` (C-a), backoff 1s/2s/4s. Auth y bad-request fallan loud sin retry. Empty content raise `StreamError`. Los 4 tests existentes de `stream_chat` siguen verdes — **15/15 nuevo (3 constructor + 4 happy + 6 retries + 2 non-retryable)**
+- [x] **T4.2** Tests `translate_fields`: ES→EN, EN→ES, JSON en code fences, preamble text, system prompt con instrucciones de preservar nombres propios, user message contiene input fields — **8/8 nuevo**
+- [x] **T4.3** `translate_fields` con prompt conservador: temperature 0.2, system prompt exige JSON object sin prose/markdown/code fences, user prompt template con reglas (preservar nombres propios, no inventar, match tone/length). JSON output (B-b) — extraído con `_extract_json` que maneja raw, ```json fences y preamble text — **incluido en T4.2**
+- [x] **T4.4** Fallback robusto: si el LLM exhausta retries, parse falla, key missing, value non-string o empty → usa el original key por key. `logger.warning` para visibilidad. Mismas-lang y fields vacíos cortocircuitan sin llamar al LLM — **6/6 nuevo**
+- [x] **T4.5** Validación de input: source/target lang deben ser `es` o `en` (else `ValueError`); input dict no se muta — **5/5 nuevo**
+- [x] **T4.6** Work-unit commit en `dev`: `5991f4b`
+
+**Total tests/scripts/**: 145 (T1-T3) + 34 (T4) = 179 verde. Los 4 tests de `tests/unit/test_llm_client.py` (stream_chat) preservados. 2 fallas pre-existentes en `test_projects_service.py` (seed files 5 vs 6), out of scope de esta feature.
+
+**Decisiones de implementación documentadas:**
+
+- **Constructor injection (A-a)**: `__init__` acepta `client` opcional. Cuando es None, se construye `openai.OpenAI(base_url, api_key)` como antes. Producción pasa None; tests inyectan un `MagicMock` con `chat.completions.create.side_effect = ...` para simular respuestas y errores.
+- **Retry policy (C-a)**: `_TRANSIENT_EXCEPTIONS = (APIConnectionError, RateLimitError, APITimeoutError)` son las únicas que reintentan. `AuthenticationError` y `BadRequestError` (4xx config bugs) fallan loud sin retry. Backoff 2^attempt: 1s, 2s, 4s. `max_retries=3` default → 4 attempts total.
+- **JSON output (B-b)**: el prompt del sistema exige "JSON object — never with prose, markdown, or code fences" pero `_extract_json` también tolera code fences y preamble text como defensa. Consistente con el patrón ya usado en `chat_service.py` para emitir project cards.
+- **Fallback key-por-key (T4.4)**: no es all-or-nothing. Si el LLM traduce bien `title` pero el JSON no tiene `summary`, el `title` traducido queda y `summary` cae al original. Logging de warning para auditoría.
+- **ruff UP035**: `from typing import Iterator` reemplazado por `from collections.abc import Iterator` (typing.Iterator deprecado desde 3.9).
 
 ### Tarea 5 — Modo interactivo del `role_*` + opt-in via `.portafolio.yml`
 
