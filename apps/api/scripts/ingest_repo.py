@@ -718,6 +718,139 @@ def rewrite_image_urls_to_absolute(
 
 
 # ---------------------------------------------------------------------------
+# Role intake (.portafolio.yml + interactive prompt) — T5
+# ---------------------------------------------------------------------------
+
+DEFAULT_ROLES: dict[str, str] = {"es": "Ingeniero", "en": "Tech Lead"}
+
+
+class MissingRoleError(Exception):
+    """Raised when role loading is required but neither .portafolio.yml
+    nor an interactive prompt is available (--non-interactive mode)."""
+
+
+def parse_portafolio_yml(raw_text: str) -> dict:
+    """Parse a .portafolio.yml document into a typed dict.
+
+    Tolerates malformed input: returns an empty dict (with a warning logged)
+    on YAML parse errors, non-dict top-level values, or invalid field types.
+    Only recognised fields (role, client, summary_extra, impact) appear in
+    the result; everything else is ignored.
+
+    Field type validation:
+      - role: str (non-empty after strip)
+      - client: str
+      - summary_extra: str
+      - impact: list[str] (non-string items filtered out)
+    Keys with wrong types are silently omitted from the result.
+    Explicit ``null`` / ``~`` values are treated as missing (key omitted).
+    """
+    if not raw_text or not raw_text.strip():
+        return {}
+
+    try:
+        parsed = yaml.safe_load(raw_text)
+    except yaml.YAMLError as exc:
+        logger.warning("Invalid YAML in .portafolio.yml: %s", exc)
+        return {}
+
+    if not isinstance(parsed, dict):
+        return {}
+
+    result: dict = {}
+    role = parsed.get("role")
+    if isinstance(role, str) and role.strip():
+        result["role"] = role.strip()
+
+    client = parsed.get("client")
+    if isinstance(client, str) and client.strip():
+        result["client"] = client.strip()
+
+    summary = parsed.get("summary_extra")
+    if isinstance(summary, str) and summary.strip():
+        result["summary_extra"] = summary.strip()
+
+    impact = parsed.get("impact")
+    if isinstance(impact, list):
+        str_items = [s for s in impact if isinstance(s, str) and s.strip()]
+        if str_items:
+            result["impact"] = [s.strip() for s in str_items]
+
+    return result
+
+
+def prompt_for_role(lang: str, *, default: str | None = None) -> str:
+    """Prompt the user (via input()) for their role on the project.
+
+    Returns the entered string, or ``default`` if the user submits an empty
+    line. Default fallback when ``default`` is None is language-specific:
+    "Tech Lead" for English, "Ingeniero" for Spanish.
+
+    Raises:
+        ValueError: If ``lang`` is not "es" or "en".
+    """
+    if lang not in DEFAULT_ROLES:
+        raise ValueError(
+            f"only es/en supported for role prompt, got {lang!r}"
+        )
+    fallback = default if default is not None else DEFAULT_ROLES[lang]
+    if lang == "es":
+        prompt_text = f"¿Cuál fue tu rol en este proyecto? [{fallback}]: "
+    else:
+        prompt_text = f"What was your role on this project? [{fallback}]: "
+
+    raw = input(prompt_text)
+    cleaned = raw.strip()
+    return cleaned if cleaned else fallback
+
+
+def load_role_from_repo(
+    github: GitHubClient,
+    owner: str,
+    repo: str,
+    branch: str | None = None,
+    *,
+    non_interactive: bool = False,
+    detected_lang: str = "en",
+) -> str:
+    """Load the human role from .portafolio.yml on the repo, falling back
+    to an interactive prompt.
+
+    Tries .portafolio.yml first, then .portafolio.yaml as a fallback. If
+    neither file is present (or both are malformed/empty):
+
+    - If ``non_interactive=False``: prompts the user via input().
+    - If ``non_interactive=True``: raises MissingRoleError.
+
+    Returns:
+        The role string (non-empty).
+
+    Raises:
+        MissingRoleError: If non-interactive and no valid role found in either
+            YAML file.
+        GitHubError: If the GitHub API call fails for a non-404 reason.
+    """
+    for filename in (".portafolio.yml", ".portafolio.yaml"):
+        raw = github.get_file_content(owner, repo, filename, ref=branch)
+        if raw is None:
+            continue
+        parsed = parse_portafolio_yml(raw)
+        role = parsed.get("role")
+        if role:
+            return role
+
+    # Neither file had a valid role.
+    if non_interactive:
+        raise MissingRoleError(
+            "Cannot determine role: no .portafolio.yml found on the repo "
+            "and --non-interactive is set. Either add a .portafolio.yml "
+            "with a `role:` field, or run without --non-interactive."
+        )
+
+    return prompt_for_role(detected_lang)
+
+
+# ---------------------------------------------------------------------------
 # GitHub REST client
 # ---------------------------------------------------------------------------
 
@@ -828,12 +961,65 @@ class GitHubClient:
 
         return r.text
 
+    def get_file_content(
+        self,
+        owner: str,
+        repo: str,
+        path: str,
+        ref: str | None = None,
+    ) -> str | None:
+        """Fetch the raw content of a file at a given path.
+
+        Calls ``GET /repos/{owner}/{repo}/contents/{path}`` with the raw
+        media type. 404 returns ``None`` (file doesn't exist on the repo).
+        Other 4xx/5xx raise ``GitHubError``. Network failures raise
+        ``GitHubError``.
+
+        Args:
+            owner: repo owner.
+            repo: repo name.
+            path: file path relative to repo root (e.g. ".portafolio.yml").
+            ref: optional branch/tag/sha to pin the file content to.
+
+        Returns:
+            Raw file content as text, or ``None`` if the file does not exist.
+
+        Raises:
+            GitHubError: On 401, 403 (rate limit), other >=400, or network failure.
+        """
+        endpoint = f"/repos/{owner}/{repo}/contents/{path}"
+        headers = {"Accept": "application/vnd.github.raw"}
+        params = {"ref": ref} if ref else None
+        try:
+            r = self._client.get(endpoint, params=params, headers=headers)
+        except httpx.HTTPError as exc:
+            raise GitHubError(
+                f"network error: {type(exc).__name__}"
+            ) from exc
+
+        if r.status_code == 404:
+            return None
+        if r.status_code == 401:
+            raise GitHubError(
+                "GitHub API returned 401 Unauthorized. "
+                "Check that GITHUB_TOKEN is valid and has repo:read scope."
+            )
+        if r.status_code == 403:
+            raise GitHubError(
+                f"GitHub API returned 403 Forbidden (rate limit?): {r.text[:200]}"
+            )
+        if r.status_code >= 400:
+            raise GitHubError(
+                f"GitHub API error {r.status_code}: {r.text[:200]}"
+            )
+        return r.text
+
 
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
-def _print_repo_summary(repo_data: dict, slug: str) -> None:
+def _print_repo_summary(repo_data: dict, slug: str, role: str) -> None:
     """Print a human-friendly summary of the repo metadata."""
     print(f"Repo: {repo_data.get('full_name')}")
     print(f"  name:           {repo_data.get('name')}")
@@ -845,6 +1031,7 @@ def _print_repo_summary(repo_data: dict, slug: str) -> None:
     print(f"  default_branch: {repo_data.get('default_branch')}")
     print(f"  html_url:       {repo_data.get('html_url')}")
     print(f"  derived slug:   {slug}")
+    print(f"  role:           {role}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -878,6 +1065,12 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Print metadata without writing any file or opening a PR",
     )
+    parser.add_argument(
+        "--non-interactive",
+        action="store_true",
+        help="Abort if a required value cannot be auto-detected "
+             "(e.g. role without .portafolio.yml). No prompts.",
+    )
     args = parser.parse_args(argv)
 
     # ----- 1. parse input ------------------------------------------------
@@ -889,11 +1082,22 @@ def main(argv: list[str] | None = None) -> int:
 
     token = args.token or os.environ.get("GITHUB_TOKEN")
 
-    # ----- 2. fetch repo metadata ---------------------------------------
+    # ----- 2. fetch repo metadata + load role -------------------------
     try:
         with GitHubClient(token=token) as client:
             repo_data = client.get_repo(owner, repo)
+            role = load_role_from_repo(
+                client,
+                owner,
+                repo,
+                branch=repo_data.get("default_branch"),
+                non_interactive=args.non_interactive,
+                detected_lang="en",  # TODO T3+T4: detect from README
+            )
     except GitHubError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    except MissingRoleError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
@@ -905,7 +1109,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     # ----- 4. report ----------------------------------------------------
-    _print_repo_summary(repo_data, slug)
+    _print_repo_summary(repo_data, slug, role)
 
     if args.dry_run:
         print("\n(dry run — no files written)")
