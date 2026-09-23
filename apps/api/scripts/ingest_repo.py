@@ -26,6 +26,8 @@ Exit codes:
 
 import argparse
 import contextlib
+import json
+import logging
 import os
 import re
 import sys
@@ -35,6 +37,7 @@ from typing import Self
 
 import httpx
 import yaml
+from backend.rag.llm_client import LLMClient, StreamError
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -387,6 +390,140 @@ def build_frontmatter(
             "case_study": None,
         },
     }
+
+
+# ---------------------------------------------------------------------------
+# Translation (LLM-driven, T4)
+# ---------------------------------------------------------------------------
+
+_LANG_NAMES: dict[str, str] = {"es": "Spanish", "en": "English"}
+
+_TRANSLATION_SYSTEM_PROMPT = (
+    "You are a precise translator for portfolio project metadata. "
+    "Preserve proper names and technical terms verbatim. "
+    "Always respond with a JSON object — never with prose, markdown, "
+    "or code fences."
+)
+
+_TRANSLATION_PROMPT_TEMPLATE = """Translate these portfolio project metadata fields from {source_name} to {target_name}.
+
+Rules:
+- Preserve proper names and technical terms verbatim (e.g., "Python", "AWS", "Kubernetes", product names, person names, company names).
+- Do not invent, remove, or reorder information.
+- Match the tone and length of the original.
+- Return ONLY a JSON object with the same keys and translated values.
+
+Input:
+{input_json}
+"""
+
+logger = logging.getLogger(__name__)
+
+
+def _extract_json(text: str) -> dict | None:
+    """Extract a JSON object from an LLM response.
+
+    Handles:
+      - Raw JSON: {"title": "..."}
+      - Code-fenced JSON: ```json ... ``` or ``` ... ```
+      - Preamble text before JSON: "Here is the result: {...}"
+
+    Returns the first parseable JSON object found, or None if none parse.
+    """
+    # Strategy 1: strip code fences and try the whole cleaned text.
+    cleaned = re.sub(r"```(?:json)?\s*\n?|\n?```", "", text).strip()
+    if cleaned:
+        try:
+            obj = json.loads(cleaned)
+            if isinstance(obj, dict):
+                return obj
+        except json.JSONDecodeError:
+            pass
+
+    # Strategy 2: find the first balanced {...} block in the cleaned text.
+    # For our flat dict responses, [^{}]* is enough; nested braces would
+    # not be produced by the LLM in this translation prompt.
+    for match in re.finditer(r"\{[^{}]*\}", cleaned or text):
+        try:
+            obj = json.loads(match.group(0))
+            if isinstance(obj, dict):
+                return obj
+        except json.JSONDecodeError:
+            continue
+
+    return None
+
+
+def translate_fields(
+    fields: dict[str, str],
+    source_lang: str,
+    target_lang: str,
+    llm: LLMClient,
+) -> dict[str, str]:
+    """Translate a dict of fields from source_lang to target_lang via the LLM.
+
+    Falls back gracefully (T4.4): if the LLM response is unparseable,
+    missing keys, or any LLM error occurs, returns the original fields
+    unchanged and logs a warning.
+
+    Args:
+        fields: Dict of field-name → text to translate. Values must be strings.
+        source_lang: 'es' or 'en' — language of the input.
+        target_lang: 'es' or 'en' — language to translate into.
+        llm: LLMClient instance to use for translation.
+
+    Returns:
+        A new dict with the same keys as ``fields``. Each value is the
+        translated text if successful, or the original text if translation
+        failed for that key.
+
+    Raises:
+        ValueError: If source_lang or target_lang is not 'es' or 'en'.
+    """
+    if source_lang not in ("es", "en"):
+        raise ValueError(
+            f"only es/en supported for source_lang, got {source_lang!r}"
+        )
+    if target_lang not in ("es", "en"):
+        raise ValueError(
+            f"only es/en supported for target_lang, got {target_lang!r}"
+        )
+    if not fields:
+        return {}
+    if source_lang == target_lang:
+        return dict(fields)
+
+    user_prompt = _TRANSLATION_PROMPT_TEMPLATE.format(
+        source_name=_LANG_NAMES[source_lang],
+        target_name=_LANG_NAMES[target_lang],
+        input_json=json.dumps(fields, ensure_ascii=False, indent=2),
+    )
+
+    try:
+        raw = llm.chat(_TRANSLATION_SYSTEM_PROMPT, user_prompt)
+    except StreamError as exc:
+        # T4.4: graceful fallback. Keep originals.
+        logger.warning(
+            "LLM translation failed (%s); keeping original fields", exc
+        )
+        return dict(fields)
+
+    parsed = _extract_json(raw)
+    if not isinstance(parsed, dict):
+        logger.warning(
+            "LLM translation response was not a JSON object: %r", raw[:200]
+        )
+        return dict(fields)
+
+    result: dict[str, str] = {}
+    for key, original in fields.items():
+        translated = parsed.get(key)
+        if isinstance(translated, str) and translated.strip():
+            result[key] = translated
+        else:
+            # Key missing, non-string, or empty → fall back to original.
+            result[key] = original
+    return result
 
 
 # ---------------------------------------------------------------------------
