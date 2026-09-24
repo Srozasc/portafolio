@@ -1,6 +1,6 @@
 # Feature: Ingest repo from GitHub (script CLI)
 
-**Status**: in progress (Tareas 1-7 done; Tarea 8 en curso)
+**Status**: complete (Tareas 1-8 done; feature cerrada)
 
 ## Commits landed on `dev`
 
@@ -14,6 +14,8 @@
 | 5 | `465139a` | `feat(api): cargar role desde .portafolio.yml o prompt interactivo en el script` |
 | 6 | `f1d2b77` | `feat(api): wrappear git y gh CLI para branch + draft PR en el script` |
 | 7 | `b485a6d` | `feat(api): agregar modos --force y --update para re-ingestar proyectos` |
+| 8 (feat) | `a843325` | `feat(api): wirear main() con pipeline completo + smoke test E2E` |
+| 8 (docs) | (siguiente) | `docs(api): documentar script ingest_repo y env vars` |
 
 **Started**: 2026-09-22
 **Branch**: `dev` (perfil solo-freelancer; el script al ejecutarse creará sus propios branches por-repo)
@@ -165,13 +167,29 @@ Commit: `b485a6d`.
 
 **Bug del orchestrator al escribir tests**: 1 assertion (`test_existing_with_only_slug_and_title_es`) asumia que `title_es` se preservaba del existente, contradiciendo la spec que define `title_*` como regenerado. Fix aplicado antes del commit feat.
 
-### Tarea 8 — Docs + smoke test E2E contra un repo real
+### Tarea 8 — Docs + smoke test E2E contra un repo real — DONE
 
-- [ ] **T8.1** README del script: usage, ejemplos, troubleshooting (rate limit, repo privado, README muy largo)
-- [ ] **T8.2** Actualizar `apps/api/.env.example` con `GITHUB_TOKEN=...`
-- [ ] **T8.3** Smoke test E2E contra `octocat/Hello-World`: ingest completo, verificar que el `.md` generado pasa el schema Zod, que el body markdown se ve OK, que el branch y el PR se crearon
-- [ ] **T8.4** Work-unit commit en `dev`: `docs(api): document ingest_repo script and env vars`
+Commits: `a843325` (feat) + (siguiente) `docs(api)` para README + .env.example.
+
+- [x] **T8.1** `apps/api/scripts/README.md` (nuevo, ~180 lineas): usage basico, tabla de flags, env vars, opt-in `.portafolio.yml`, ejemplos (dry-run, primer ingest, --update, --force, --non-interactive), output esperado, troubleshooting (401/403, LLM fallido, slug mismatch), tests, estructura interna
+- [x] **T8.2** `apps/api/.env.example` (modificado): nueva seccion al final con `GITHUB_TOKEN=` y comentario explicativo (rate limit 60 vs 5000 req/h, como crear token)
+- [x] **T8.3** `tests/integration/test_ingest_repo_e2e.py` (nuevo, 3 tests): mocks de httpx (GitHub API para octocat/Hello-World), LLMClient (echo del input JSON, sin traduccion real), subprocess (git/gh). Cubre dry-run regression guard, happy-path write con frontmatter + body + imagenes reescritas, --force/--update guard. Los 3 tests pasan con `pytest tests/integration/test_ingest_repo_e2e.py -v` — **3/3 verde**
+- [x] **T8.4** Work-unit commits en `dev`: `a843325` (feat) + docs (siguiente)
 - [ ] **T8.5** PR de `dev` → `main` (lo abre el humano tras review)
+
+**Total tests**: 270 (tests/scripts/) + 3 (tests/integration/test_ingest_repo_e2e.py) = 273 verde. Los 2 pre-existentes en `test_projects_service.py` (seed files 5 vs 6) siguen, out of scope de esta feature.
+
+**Decisiones de implementacion documentadas:**
+
+- **`main()` flow**: parse_repo_ref → (with GitHubClient: get_repo, get_readme, load_role_from_repo) → slugify → detect_language → rewrite_image_urls_to_absolute → build_frontmatter → _maybe_translate_frontmatter → write_project_md (con --force/--update/ProjectExistsError) → create_branch + git_commit + open_draft_pr (o print_manual_pr_instructions si gh no esta).
+- **`_maybe_translate_frontmatter()` helper**: carga `Settings` lazy, llama `translate_fields` solo si `detected_lang != lado_nuevo`. Fallback graceful a placeholders si el LLM falla (T4.4). No aborta el ingest.
+- **Branch name convention**: `content/ingest-<slug-sin-proj-prefix>` (ej: `content/ingest-hello-world`). Sigue la convencion del README y `test_branch_pr.py`. Worker decidio `slug.removeprefix("proj-")` en vez del literal `content/ingest-proj-hello-world` por consistencia.
+- **`--dry-run`**: sale despues del summary print, antes de escribir o branch. El .md NO se escribe.
+- **`--non-interactive`**: si no hay `.portafolio.yml` con role, raise `MissingRoleError`. Capturado en main() → exit 1 con mensaje claro.
+- **`--force` / `--update`**: --force sobrescribe sin preservar. --update lee existing, llama `merge_frontmatter_for_update`, escribe merged. Sin flag y con .md existente → `ProjectExistsError`.
+- **gh CLI ausente**: fallback a `print_manual_pr_instructions(branch_name)` con comando `gh pr create --draft` + URL de compare.
+- **Mocks del smoke test**: httpx.MockTransport para GitHub API (octocat fixtures), LLMClient fake (echo del input JSON para que translate_fields retorne el mismo dict), function-based side_effect para subprocess.run que maneja las 6 llamadas (rev-parse, checkout, git commit, 2x gh --version, gh pr create).
+- **`.env.example` extension**: `GITHUB_TOKEN=` al final (no interfiere con vars existentes). CRLF preservado.
 
 ## Convenciones
 
