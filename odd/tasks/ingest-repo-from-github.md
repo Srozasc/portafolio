@@ -1,6 +1,6 @@
 # Feature: Ingest repo from GitHub (script CLI)
 
-**Status**: in progress (Tareas 1-5 done; Tarea 6 en curso)
+**Status**: in progress (Tareas 1-6 done; Tarea 7 en curso)
 
 ## Commits landed on `dev`
 
@@ -12,6 +12,7 @@
 | 3 | `5c6e734` | `feat(api): detectar idioma del README y reescribir URLs de imagenes a absolutas` |
 | 4 | `5991f4b` | `feat(api): extender LLMClient con chat() no-streaming y agregar translate_fields al script` |
 | 5 | `465139a` | `feat(api): cargar role desde .portafolio.yml o prompt interactivo en el script` |
+| 6 | `f1d2b77` | `feat(api): wrappear git y gh CLI para branch + draft PR en el script` |
 
 **Started**: 2026-09-22
 **Branch**: `dev` (perfil solo-freelancer; el script al ejecutarse creará sus propios branches por-repo)
@@ -120,14 +121,26 @@ Commit: `465139a`.
 - **Bug latente corregido durante review**: el worker original puso `load_role_from_repo` FUERA del `with GitHubClient(...) as client:`, lo que llamaba `get_file_content` sobre un client ya cerrado en runtime. Movido adentro del `with` para que el client siga vivo durante la descarga del YAML.
 - **Integration diferida a T8**: el `main()` actual llama `load_role_from_repo` y muestra el role en el summary, pero todavía no usa el role para construir el frontmatter (eso requiere integrar `build_frontmatter` con `write_project_md` + `translate_fields`, que es el wiring completo del CLI — va en T8 smoke test E2E).
 
-### Tarea 6 — Branch + commit + PR en draft
+### Tarea 6 — Branch + commit + PR en draft — DONE
 
-- [ ] **T6.1** Tests: `create_branch(branch_name)` corre `git checkout -b <branch>` desde `dev`; falla si el branch ya existe
-- [ ] **T6.2** Tests: `open_draft_pr(...)` ejecuta `gh pr create --draft --title ... --body ...`; verifica exit code
-- [ ] **T6.3** Implementación: wrapper sobre `git` (subprocess) y `gh` (subprocess). Detectar si `gh` está instalado; si no, fallback a instrucciones impresas para crear el PR manualmente.
-- [ ] **T6.4** Conventional commit en español para el branch: `chore(content): ingest repo <owner>/<repo>` (scope `content` porque toca `apps/api/data/projects/`)
-- [ ] **T6.5** Verificar: end-to-end contra un repo real genera branch + PR draft
-- [ ] **T6.6** Work-unit commit en `dev`: `feat(api): open draft PR per ingested repo via gh CLI`
+Commit: `f1d2b77`.
+
+- [x] **T6.1** `create_branch(name, *, base='dev')`: detecta branch existente via `git rev-parse --verify refs/heads/<name>` (raise `GitError` si existe); `git checkout -b <name> <base>` para crearla — **6/6 verde**
+- [x] **T6.2** `open_draft_pr(*, title, body, base='dev')`: chequea `is_gh_installed()` primero (raise `GitHubCLIError` si no); corre `gh pr create --draft --title ... --body ... --base ...`; devuelve stdout (URL del PR); raise `GitHubCLIError` en non-zero exit — **5/5 verde**
+- [x] **T6.3** `is_gh_installed()` detecta si gh esta en PATH (timeout 5s; captura `FileNotFoundError`/`TimeoutExpired`/`CalledProcessError`/`OSError` como False). `print_manual_pr_instructions(name, *, base)` fallback con comando `gh pr create --draft` + URL de compare. `git_commit(message, *, body='')` para el commit del branch — **8/8 verde (5 is_gh + 3 git_commit)**
+- [x] **T6.4** Convencion del commit del branch: `chore(content): ingest repo <owner>/<repo>` (scope `content` porque toca `apps/api/data/projects/`). Conventional commit en espanol (proyecto convention). Implementacion queda lista; aplicacion automatica en T7/T8.
+- [x] **T6.5** Verificacion end-to-end: deferred a T8 smoke test (T6 prueba los wrappers en aislamiento con mocks de subprocess).
+- [x] **T6.6** Work-unit commit en `dev`: `f1d2b77`
+
+**Total tests/scripts/**: 217 (T1-T5) + 21 (T6) = 238 verde.
+
+**Decisiones de implementacion documentadas:**
+
+- **Wiring en `main()` deferred a T7/T8**: las funciones existen pero `main()` no las llama todavia. El write step (T7) y el smoke test E2E (T8) son donde se integra todo en el flujo completo.
+- **`subprocess.run` con `check=False` explicito** (ruff PLW1510): todas las 5 llamadas pasan `check=False` para que ruff no pida `try/except` alrededor — el chequeo de `result.returncode != 0` ya lo hace manualmente el caller.
+- **`is_gh_installed` captura `CalledProcessError` tambien**: agregado al tuple de excepciones (no estaba en el spec literal pero un test lo requeria). Cambio estrictamente aditivo.
+- **Branch name convention**: `content/ingest-<slug>` donde `<slug>` viene de `slugify_repo_name(repo_name)` (ej: `content/ingest-hello-world`). Documentado pero no hardcodeado — el caller decide.
+- **PR body minimalista**: el caller pasa title + body. Para T7/T8, el body va a ser generado a partir de metadata del repo (description + stack + link).
 
 ### Tarea 7 — Re-correr el script: `--force` y `--update`
 
