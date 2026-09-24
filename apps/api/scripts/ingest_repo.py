@@ -1035,6 +1035,86 @@ def _print_repo_summary(repo_data: dict, slug: str, role: str) -> None:
     print(f"  role:           {role}")
 
 
+def _maybe_translate_frontmatter(
+    frontmatter: dict,
+    detected_lang: str,
+) -> dict:
+    """Translate the secondary-language fields of ``frontmatter`` via the LLM.
+
+    Skips translation when the input for the other language is only the
+    placeholder (no real content to translate). On any LLM error
+    (unconfigured client, retry exhaustion, parse failure), returns the
+    input ``frontmatter`` unchanged (T4.4 fallback).
+    """
+    if detected_lang not in ("es", "en"):
+        return frontmatter
+
+    target_lang = "es" if detected_lang == "en" else "en"
+
+    # Map: target field -> source value (use detected-lang content as input).
+    if detected_lang == "en":
+        fields_to_translate: dict[str, str] = {}
+        if (
+            isinstance(frontmatter.get("title_en"), str)
+            and frontmatter["title_en"] != PLACEHOLDER_TITLE_OTHER_LANG
+        ):
+            fields_to_translate["title_es"] = frontmatter["title_en"]
+        if (
+            isinstance(frontmatter.get("summary_en"), str)
+            and frontmatter["summary_en"] != PLACEHOLDER_SUMMARY_OTHER_LANG
+        ):
+            fields_to_translate["summary_es"] = frontmatter["summary_en"]
+    else:
+        fields_to_translate = {}
+        if (
+            isinstance(frontmatter.get("title_es"), str)
+            and frontmatter["title_es"] != PLACEHOLDER_TITLE_OTHER_LANG
+        ):
+            fields_to_translate["title_en"] = frontmatter["title_es"]
+        if (
+            isinstance(frontmatter.get("summary_es"), str)
+            and frontmatter["summary_es"] != PLACEHOLDER_SUMMARY_OTHER_LANG
+        ):
+            fields_to_translate["summary_en"] = frontmatter["summary_es"]
+
+    if not fields_to_translate:
+        return frontmatter
+
+    try:
+        # Lazy import to keep the script decoupled from backend.config at
+        # import time (Settings reads env at construction; tests may not
+        # have env vars set when the script module is imported).
+        from backend.config import Settings
+
+        settings = Settings()
+        llm = LLMClient(
+            base_url=settings.LLM_BASE_URL,
+            api_key=settings.LLM_API_KEY,
+            model=settings.CHAT_MODEL,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "LLM unavailable, skipping translation (%s)", type(exc).__name__
+        )
+        return frontmatter
+
+    try:
+        translated = translate_fields(
+            fields_to_translate,
+            source_lang=detected_lang,
+            target_lang=target_lang,
+            llm=llm,
+        )
+    except StreamError as exc:
+        logger.warning("Translation failed, keeping originals: %s", exc)
+        return frontmatter
+
+    result = dict(frontmatter)
+    for key, value in translated.items():
+        result[key] = value
+    return result
+
+
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point. Returns process exit code (0 success, 1 fatal)."""
     parser = argparse.ArgumentParser(
@@ -1096,17 +1176,19 @@ def main(argv: list[str] | None = None) -> int:
 
     token = args.token or os.environ.get("GITHUB_TOKEN")
 
-    # ----- 2. fetch repo metadata + load role -------------------------
+    # ----- 2. fetch repo metadata, README, role ------------------------
     try:
         with GitHubClient(token=token) as client:
             repo_data = client.get_repo(owner, repo)
+            default_branch = repo_data.get("default_branch")
+            readme = client.get_readme(owner, repo, ref=default_branch)
             role = load_role_from_repo(
                 client,
                 owner,
                 repo,
-                branch=repo_data.get("default_branch"),
+                branch=default_branch,
                 non_interactive=args.non_interactive,
-                detected_lang="en",  # TODO T3+T4: detect from README
+                detected_lang="en",  # initial guess; refined below
             )
     except GitHubError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
@@ -1115,12 +1197,20 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
-    # ----- 3. derive slug ------------------------------------------------
+    # ----- 3. derive slug + language + rewrite images + frontmatter ----
     try:
         slug = slugify_repo_name(repo_data["name"])
     except ValueError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
+
+    detected_lang = detect_language(readme)
+    default_branch = repo_data.get("default_branch") or "main"
+    body = rewrite_image_urls_to_absolute(readme, owner, repo, default_branch)
+    new_frontmatter = build_frontmatter(
+        repo_data, role=role, detected_lang=detected_lang
+    )
+    new_frontmatter = _maybe_translate_frontmatter(new_frontmatter, detected_lang)
 
     # ----- 4. report ----------------------------------------------------
     _print_repo_summary(repo_data, slug, role)
@@ -1129,10 +1219,79 @@ def main(argv: list[str] | None = None) -> int:
         print("\n(dry run — no files written)")
         return 0
 
-    # ----- 5. write step (T2 onwards) -----------------------------------
-    print(
-        "\n(write step not yet implemented — see odd/tasks/ingest-repo-from-github.md)"
+    # ----- 5. write the .md ---------------------------------------------
+    # Resolve default projects dir relative to the repo root (3 parents up
+    # from apps/api/scripts/ingest_repo.py).
+    repo_root = Path(__file__).resolve().parents[3]
+    projects_dir = args.projects_dir or (
+        repo_root / "apps" / "api" / "data" / "projects"
     )
+    md_path = projects_dir / f"{slug}.md"
+
+    try:
+        if md_path.exists():
+            if args.force:
+                write_project_md(new_frontmatter, body, projects_dir, force=True)
+            elif args.update:
+                existing = load_existing_frontmatter(md_path) or {}
+                merged = merge_frontmatter_for_update(existing, new_frontmatter)
+                write_project_md(merged, body, projects_dir, force=True)
+            else:
+                raise ProjectExistsError(
+                    f"{md_path} already exists. "
+                    f"Use --force to overwrite, or --update to preserve "
+                    f"human-edited fields (role_*, client, impact_*)."
+                )
+        else:
+            write_project_md(new_frontmatter, body, projects_dir)
+    except (ProjectExistsError, FrontmatterValidationError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    except OSError as exc:
+        print(f"ERROR: filesystem error writing {md_path}: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"\nWrote {md_path}")
+
+    # ----- 6. branch + commit + draft PR --------------------------------
+    # Branch name strips the "proj-" prefix from the slug to keep the name
+    # short and match the convention documented in scripts/README.md and
+    # exercised by tests/scripts/test_branch_pr.py (e.g. content/ingest-foo).
+    branch_name = f"content/ingest-{slug.removeprefix('proj-')}"
+    commit_message = f"chore(content): ingest repo {owner}/{repo}"
+    commit_body = f"Auto-generated project .md from {owner}/{repo}."
+
+    try:
+        create_branch(branch_name, base="dev")
+    except GitError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    try:
+        git_commit(commit_message, body=commit_body)
+    except GitError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    if is_gh_installed():
+        pr_body = (
+            f"Generated by ingest_repo CLI.\n\n"
+            f"Repo: {repo_data.get('html_url', '')}\n"
+            f"Slug: {slug}"
+        )
+        try:
+            pr_url = open_draft_pr(
+                title=commit_message,
+                body=pr_body,
+                base="dev",
+            )
+            print(f"\nDraft PR opened: {pr_url}")
+        except GitHubCLIError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
+    else:
+        print_manual_pr_instructions(branch_name, base="dev")
+
     return 0
 
 
