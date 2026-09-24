@@ -1,6 +1,6 @@
 # Feature: Ingest repo from GitHub (script CLI)
 
-**Status**: in progress (Tareas 1-6 done; Tarea 7 en curso)
+**Status**: in progress (Tareas 1-7 done; Tarea 8 en curso)
 
 ## Commits landed on `dev`
 
@@ -13,6 +13,7 @@
 | 4 | `5991f4b` | `feat(api): extender LLMClient con chat() no-streaming y agregar translate_fields al script` |
 | 5 | `465139a` | `feat(api): cargar role desde .portafolio.yml o prompt interactivo en el script` |
 | 6 | `f1d2b77` | `feat(api): wrappear git y gh CLI para branch + draft PR en el script` |
+| 7 | `b485a6d` | `feat(api): agregar modos --force y --update para re-ingestar proyectos` |
 
 **Started**: 2026-09-22
 **Branch**: `dev` (perfil solo-freelancer; el script al ejecutarse creará sus propios branches por-repo)
@@ -142,12 +143,27 @@ Commit: `f1d2b77`.
 - **Branch name convention**: `content/ingest-<slug>` donde `<slug>` viene de `slugify_repo_name(repo_name)` (ej: `content/ingest-hello-world`). Documentado pero no hardcodeado — el caller decide.
 - **PR body minimalista**: el caller pasa title + body. Para T7/T8, el body va a ser generado a partir de metadata del repo (description + stack + link).
 
-### Tarea 7 — Re-correr el script: `--force` y `--update`
+### Tarea 7 — Re-correr el script: `--force` y `--update` — DONE
 
-- [ ] **T7.1** Tests: `--force` sobrescribe `.md` existente
-- [ ] **T7.2** Tests: `--update` lee el `.md` existente, preserva `role_*` e `impact_*` del humano, regenera el resto
-- [ ] **T7.3** Implementación: merge selectivo — campos del humano (role, client, impact) se preservan; campos derivados del repo (title, summary, stack, tags) se regeneran
-- [ ] **T7.4** Work-unit commit en `dev`: `feat(api): add --force and --update modes for re-ingest`
+Commit: `b485a6d`.
+
+- [x] **T7.1** `--force` flag en argparse (grupo mutuamente exclusivo con `--update`). Comportamiento: sobrescribe `.md` existente sin preservar nada — **cubierto en T7.3**
+- [x] **T7.2** `merge_frontmatter_for_update(existing, new)`: preserva del existente `role_es`, `role_en`, `client`, `impact_es`, `impact_en` cuando son non-empty; regenera del nuevo `title_*`, `summary_*`, `stack_*`, `tags`, `year`, `links`. Slug siempre del existente (mismatch raise `ValueError`). Campos desconocidos se preservan — **29/29 verde**
+- [x] **T7.3** `load_existing_frontmatter(md_path)`: lee frontmatter de un `.md` existente; devuelve None si no existe / no tiene frontmatter / YAML inválido / top-level no-dict. Tolerancia necesaria para que `--update` no rompa con archivos corruptos — **6/6 verde**
+- [x] **T7.4** Work-unit commit en `dev`: `b485a6d`
+
+**Total tests/scripts/**: 238 (T1-T6) + 31 (T7) = 269 verde tras fix del orchestrator al test contradictorio (1 assertion que asumia `title_es` preservado cuando la spec lo define como regenerado).
+
+**Decisiones de implementacion documentadas:**
+
+- **Preserved set**: `role_es, role_en, client, impact_es, impact_en`. Estos son los campos que el humano edita a mano en el PR y no querés perder en re-ingest. Tambien los unicos que se cargan de fuentes externas (.portafolio.yml o prompt) en el primer ingest.
+- **Regenerated set**: `title_*, summary_*, stack_*, tags, year, links`. Vienen de la API de GitHub / son auto-generados; re-ingerirlos refleja el estado actual del repo.
+- **Slug estable**: nunca regenera el slug (es el nombre del archivo). Mismatch raise `ValueError("slug mismatch: existing has 'proj-hello', new would produce 'proj-different'. Use --force to rename.")` — la logica es que re-ingerir el mismo repo produce el mismo slug; si no, hay algo raro.
+- **`None`/`""`/`[]` no cuentan como preserved**: si el humano accidentalmente borro el contenido de un campo, el merge usa el valor nuevo (regenerado). Evita "preservar" vacios que no son truthy.
+- **Campos desconocidos se preservan**: si el humano agrego `custom_field: x` al .md, no se pierde en re-ingest. Forward-compat.
+- **main() NO wired todavia**: el write step completo esta pendiente (T7+T8). `--force` y `--update` se aplican al wire final de main().
+
+**Bug del orchestrator al escribir tests**: 1 assertion (`test_existing_with_only_slug_and_title_es`) asumia que `title_es` se preservaba del existente, contradiciendo la spec que define `title_*` como regenerado. Fix aplicado antes del commit feat.
 
 ### Tarea 8 — Docs + smoke test E2E contra un repo real
 
