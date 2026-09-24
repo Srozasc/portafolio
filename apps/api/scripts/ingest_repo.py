@@ -1072,6 +1072,19 @@ def main(argv: list[str] | None = None) -> int:
         help="Abort if a required value cannot be auto-detected "
              "(e.g. role without .portafolio.yml). No prompts.",
     )
+    ingest_mode = parser.add_mutually_exclusive_group()
+    ingest_mode.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing .md file completely (skip the "
+             "role/client/impact preservation).",
+    )
+    ingest_mode.add_argument(
+        "--update",
+        action="store_true",
+        help="Update existing .md file, preserving human-edited fields "
+             "(role_*, client, impact_*). Regenerates derived fields.",
+    )
     args = parser.parse_args(argv)
 
     # ----- 1. parse input ------------------------------------------------
@@ -1255,6 +1268,119 @@ def print_manual_pr_instructions(branch_name: str, *, base: str = "dev") -> None
         f"  or visit: https://github.com/<owner>/<repo>/"
         f"compare/{base}...{branch_name}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Re-ingest modes: --force / --update (T7)
+# ---------------------------------------------------------------------------
+
+# Fields preserved from existing frontmatter during --update mode.
+# Human-edited values that must NOT be overwritten on re-ingest.
+_UPDATE_PRESERVED_FIELDS: frozenset[str] = frozenset({
+    "role_es", "role_en", "client", "impact_es", "impact_en",
+})
+
+# Fields that come from the source repo and are always regenerated.
+# Slug is excluded — it's the filename and stays stable for the same repo.
+_UPDATE_REGENERATED_FIELDS: frozenset[str] = frozenset({
+    "title_es", "title_en",
+    "summary_es", "summary_en",
+    "stack_es", "stack_en",
+    "tags",
+    "year",
+    "links",
+})
+
+
+def merge_frontmatter_for_update(existing: dict, new: dict) -> dict:
+    """Merge existing frontmatter with a freshly-built one for --update mode.
+
+    Preserves human-editable fields (role_*, client, impact_*) from
+    ``existing`` (only when non-empty). Uses freshly-built values for
+    derived fields (title, summary, stack, tags, year, links) from ``new``.
+    Slug stays from ``existing`` (it's the filename; mismatch is a bug).
+    Unknown fields from either side are kept (forward-compat).
+
+    Args:
+        existing: frontmatter dict from the existing .md file.
+        new: frontmatter dict freshly built from the current repo state.
+
+    Returns:
+        A new dict with merged values.
+
+    Raises:
+        ValueError: If the slug in ``new`` differs from ``existing``.
+    """
+    new_slug = new.get("slug")
+    existing_slug = existing.get("slug")
+    if (
+        new_slug is not None
+        and existing_slug is not None
+        and new_slug != existing_slug
+    ):
+        raise ValueError(
+            f"slug mismatch: existing has {existing_slug!r}, "
+            f"new would produce {new_slug!r}. Use --force to rename."
+        )
+
+    result: dict = {}
+    # Start with all fields from new (the regenerated baseline).
+    result.update(new)
+
+    # Preserve human-edited fields from existing (only if non-empty).
+    for field in _UPDATE_PRESERVED_FIELDS:
+        if field not in existing:
+            continue
+        value = existing[field]
+        # Treat None/""/[] as "no human input" → fall back to new value.
+        if value in (None, "", []):
+            continue
+        result[field] = value
+
+    # Slug stays from existing (safer default; renamed file is a separate op).
+    if existing_slug is not None:
+        result["slug"] = existing_slug
+
+    # Preserve unknown fields from existing (might be human-added custom keys).
+    for field, value in existing.items():
+        if field in result:
+            continue
+        result[field] = value
+
+    return result
+
+
+def load_existing_frontmatter(md_path: Path) -> dict | None:
+    """Load frontmatter from an existing .md file.
+
+    Returns the parsed frontmatter dict, or None if the file doesn't
+    exist, has no frontmatter, or the frontmatter is malformed/not a dict.
+    """
+    if not md_path.exists():
+        return None
+
+    try:
+        text = md_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+    if not text.startswith("---\n"):
+        return None
+
+    parts = text.split("---\n", 2)
+    if len(parts) < 3:
+        return None
+
+    yaml_text = parts[1]
+    try:
+        parsed = yaml.safe_load(yaml_text)
+    except yaml.YAMLError:
+        return None
+
+    if not isinstance(parsed, dict):
+        return None
+
+    return parsed
 
 
 # ---------------------------------------------------------------------------
