@@ -30,6 +30,7 @@ import json
 import logging
 import os
 import re
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -1120,6 +1121,140 @@ def main(argv: list[str] | None = None) -> int:
         "\n(write step not yet implemented — see odd/tasks/ingest-repo-from-github.md)"
     )
     return 0
+
+
+# ---------------------------------------------------------------------------
+# Branch + PR operations (T6)
+# ---------------------------------------------------------------------------
+
+
+class GitError(Exception):
+    """Raised when a git subprocess fails (non-zero exit or parse error)."""
+
+
+class GitHubCLIError(Exception):
+    """Raised when the gh CLI subprocess fails or is not installed."""
+
+
+def is_gh_installed() -> bool:
+    """Check whether the ``gh`` CLI is available on PATH.
+
+    Runs ``gh --version`` with a short timeout. Returns True only if the
+    command exits 0. All failure modes (binary not found, non-zero exit,
+    timeout, OS error) return False.
+    """
+    try:
+        result = subprocess.run(
+            ["gh", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (
+        FileNotFoundError,
+        subprocess.TimeoutExpired,
+        subprocess.CalledProcessError,
+        OSError,
+    ):
+        return False
+    return result.returncode == 0
+
+
+def create_branch(branch_name: str, *, base: str = "dev") -> None:
+    """Create and check out a new branch off ``base``.
+
+    Uses ``git rev-parse --verify refs/heads/<name>`` to detect an existing
+    branch, then ``git checkout -b <name> <base>``.
+
+    Raises:
+        GitError: If the branch already exists, or the checkout fails.
+    """
+    verify = subprocess.run(
+        ["git", "rev-parse", "--verify", f"refs/heads/{branch_name}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if verify.returncode == 0:
+        raise GitError(f"branch {branch_name!r} already exists")
+
+    checkout = subprocess.run(
+        ["git", "checkout", "-b", branch_name, base],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if checkout.returncode != 0:
+        raise GitError(
+            f"git checkout -b failed: {checkout.stderr.strip() or checkout.stdout.strip()}"
+        )
+
+
+def git_commit(message: str, *, body: str = "") -> None:
+    """Create a commit with the given subject + optional body.
+
+    The caller must have staged files via ``git add`` before calling.
+
+    Raises:
+        GitError: If ``git commit`` exits non-zero.
+    """
+    args = ["git", "commit", "-m", message]
+    if body:
+        args.extend(["-m", body])
+    result = subprocess.run(args, capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        raise GitError(
+            f"git commit failed: {result.stderr.strip() or result.stdout.strip()}"
+        )
+
+
+def open_draft_pr(*, title: str, body: str, base: str = "dev") -> str:
+    """Open a draft PR via ``gh pr create --draft``.
+
+    Returns the PR URL printed on stdout.
+
+    Raises:
+        GitHubCLIError: If ``gh`` is not installed or exits non-zero.
+    """
+    if not is_gh_installed():
+        raise GitHubCLIError(
+            "gh CLI not installed. Install it from https://cli.github.com/ "
+            "and authenticate with `gh auth login`."
+        )
+
+    result = subprocess.run(
+        [
+            "gh", "pr", "create",
+            "--draft",
+            "--title", title,
+            "--body", body,
+            "--base", base,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise GitHubCLIError(
+            f"gh pr create failed: {result.stderr.strip() or result.stdout.strip()}"
+        )
+    return result.stdout.strip()
+
+
+def print_manual_pr_instructions(branch_name: str, *, base: str = "dev") -> None:
+    """Print instructions for manually opening the PR."""
+    print(
+        f"\nManual PR creation required for branch {branch_name!r}:"
+    )
+    print(
+        f"  gh pr create --draft --title ... --body ... "
+        f"--base {base} --head {branch_name}"
+    )
+    print(
+        f"  or visit: https://github.com/<owner>/<repo>/"
+        f"compare/{base}...{branch_name}"
+    )
 
 
 # ---------------------------------------------------------------------------
