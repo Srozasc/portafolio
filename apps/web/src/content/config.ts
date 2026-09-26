@@ -20,14 +20,14 @@ const projects = defineCollection({
     year: z.number().int().min(2000).max(2100),
     role_es: z.string(),
     role_en: z.string(),
-    client: z.string().optional(),
+    client: z.string().nullable().optional(),
     tags: z.array(z.string()).min(1),
     stack_es: z.array(z.string()).min(1),
     stack_en: z.array(z.string()).min(1),
     summary_es: z.string().min(20),
     summary_en: z.string().min(20),
-    impact_es: z.array(z.string()).optional(),
-    impact_en: z.array(z.string()).optional(),
+    impact_es: z.array(z.string()).nullable().optional(),
+    impact_en: z.array(z.string()).nullable().optional(),
     links: z
       .object({
         repo: z.string().url().nullable().optional(),
