@@ -48,12 +48,12 @@
       "badge": "Bienvenida",
       "title": "Tu portafolio, en <em>conversación</em>.",
       "sub": "El editor responde preguntas sobre los proyectos indexados — por stack, dominio o idea. Abrí el chat y probá.",
-      "step1_title": "Abre el chat",
-      "step1_desc": "Toca el botón <strong>azul</strong> abajo a la derecha, o el botón <strong>«Pregúntale al bot»</strong> en la portada.",
-      "step2_title": "Pregunta lo que quieras",
-      "step2_desc": "Por stack (<code>python</code>, <code>aws</code>), dominio (<code>data</code>) o idea (<code>side projects</code>).",
-      "step3_title": "Recibe prosa + reseñas",
-      "step3_desc": "El editor devuelve una respuesta y, si hay match, una lista de proyectos con enlace a la página de detalle.",
+      "step1_title": "Elegí tus áreas de interés",
+      "step1_desc": "Cuando abras el chat, elegí una o más etiquetas con stacks (<code>python</code>, <code>aws</code>, <code>data</code>…). El editor filtra el portafolio por lo que te interesa.",
+      "step2_title": "Mirá los proyectos filtrados",
+      "step2_desc": "El editor te muestra solo los proyectos que matchean con tus etiquetas. Hacé click en cualquiera para ver el detalle completo.",
+      "step3_title": "Preguntale al bot (opcional)",
+      "step3_desc": "Si querés más contexto sobre un proyecto puntual, escribí tu pregunta abajo en el chat.",
       "no_show": "No mostrar de nuevo",
       "start_chat": "Empezar a chatear"
     }

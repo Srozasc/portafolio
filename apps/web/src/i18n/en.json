@@ -48,12 +48,12 @@
       "badge": "Welcome",
       "title": "Your portfolio, in <em>conversation</em>.",
       "sub": "The editor answers questions about the indexed projects — by stack, domain or idea. Open the chat and try it out.",
-      "step1_title": "Open the chat",
-      "step1_desc": "Tap the <strong>blue</strong> button at the bottom-right, or the <strong>«Ask the bot»</strong> button on the homepage.",
-      "step2_title": "Ask anything",
-      "step2_desc": "By stack (<code>python</code>, <code>aws</code>), domain (<code>data</code>) or idea (<code>side projects</code>).",
-      "step3_title": "Get prose + reviews",
-      "step3_desc": "The editor returns a response and, if there's a match, a list of projects with links to detail pages.",
+      "step1_title": "Pick your areas of interest",
+      "step1_desc": "When you open the chat, pick one or more tags with stacks (<code>python</code>, <code>aws</code>, <code>data</code>…). The editor filters the portfolio by what you care about.",
+      "step2_title": "See the filtered projects",
+      "step2_desc": "The editor shows only the projects that match your tags. Click any to see the full detail.",
+      "step3_title": "Ask the bot (optional)",
+      "step3_desc": "If you want more context on a specific project, type your question below in the chat.",
       "no_show": "Don't show again",
       "start_chat": "Start chatting"
     }
