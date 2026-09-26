@@ -1,19 +1,23 @@
 ---
 slug: proj-safegateway
-title_es: SafeGateway
-title_en: SafeGateway
+title_es: Safe Gateway
+title_en: Safe Gateway
 year: 2026
 role_es: Full-Stack Engineer
 role_en: Full-Stack Engineer
 tags:
 - typescript
+- api-gateway
+- microservices
+- redis
+- rate-limiting
 stack_es:
 - TypeScript
 stack_en:
 - TypeScript
 summary_es: API Gateway HTTP Modular, Reutilizable, Standalone y Configurable en TypeScript
   con Rate Limiting, JWT y Métricas (Prometheus + Grafana).
-summary_en: Modular, Reusable, Standalone and Configurable HTTP API Gateway in TypeScript
+summary_en: API Gateway HTTP Modular, Reusable, Standalone and Configurable in TypeScript
   with Rate Limiting, JWT and Metrics (Prometheus + Grafana).
 client: null
 impact_es: null
