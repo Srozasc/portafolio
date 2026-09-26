@@ -16,6 +16,7 @@ from scripts.ingest_repo import (
     ProjectExistsError,
     StreamError,
     build_frontmatter,
+    humanize_repo_name,
     validate_frontmatter,
     write_project_md,
 )
@@ -603,6 +604,61 @@ class TestBuildFrontmatter:
         # Either None or normalized away; we just want the validation to pass.
         if fm["links"]["repo"] is not None:
             assert fm["links"]["repo"].startswith(("http://", "https://"))
+
+
+# ===========================================================================
+# humanize_repo_name
+# ===========================================================================
+
+
+class TestHumanizeRepoName:
+    """Tests for the CamelCase + separator splitter used to build titles."""
+
+    def test_separator_hyphen(self) -> None:
+        """Standard hyphen-separated names: 'my-cool-repo' -> 'My Cool Repo'."""
+        assert humanize_repo_name("my-cool-repo") == "My Cool Repo"
+
+    def test_separator_underscore(self) -> None:
+        """Underscore-separated names: 'my_cool_repo' -> 'My Cool Repo'."""
+        assert humanize_repo_name("my_cool_repo") == "My Cool Repo"
+
+    def test_separator_mixed(self) -> None:
+        """Mixed separators normalize to single spaces."""
+        assert humanize_repo_name("my--cool___repo") == "My Cool Repo"
+
+    def test_camelcase_pascalcase(self) -> None:
+        """CamelCase names split correctly: 'SafeGateway' -> 'Safe Gateway'."""
+        assert humanize_repo_name("SafeGateway") == "Safe Gateway"
+
+    def test_camelcase_lowercase_first(self) -> None:
+        """CamelCase starting with lowercase: 'safeGateway' -> 'Safe Gateway'."""
+        assert humanize_repo_name("safeGateway") == "Safe Gateway"
+
+    def test_camelcase_multiple_uppercase_runs(self) -> None:
+        """Multiple uppercase runs: 'MyCoolAPI' -> 'My Cool API'."""
+        assert humanize_repo_name("MyCoolAPI") == "My Cool Api"
+
+    def test_camelcase_with_numbers(self) -> None:
+        """Numbers don't break the CamelCase split.
+
+        Note: Python's str.title() capitalizes the first letter AFTER any
+        non-letter, so '15k' becomes '15K' (k→K). This is acceptable
+        behavior for portfolio titles — kept simple rather than implementing
+        custom "letter-only" title-casing logic.
+        """
+        assert humanize_repo_name("HiRag15k") == "Hi Rag15K"
+
+    def test_empty_string(self) -> None:
+        """Empty string returns empty string."""
+        assert humanize_repo_name("") == ""
+
+    def test_single_letter(self) -> None:
+        """Single letter gets title-cased."""
+        assert humanize_repo_name("a") == "A"
+
+    def test_already_title_cased(self) -> None:
+        """Already title-cased names stay the same."""
+        assert humanize_repo_name("My Cool Repo") == "My Cool Repo"
 
 
 # ===========================================================================

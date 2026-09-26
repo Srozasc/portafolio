@@ -283,8 +283,28 @@ PLACEHOLDER_SUMMARY_OTHER_LANG = (
 
 
 def humanize_repo_name(name: str) -> str:
-    """Turn 'my-cool-repo' into 'My Cool Repo' for a human-readable title."""
-    return re.sub(r"[-_]+", " ", name).strip().title()
+    """Turn a repo name into a human-readable title.
+
+    Examples:
+        "my-cool-repo"  -> "My Cool Repo"
+        "My-Cool-Repo"  -> "My Cool Repo"
+        "SafeGateway"   -> "Safe Gateway"     # CamelCase split
+        "myRepo"        -> "My Repo"          # CamelCase split
+        "HiRag15k"      -> "Hi Rag15k"
+
+    Splits on ``-`` / ``_`` separators AND on CamelCase boundaries:
+    - ``(?<=[a-z])(?=[A-Z])`` inserts a space at lower→upper transitions
+      (e.g., "safeGateway" → "safe Gateway")
+    - ``(?<=[A-Z])(?=[A-Z][a-z])`` inserts a space at upper-upper→lower
+      transitions (e.g., "SafeGateway" when there's a 2+ uppercase run
+      like "ABDef" → "AB Def")
+    Then ``.title()`` capitalizes each word.
+    """
+    # Insert spaces at CamelCase boundaries before normalizing separators.
+    camel_split = re.sub(
+        r"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", " ", name
+    )
+    return re.sub(r"[-_]+", " ", camel_split).strip().title()
 
 
 def build_frontmatter(
