@@ -141,6 +141,78 @@ class TestCreateBranch:
         checkout_args = mock_run.call_args_list[1].args[0]
         assert checkout_args[-1] == "dev"
 
+    @patch("scripts.ingest_repo.subprocess.run")
+    def test_no_force_skips_ls_remote(self, mock_run):
+        """force=False does NOT call ls-remote (saves time on the common path)."""
+        # rev-parse succeeds (branch exists locally), expect GitError
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        with pytest.raises(GitError, match="already exists"):
+            create_branch("foo", force=False)
+        # Only one subprocess call (the rev-parse check)
+        cmds = [c.args[0] for c in mock_run.call_args_list]
+        assert len(cmds) == 1
+        assert cmds[0][:2] == ["git", "rev-parse"]
+
+    @patch("scripts.ingest_repo.subprocess.run")
+    def test_force_deletes_existing_local_branch(self, mock_run):
+        """force=True with existing local branch: delete + create."""
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout="", stderr=""),  # rev-parse: exists
+            MagicMock(returncode=0, stdout="", stderr=""),  # ls-remote: no remote
+            MagicMock(returncode=0, stdout="", stderr=""),  # git branch -D
+            MagicMock(returncode=0, stdout="", stderr=""),  # git checkout -b
+        ]
+        create_branch("content/ingest-foo", force=True)
+        cmds = [c.args[0] for c in mock_run.call_args_list]
+        assert len(cmds) == 4
+        assert cmds[0][:2] == ["git", "rev-parse"]
+        assert cmds[1][:2] == ["git", "ls-remote"]
+        assert cmds[2] == ["git", "branch", "-D", "content/ingest-foo"]
+        assert cmds[3] == ["git", "checkout", "-b", "content/ingest-foo", "dev"]
+
+    @patch("scripts.ingest_repo.subprocess.run")
+    def test_force_deletes_existing_remote_branch(self, mock_run):
+        """force=True with existing remote branch: push --delete then create."""
+        mock_run.side_effect = [
+            MagicMock(returncode=1, stdout="", stderr=""),  # rev-parse: no local
+            MagicMock(
+                returncode=0,
+                stdout="abc123\trefs/heads/foo\n",
+                stderr="",
+            ),  # ls-remote: exists
+            MagicMock(returncode=0, stdout="", stderr=""),  # git push origin --delete
+            MagicMock(returncode=0, stdout="", stderr=""),  # git checkout -b
+        ]
+        create_branch("foo", force=True)
+        cmds = [c.args[0] for c in mock_run.call_args_list]
+        assert cmds[2] == ["git", "push", "origin", "--delete", "foo"]
+        assert cmds[3] == ["git", "checkout", "-b", "foo", "dev"]
+
+    @patch("scripts.ingest_repo.subprocess.run")
+    def test_force_remote_delete_failure_warns_but_continues(self, mock_run, capsys):
+        """force=True with remote delete failing: prints warning, still creates."""
+        mock_run.side_effect = [
+            MagicMock(returncode=1, stdout="", stderr=""),  # rev-parse: no local
+            MagicMock(
+                returncode=0,
+                stdout="abc\trefs/heads/foo\n",
+                stderr="",
+            ),  # ls-remote: exists
+            MagicMock(
+                returncode=128,
+                stdout="",
+                stderr="remote: permission denied",
+            ),  # push --delete: fails
+            MagicMock(
+                returncode=0, stdout="", stderr=""
+            ),  # checkout -b: still proceeds
+        ]
+        # Should NOT raise — warning is printed but create continues
+        create_branch("foo", force=True)
+        captured = capsys.readouterr()
+        assert "WARNING" in captured.err
+        assert "failed to delete remote branch" in captured.err
+
 
 # ===========================================================================
 # git_commit
@@ -233,6 +305,28 @@ class TestGitPush:
         mock_run.side_effect = OSError("No such file or directory")
         with pytest.raises(GitError, match="git push failed to spawn"):
             git_push("content/ingest-hello-world")
+
+    @patch("scripts.ingest_repo.subprocess.run")
+    def test_force_push_uses_force_with_lease(self, mock_run):
+        """When force=True, --force-with-lease is in the args."""
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        git_push("content/ingest-foo", force=True)
+        args = mock_run.call_args.args[0]
+        assert "--force-with-lease" in args
+        assert "-u" in args
+        assert "origin" in args
+        assert "content/ingest-foo" in args
+
+    @patch("scripts.ingest_repo.subprocess.run")
+    def test_default_push_excludes_force_with_lease(self, mock_run):
+        """When force=False (default), --force-with-lease is NOT included."""
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        git_push("content/ingest-foo")
+        args = mock_run.call_args.args[0]
+        assert "--force-with-lease" not in args
+        assert "-u" in args
+        assert "origin" in args
+        assert "content/ingest-foo" in args
 
 
 # ===========================================================================

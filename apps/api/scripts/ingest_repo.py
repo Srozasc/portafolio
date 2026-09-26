@@ -1699,7 +1699,7 @@ def main(argv: list[str] | None = None) -> int:
     commit_body = f"Auto-generated project .md from {owner}/{repo}."
 
     try:
-        create_branch(branch_name, base="dev")
+        create_branch(branch_name, base="dev", force=args.force)
     except GitError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
@@ -1724,7 +1724,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        git_push(branch_name)
+        git_push(branch_name, force=args.force)
     except GitError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         print(
@@ -1794,24 +1794,85 @@ def is_gh_installed() -> bool:
     return result.returncode == 0
 
 
-def create_branch(branch_name: str, *, base: str = "dev") -> None:
+def create_branch(branch_name: str, *, base: str = "dev", force: bool = False) -> None:
     """Create and check out a new branch off ``base``.
 
-    Uses ``git rev-parse --verify refs/heads/<name>`` to detect an existing
-    branch, then ``git checkout -b <name> <base>``.
+    If ``force=True`` and the branch already exists (locally or remotely),
+    the existing branch is deleted first (local with ``git branch -D``,
+    remote with ``git push origin --delete``) before recreating. This
+    matches the semantics of ``--force`` at the CLI level: completely
+    overwrite the branch and its remote.
+
+    Without ``force``, any existing branch (local or remote) raises
+    ``GitError`` to prevent accidental destruction.
 
     Raises:
-        GitError: If the branch already exists, or the checkout fails.
+        GitError: If the branch exists and ``force=False``, or if the
+            checkout / delete / push fails.
     """
+    # Check local branch.
     verify = subprocess.run(
         ["git", "rev-parse", "--verify", f"refs/heads/{branch_name}"],
         capture_output=True,
         text=True,
         check=False,
     )
-    if verify.returncode == 0:
-        raise GitError(f"branch {branch_name!r} already exists")
+    local_exists = verify.returncode == 0
 
+    # Check remote branch (only matters if force=True).
+    remote_exists = False
+    if force:
+        ls = subprocess.run(
+            ["git", "ls-remote", "--heads", "origin", branch_name],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=15,
+        )
+        if ls.returncode == 0:
+            # ls-remote output: "<sha>\trefs/heads/<branch>" per branch
+            remote_exists = any(
+                line.endswith(f"\trefs/heads/{branch_name}")
+                for line in ls.stdout.splitlines()
+            )
+
+    if local_exists or remote_exists:
+        if not force:
+            raise GitError(f"branch {branch_name!r} already exists")
+
+        # force=True: delete local + remote.
+        if local_exists:
+            delete_local = subprocess.run(
+                ["git", "branch", "-D", branch_name],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if delete_local.returncode != 0:
+                raise GitError(
+                    f"git branch -D failed: "
+                    f"{delete_local.stderr.strip() or delete_local.stdout.strip()}"
+                )
+
+        if remote_exists:
+            delete_remote = subprocess.run(
+                ["git", "push", "origin", "--delete", branch_name],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=30,
+            )
+            if delete_remote.returncode != 0:
+                # Don't abort — the remote might be misconfigured, or we may
+                # not have push rights. The force-push later will fail loudly
+                # if it actually matters (e.g., divergent history).
+                print(
+                    f"WARNING: failed to delete remote branch {branch_name!r}: "
+                    f"{delete_remote.stderr.strip() or delete_remote.stdout.strip()}",
+                    file=sys.stderr,
+                )
+
+    # Create the branch off ``base``.
     checkout = subprocess.run(
         ["git", "checkout", "-b", branch_name, base],
         capture_output=True,
@@ -1842,18 +1903,28 @@ def git_commit(message: str, *, body: str = "") -> None:
         )
 
 
-def git_push(branch_name: str) -> None:
+def git_push(branch_name: str, *, force: bool = False) -> None:
     """Push ``branch_name`` to ``origin`` with upstream tracking.
 
     Required before ``gh pr create`` — GitHub rejects PRs against branches
     that exist only in the local working tree.
 
+    If ``force=True``, uses ``--force-with-lease`` instead of plain push.
+    ``--force-with-lease`` is safer than ``--force``: it refuses to
+    overwrite remote changes you haven't seen (which prevents accidentally
+    clobbering concurrent work).
+
     Raises:
         GitError: On non-zero exit, timeout, or failure to spawn the process.
     """
+    args = ["git", "push"]
+    if force:
+        args.append("--force-with-lease")
+    args.extend(["-u", "origin", branch_name])
+
     try:
         result = subprocess.run(
-            ["git", "push", "-u", "origin", branch_name],
+            args,
             capture_output=True,
             text=True,
             check=False,
