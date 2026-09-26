@@ -119,14 +119,16 @@ def _patch_github_client(transport: httpx.MockTransport):
 def _make_subprocess_side_effect():
     """Side-effect que retorna segun el comando ejecutado.
 
-    main() invoca subprocess.run 6 veces (orden aproximado):
+    main() invoca subprocess.run 7 veces (orden aproximado):
       1. ``git rev-parse --verify refs/heads/<name>`` -> returncode 1 (branch
          no existe, asi create_branch puede crear la nueva)
       2. ``git checkout -b <name> dev`` -> returncode 0
-      3. ``git commit -m ...`` -> returncode 0
-      4. ``gh --version`` (is_gh_installed en main()) -> returncode 0
-      5. ``gh --version`` (is_gh_installed dentro de open_draft_pr) -> 0
-      6. ``gh pr create --draft ...`` -> returncode 0 + URL del PR
+      3. ``git add <md_path>`` -> returncode 0
+      4. ``git commit -m ...`` -> returncode 0
+      5. ``git push -u origin <name>`` -> returncode 0 + output realista
+      6. ``gh --version`` (is_gh_installed en main()) -> returncode 0
+      7. ``gh --version`` (is_gh_installed dentro de open_draft_pr) -> 0
+      8. ``gh pr create --draft ...`` -> returncode 0 + URL del PR
 
     Usamos una funcion (no una lista) porque la cantidad de invocaciones
     de ``is_gh_installed`` depende de donde se llame y puede variar.
@@ -138,6 +140,17 @@ def _make_subprocess_side_effect():
         # rev-parse debe fallar para que create_branch continue.
         if first == "git" and len(cmd) > 1 and cmd[1] == "rev-parse":
             return MagicMock(returncode=1, stdout="", stderr="")
+        # git push devuelve output realista de Git.
+        if first == "git" and len(cmd) > 1 and cmd[1] == "push":
+            return MagicMock(
+                returncode=0,
+                stdout=(
+                    "To github.com:owner/repo.git\n"
+                    " * [new branch]      content/ingest-foo -> origin/content/ingest-foo\n"
+                    "Branch 'content/ingest-foo' set up to track remote branch.\n"
+                ),
+                stderr="",
+            )
         # gh pr create devuelve la URL del PR en stdout.
         if first == "gh" and len(cmd) > 1 and cmd[1] == "pr":
             return MagicMock(
@@ -145,8 +158,8 @@ def _make_subprocess_side_effect():
                 stdout="https://github.com/owner/repo/pull/42\n",
                 stderr="",
             )
-        # Cualquier otra llamada (git checkout, git commit, gh --version)
-        # retorna exito.
+        # Cualquier otra llamada (git checkout, git add, git commit,
+        # gh --version) retorna exito.
         return MagicMock(returncode=0, stdout="", stderr="")
 
     return side_effect
@@ -251,6 +264,36 @@ class TestFullIngestWritesMd:
         git_add_cmd = call_cmds[git_add_calls[0]]
         assert git_add_cmd[2].endswith("proj-hello-world.md"), (
             f"git add debe stagear proj-hello-world.md; got {git_add_cmd[2]}"
+        )
+
+        # git push -u origin <branch> se invoca DESPUÉS de git commit y
+        # ANTES de gh pr create. Regression guard del bug que abortaba con
+        # "you must first push the current branch to a remote".
+        git_push_calls = [
+            i for i, cmd in enumerate(call_cmds) if cmd[:2] == ["git", "push"]
+        ]
+        gh_pr_calls = [i for i, cmd in enumerate(call_cmds) if cmd[:2] == ["gh", "pr"]]
+        assert git_push_calls, f"expected git push to be called; got {call_cmds}"
+        assert gh_pr_calls, f"expected gh pr create to be called; got {call_cmds}"
+        assert git_commit_calls[0] < git_push_calls[0], (
+            f"git push must be called AFTER git commit; "
+            f"got commit at {git_commit_calls[0]}, push at {git_push_calls[0]}"
+        )
+        assert git_push_calls[0] < gh_pr_calls[0], (
+            f"git push must be called BEFORE gh pr create; "
+            f"got push at {git_push_calls[0]}, gh pr at {gh_pr_calls[0]}"
+        )
+        # Y el comando exacto: push -u origin <branch>.
+        git_push_cmd = call_cmds[git_push_calls[0]]
+        assert git_push_cmd[:3] == ["git", "push", "-u"], (
+            f"git push debe usar -u flag; got {git_push_cmd[:3]}"
+        )
+        assert git_push_cmd[3] == "origin", (
+            f"git push debe apuntar a origin; got {git_push_cmd[3]}"
+        )
+        assert git_push_cmd[4].startswith("content/ingest-"), (
+            f"git push debe pushear la branch content/ingest-<slug>; "
+            f"got {git_push_cmd[4]}"
         )
 
         # El .md existe.

@@ -23,11 +23,13 @@ import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from scripts.ingest_repo import (
     GitError,
     GitHubCLIError,
     create_branch,
     git_commit,
+    git_push,
     is_gh_installed,
     open_draft_pr,
     print_manual_pr_instructions,
@@ -36,6 +38,7 @@ from scripts.ingest_repo import (
 # ===========================================================================
 # is_gh_installed
 # ===========================================================================
+
 
 class TestIsGhInstalled:
     @patch("scripts.ingest_repo.subprocess.run")
@@ -70,6 +73,7 @@ class TestIsGhInstalled:
 # create_branch
 # ===========================================================================
 
+
 class TestCreateBranch:
     @patch("scripts.ingest_repo.subprocess.run")
     def test_creates_new_branch_successfully(self, mock_run):
@@ -94,9 +98,7 @@ class TestCreateBranch:
     def test_raises_when_checkout_fails(self, mock_run):
         mock_run.side_effect = [
             MagicMock(returncode=1, stderr="", stdout=""),
-            MagicMock(
-                returncode=128, stderr="fatal: cannot create branch", stdout=""
-            ),
+            MagicMock(returncode=128, stderr="fatal: cannot create branch", stdout=""),
         ]
         with pytest.raises(GitError, match="checkout -b failed"):
             create_branch("feature/test")
@@ -111,7 +113,9 @@ class TestCreateBranch:
         first_call_args = mock_run.call_args_list[0].args[0]
         assert first_call_args[0] == "git"
         assert "rev-parse" in first_call_args
-        assert "feature/test" in first_call_args[2] or "content/ingest-foo" in str(first_call_args)
+        assert "feature/test" in first_call_args[2] or "content/ingest-foo" in str(
+            first_call_args
+        )
 
     @patch("scripts.ingest_repo.subprocess.run")
     def test_calls_checkout_with_correct_args(self, mock_run):
@@ -141,6 +145,7 @@ class TestCreateBranch:
 # ===========================================================================
 # git_commit
 # ===========================================================================
+
 
 class TestGitCommit:
     @patch("scripts.ingest_repo.subprocess.run")
@@ -172,8 +177,68 @@ class TestGitCommit:
 
 
 # ===========================================================================
+# git_push
+# ===========================================================================
+
+
+class TestGitPush:
+    @patch("scripts.ingest_repo.subprocess.run")
+    def test_push_command_shape(self, mock_run):
+        """Push command shape: git push -u origin <branch>."""
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        git_push("content/ingest-hello-world")
+        args = mock_run.call_args.args[0]
+        assert args == [
+            "git",
+            "push",
+            "-u",
+            "origin",
+            "content/ingest-hello-world",
+        ]
+
+    @patch("scripts.ingest_repo.subprocess.run")
+    def test_uses_timeout_kwarg(self, mock_run):
+        """Push must use a timeout to avoid hanging on network issues."""
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        git_push("content/ingest-hello-world")
+        kwargs = mock_run.call_args.kwargs
+        assert "timeout" in kwargs
+        assert kwargs["timeout"] > 0
+
+    @patch("scripts.ingest_repo.subprocess.run")
+    def test_raises_on_nonzero_exit(self, mock_run):
+        """Non-zero exit → GitError with the original stderr."""
+        mock_run.return_value = MagicMock(
+            returncode=128,
+            stderr="Permission denied (publickey)",
+            stdout="",
+        )
+        with pytest.raises(GitError, match="git push failed") as exc_info:
+            git_push("content/ingest-hello-world")
+        assert "Permission denied" in str(exc_info.value)
+
+    @patch("scripts.ingest_repo.subprocess.run")
+    def test_raises_on_timeout(self, mock_run):
+        """subprocess.TimeoutExpired → GitError with timed out message."""
+        mock_run.side_effect = subprocess.TimeoutExpired(
+            cmd=["git", "push"],
+            timeout=30,
+        )
+        with pytest.raises(GitError, match="git push timed out"):
+            git_push("content/ingest-hello-world")
+
+    @patch("scripts.ingest_repo.subprocess.run")
+    def test_raises_on_os_error(self, mock_run):
+        """OSError spawning the process → GitError with spawn-failed message."""
+        mock_run.side_effect = OSError("No such file or directory")
+        with pytest.raises(GitError, match="git push failed to spawn"):
+            git_push("content/ingest-hello-world")
+
+
+# ===========================================================================
 # open_draft_pr
 # ===========================================================================
+
 
 class TestOpenDraftPr:
     @patch("scripts.ingest_repo.is_gh_installed", return_value=True)
@@ -208,9 +273,7 @@ class TestOpenDraftPr:
     @patch("scripts.ingest_repo.is_gh_installed", return_value=True)
     @patch("scripts.ingest_repo.subprocess.run")
     def test_calls_gh_with_correct_args(self, mock_run, _is_gh):
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout="https://x\n", stderr=""
-        )
+        mock_run.return_value = MagicMock(returncode=0, stdout="https://x\n", stderr="")
         open_draft_pr(title="feat: x", body="body text", base="main")
         args = mock_run.call_args.args[0]
         assert args[0] == "gh"
@@ -227,9 +290,7 @@ class TestOpenDraftPr:
     @patch("scripts.ingest_repo.is_gh_installed", return_value=True)
     @patch("scripts.ingest_repo.subprocess.run")
     def test_default_base_is_dev(self, mock_run, _is_gh):
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout="https://x\n", stderr=""
-        )
+        mock_run.return_value = MagicMock(returncode=0, stdout="https://x\n", stderr="")
         open_draft_pr(title="t", body="b")
         args = mock_run.call_args.args[0]
         assert args[args.index("--base") + 1] == "dev"
@@ -238,6 +299,7 @@ class TestOpenDraftPr:
 # ===========================================================================
 # print_manual_pr_instructions
 # ===========================================================================
+
 
 class TestPrintManualPrInstructions:
     def test_prints_expected_lines(self, capsys):
