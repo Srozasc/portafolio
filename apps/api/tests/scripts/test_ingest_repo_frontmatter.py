@@ -16,10 +16,10 @@ from scripts.ingest_repo import (
     write_project_md,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 def minimal_valid_frontmatter(**overrides) -> dict:
     """Return a frontmatter dict that passes validation. Override fields ad-hoc."""
@@ -67,6 +67,7 @@ def make_repo_data(**overrides) -> dict:
 # ===========================================================================
 # validate_frontmatter — mirrors apps/web/src/content/config.ts
 # ===========================================================================
+
 
 class TestValidateFrontmatter:
     def test_minimal_valid_passes(self):
@@ -221,6 +222,7 @@ class TestValidateFrontmatter:
 # build_frontmatter
 # ===========================================================================
 
+
 class TestBuildFrontmatter:
     def test_returns_zod_valid_dict_en(self):
         repo = make_repo_data()
@@ -247,6 +249,7 @@ class TestBuildFrontmatter:
         fm = build_frontmatter(repo, role="Tech Lead", detected_lang="en")
         assert fm["slug"] == "proj-my-cool-repo"
         import re as _re
+
         assert _re.match(r"^proj-[a-z0-9-]+$", fm["slug"])
 
     def test_year_comes_from_created_at(self):
@@ -288,7 +291,9 @@ class TestBuildFrontmatter:
         repo = make_repo_data()
         fm_en = build_frontmatter(repo, role="Tech Lead", detected_lang="en")
         assert len(fm_en["summary_es"]) >= 20
-        assert ("TODO" in fm_en["summary_es"]) or ("traducc" in fm_en["summary_es"].lower())
+        assert ("TODO" in fm_en["summary_es"]) or (
+            "traducc" in fm_en["summary_es"].lower()
+        )
 
     def test_es_detection_placeholder_in_en_side(self):
         repo = make_repo_data()
@@ -335,6 +340,20 @@ class TestBuildFrontmatter:
         normalized = [s.lower() for s in fm["stack_en"]]
         assert normalized.count("python") == 1
 
+    def test_tags_includes_lowercased_language_when_topics_empty(self) -> None:
+        """Regression: repo with language but no topics used to produce empty tags."""
+        repo = make_repo_data(language="TypeScript", topics=[])
+        fm = build_frontmatter(repo, role="Tech Lead", detected_lang="en")
+        assert fm["tags"] == ["typescript"]
+
+    def test_tags_dedupes_case_insensitive(self) -> None:
+        """Tags dedupe language and topics by lowercase."""
+        repo = make_repo_data(
+            language="TypeScript", topics=["typescript", "api-gateway"]
+        )
+        fm = build_frontmatter(repo, role="Tech Lead", detected_lang="en")
+        assert fm["tags"] == ["typescript", "api-gateway"]
+
     def test_role_passed_through_to_both_languages(self):
         repo = make_repo_data()
         fm = build_frontmatter(repo, role="Senior Engineer", detected_lang="en")
@@ -358,6 +377,7 @@ class TestBuildFrontmatter:
 # ===========================================================================
 # write_project_md
 # ===========================================================================
+
 
 class TestWriteProjectMd:
     def _fm(self, slug: str = "proj-hello") -> dict:
@@ -407,11 +427,15 @@ class TestWriteProjectMd:
         assert "second body" in text
         assert "first body" not in text
 
-    def test_atomic_write_no_partial_files_on_failure(self, tmp_path: Path, monkeypatch):
+    def test_atomic_write_no_partial_files_on_failure(
+        self, tmp_path: Path, monkeypatch
+    ):
         # Force os.replace to raise after the temp file has been written.
         target_path = tmp_path / "proj-hello.md"
+
         def boom(src, dst):
             raise OSError("simulated replace failure")
+
         monkeypatch.setattr(os, "replace", boom)
         with pytest.raises(OSError, match="simulated"):
             write_project_md(self._fm(), "body", tmp_path)

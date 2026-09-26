@@ -38,6 +38,7 @@ from typing import Self
 
 import httpx
 import yaml
+
 from backend.rag.llm_client import LLMClient, StreamError
 
 # ---------------------------------------------------------------------------
@@ -52,6 +53,7 @@ SLUG_MAX_TOTAL = 60
 # ---------------------------------------------------------------------------
 # Exceptions
 # ---------------------------------------------------------------------------
+
 
 class GitHubError(Exception):
     """Raised when the GitHub API returns an error or the network fails.
@@ -78,6 +80,7 @@ class ProjectExistsError(Exception):
 # Pure helpers (no I/O)
 # ---------------------------------------------------------------------------
 
+
 def parse_repo_ref(ref: str) -> tuple[str, str]:
     """Parse a GitHub repo reference into ``(owner, repo)``.
 
@@ -103,9 +106,7 @@ def parse_repo_ref(ref: str) -> tuple[str, str]:
         return m.group(1), m.group(2)
 
     # https/http form: https://github.com/owner/repo[.git][/...]
-    m = re.match(
-        r"^https?://github\.com/([^/\s]+)/([^/\s]+?)(?:\.git)?(?:/.*)?$", s
-    )
+    m = re.match(r"^https?://github\.com/([^/\s]+)/([^/\s]+?)(?:\.git)?(?:/.*)?$", s)
     if m:
         return m.group(1), m.group(2)
 
@@ -148,9 +149,7 @@ def slugify_repo_name(name: str) -> str:
     if len(s) > max_body:
         s = s[:max_body].rstrip("-")
         if not s:
-            raise ValueError(
-                f"repo name {name!r} yields empty slug after truncation"
-            )
+            raise ValueError(f"repo name {name!r} yields empty slug after truncation")
 
     return prefix + s
 
@@ -206,9 +205,7 @@ def validate_frontmatter(fm: dict) -> None:
     for key in ("role_es", "role_en"):
         v = fm.get(key)
         if not isinstance(v, str):
-            raise FrontmatterValidationError(
-                f"{key} must be string: got {v!r}"
-            )
+            raise FrontmatterValidationError(f"{key} must be string: got {v!r}")
 
     tags = fm.get("tags")
     if (
@@ -281,8 +278,8 @@ def validate_frontmatter(fm: dict) -> None:
 
 PLACEHOLDER_TITLE_OTHER_LANG = "_(traduccion pendiente)_"  # 22 chars (Zod-safe)
 PLACEHOLDER_SUMMARY_OTHER_LANG = (
-    "_(traduccion pendiente — ver summary del idioma detectado)_"
-)  # Zod-safe length
+    "_(traduccion pendiente — ver summary del idioma detectado)_"  # Zod-safe length
+)
 
 
 def humanize_repo_name(name: str) -> str:
@@ -314,9 +311,7 @@ def build_frontmatter(
         ValueError: if detected_lang is not 'es' or 'en', or if role is empty.
     """
     if detected_lang not in ("es", "en"):
-        raise ValueError(
-            f"detected_lang must be 'es' or 'en': got {detected_lang!r}"
-        )
+        raise ValueError(f"detected_lang must be 'es' or 'en': got {detected_lang!r}")
     if not role or not role.strip():
         raise ValueError("role must be a non-empty string")
 
@@ -357,7 +352,19 @@ def build_frontmatter(
         seen.add(item.lower())
         stack.append(item)
 
-    tags = [t for t in topics if isinstance(t, str) and t]
+    # Tags: misma fuente que stack (language + topics), lowercase + dedup.
+    # Vacío solo cuando language también es None — validate_frontmatter
+    # aborta con un mensaje claro en ese caso (no es nuestro objetivo enmascarar).
+    tags: list = []
+    tags_seen: set = set()
+    for item in ([lang] if lang else []) + topics:
+        if not isinstance(item, str) or not item:
+            continue
+        tag = item.lower()
+        if tag in tags_seen:
+            continue
+        tags_seen.add(tag)
+        tags.append(tag)
 
     html_url = repo_data.get("html_url") or None
     if isinstance(html_url, str) and not html_url.startswith(("http://", "https://")):
@@ -482,13 +489,9 @@ def translate_fields(
         ValueError: If source_lang or target_lang is not 'es' or 'en'.
     """
     if source_lang not in ("es", "en"):
-        raise ValueError(
-            f"only es/en supported for source_lang, got {source_lang!r}"
-        )
+        raise ValueError(f"only es/en supported for source_lang, got {source_lang!r}")
     if target_lang not in ("es", "en"):
-        raise ValueError(
-            f"only es/en supported for target_lang, got {target_lang!r}"
-        )
+        raise ValueError(f"only es/en supported for target_lang, got {target_lang!r}")
     if not fields:
         return {}
     if source_lang == target_lang:
@@ -504,16 +507,12 @@ def translate_fields(
         raw = llm.chat(_TRANSLATION_SYSTEM_PROMPT, user_prompt)
     except StreamError as exc:
         # T4.4: graceful fallback. Keep originals.
-        logger.warning(
-            "LLM translation failed (%s); keeping original fields", exc
-        )
+        logger.warning("LLM translation failed (%s); keeping original fields", exc)
         return dict(fields)
 
     parsed = _extract_json(raw)
     if not isinstance(parsed, dict):
-        logger.warning(
-            "LLM translation response was not a JSON object: %r", raw[:200]
-        )
+        logger.warning("LLM translation response was not a JSON object: %r", raw[:200])
         return dict(fields)
 
     result: dict[str, str] = {}
@@ -534,61 +533,237 @@ def translate_fields(
 #: Spanish stopwords used by :func:`detect_language` to score how likely a
 #: README is in Spanish. Curated to cover articles, prepositions, common
 #: pronouns, auxiliary verbs and frequent adverbs.
-ES_STOPWORDS: frozenset[str] = frozenset({
-    # artículos
-    "el", "la", "los", "las", "un", "una", "unos", "unas",
-    # preposiciones
-    "de", "del", "en", "a", "por", "con", "para", "sin", "sobre",
-    "entre", "hasta", "desde", "al",
-    # conjunciones / relativo
-    "y", "o", "pero", "ni", "que", "si", "como", "cuando", "donde",
-    "mientras", "aunque", "porque",
-    # pronombres
-    "yo", "tu", "él", "ella", "nosotros", "ellos", "ellas",
-    "me", "te", "se", "nos", "le", "les", "lo",
-    "mi", "su", "nuestro", "vuestro", "sus",
-    "este", "esta", "estos", "estas", "ese", "esa", "esos", "esas",
-    "aquel", "aquella", "aquellos", "aquellas",
-    # verbos comunes
-    "es", "son", "ser", "estar", "está", "están", "era", "eran",
-    "fue", "fueron", "ha", "han", "había", "he", "has", "hay",
-    "tiene", "tienen", "tenía",
-    # adverbios
-    "no", "sí", "muy", "más", "menos", "también", "ya", "aún",
-    "todavía", "aquí", "allí", "ahora", "entonces", "bien",
-    # otros
-    "todo", "todos", "cada",
-})
+ES_STOPWORDS: frozenset[str] = frozenset(
+    {
+        # artículos
+        "el",
+        "la",
+        "los",
+        "las",
+        "un",
+        "una",
+        "unos",
+        "unas",
+        # preposiciones
+        "de",
+        "del",
+        "en",
+        "a",
+        "por",
+        "con",
+        "para",
+        "sin",
+        "sobre",
+        "entre",
+        "hasta",
+        "desde",
+        "al",
+        # conjunciones / relativo
+        "y",
+        "o",
+        "pero",
+        "ni",
+        "que",
+        "si",
+        "como",
+        "cuando",
+        "donde",
+        "mientras",
+        "aunque",
+        "porque",
+        # pronombres
+        "yo",
+        "tu",
+        "él",
+        "ella",
+        "nosotros",
+        "ellos",
+        "ellas",
+        "me",
+        "te",
+        "se",
+        "nos",
+        "le",
+        "les",
+        "lo",
+        "mi",
+        "su",
+        "nuestro",
+        "vuestro",
+        "sus",
+        "este",
+        "esta",
+        "estos",
+        "estas",
+        "ese",
+        "esa",
+        "esos",
+        "esas",
+        "aquel",
+        "aquella",
+        "aquellos",
+        "aquellas",
+        # verbos comunes
+        "es",
+        "son",
+        "ser",
+        "estar",
+        "está",
+        "están",
+        "era",
+        "eran",
+        "fue",
+        "fueron",
+        "ha",
+        "han",
+        "había",
+        "he",
+        "has",
+        "hay",
+        "tiene",
+        "tienen",
+        "tenía",
+        # adverbios
+        "no",
+        "sí",
+        "muy",
+        "más",
+        "menos",
+        "también",
+        "ya",
+        "aún",
+        "todavía",
+        "aquí",
+        "allí",
+        "ahora",
+        "entonces",
+        "bien",
+        # otros
+        "todo",
+        "todos",
+        "cada",
+    }
+)
 
 #: English stopwords used by :func:`detect_language` to score how likely a
 #: README is in English. Curated to mirror ES_STOPWORDS for symmetry.
-EN_STOPWORDS: frozenset[str] = frozenset({
-    # artículos
-    "the", "a", "an",
-    # preposiciones
-    "of", "in", "on", "to", "for", "with", "at", "by", "from",
-    "into", "over", "under", "between", "through", "during",
-    "before", "after", "about", "against", "without",
-    # conjunciones / relativo
-    "and", "or", "but", "nor", "so", "yet", "because", "if",
-    "when", "where", "while", "although", "since", "unless",
-    "until",
-    # pronombres
-    "i", "you", "he", "she", "it", "we", "they",
-    "me", "him", "her", "us", "them",
-    "my", "your", "his", "its", "our", "their",
-    "this", "that", "these", "those",
-    # verbos auxiliares / comunes
-    "is", "are", "was", "were", "be", "been", "being",
-    "have", "has", "had", "having",
-    "do", "does", "did", "doing",
-    "will", "would", "should", "could", "can", "may", "might", "must",
-    # adverbios
-    "not", "no", "yes", "very", "more", "less", "also", "just",
-    "only", "even", "still", "already", "here", "there",
-    "now", "then", "well", "too", "much", "many", "some", "any",
-    "all", "every",
-})
+EN_STOPWORDS: frozenset[str] = frozenset(
+    {
+        # artículos
+        "the",
+        "a",
+        "an",
+        # preposiciones
+        "of",
+        "in",
+        "on",
+        "to",
+        "for",
+        "with",
+        "at",
+        "by",
+        "from",
+        "into",
+        "over",
+        "under",
+        "between",
+        "through",
+        "during",
+        "before",
+        "after",
+        "about",
+        "against",
+        "without",
+        # conjunciones / relativo
+        "and",
+        "or",
+        "but",
+        "nor",
+        "so",
+        "yet",
+        "because",
+        "if",
+        "when",
+        "where",
+        "while",
+        "although",
+        "since",
+        "unless",
+        "until",
+        # pronombres
+        "i",
+        "you",
+        "he",
+        "she",
+        "it",
+        "we",
+        "they",
+        "me",
+        "him",
+        "her",
+        "us",
+        "them",
+        "my",
+        "your",
+        "his",
+        "its",
+        "our",
+        "their",
+        "this",
+        "that",
+        "these",
+        "those",
+        # verbos auxiliares / comunes
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "having",
+        "do",
+        "does",
+        "did",
+        "doing",
+        "will",
+        "would",
+        "should",
+        "could",
+        "can",
+        "may",
+        "might",
+        "must",
+        # adverbios
+        "not",
+        "no",
+        "yes",
+        "very",
+        "more",
+        "less",
+        "also",
+        "just",
+        "only",
+        "even",
+        "still",
+        "already",
+        "here",
+        "there",
+        "now",
+        "then",
+        "well",
+        "too",
+        "much",
+        "many",
+        "some",
+        "any",
+        "all",
+        "every",
+    }
+)
 
 # Noise patterns stripped before counting stopwords.
 _FENCED_CODE = re.compile(r"```.*?```", re.DOTALL)
@@ -791,9 +966,7 @@ def prompt_for_role(lang: str, *, default: str | None = None) -> str:
         ValueError: If ``lang`` is not "es" or "en".
     """
     if lang not in DEFAULT_ROLES:
-        raise ValueError(
-            f"only es/en supported for role prompt, got {lang!r}"
-        )
+        raise ValueError(f"only es/en supported for role prompt, got {lang!r}")
     fallback = default if default is not None else DEFAULT_ROLES[lang]
     if lang == "es":
         prompt_text = f"¿Cuál fue tu rol en este proyecto? [{fallback}]: "
@@ -854,6 +1027,7 @@ def load_role_from_repo(
 # ---------------------------------------------------------------------------
 # GitHub REST client
 # ---------------------------------------------------------------------------
+
 
 class GitHubClient:
     """Minimal synchronous GitHub REST client for repo ingest.
@@ -922,15 +1096,11 @@ class GitHubClient:
                 f"GitHub API returned 403 Forbidden (rate limit?): {r.text[:200]}"
             )
         if r.status_code >= 400:
-            raise GitHubError(
-                f"GitHub API error {r.status_code}: {r.text[:200]}"
-            )
+            raise GitHubError(f"GitHub API error {r.status_code}: {r.text[:200]}")
 
         return r.json()
 
-    def get_readme(
-        self, owner: str, repo: str, ref: str | None = None
-    ) -> str:
+    def get_readme(self, owner: str, repo: str, ref: str | None = None) -> str:
         """Fetch the raw README markdown for the repo.
 
         Args:
@@ -994,9 +1164,7 @@ class GitHubClient:
         try:
             r = self._client.get(endpoint, params=params, headers=headers)
         except httpx.HTTPError as exc:
-            raise GitHubError(
-                f"network error: {type(exc).__name__}"
-            ) from exc
+            raise GitHubError(f"network error: {type(exc).__name__}") from exc
 
         if r.status_code == 404:
             return None
@@ -1010,15 +1178,14 @@ class GitHubClient:
                 f"GitHub API returned 403 Forbidden (rate limit?): {r.text[:200]}"
             )
         if r.status_code >= 400:
-            raise GitHubError(
-                f"GitHub API error {r.status_code}: {r.text[:200]}"
-            )
+            raise GitHubError(f"GitHub API error {r.status_code}: {r.text[:200]}")
         return r.text
 
 
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def _print_repo_summary(repo_data: dict, slug: str, role: str) -> None:
     """Print a human-friendly summary of the repo metadata."""
@@ -1093,9 +1260,7 @@ def _maybe_translate_frontmatter(
             model=settings.CHAT_MODEL,
         )
     except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "LLM unavailable, skipping translation (%s)", type(exc).__name__
-        )
+        logger.warning("LLM unavailable, skipping translation (%s)", type(exc).__name__)
         return frontmatter
 
     try:
@@ -1150,20 +1315,20 @@ def main(argv: list[str] | None = None) -> int:
         "--non-interactive",
         action="store_true",
         help="Abort if a required value cannot be auto-detected "
-             "(e.g. role without .portafolio.yml). No prompts.",
+        "(e.g. role without .portafolio.yml). No prompts.",
     )
     ingest_mode = parser.add_mutually_exclusive_group()
     ingest_mode.add_argument(
         "--force",
         action="store_true",
         help="Overwrite existing .md file completely (skip the "
-             "role/client/impact preservation).",
+        "role/client/impact preservation).",
     )
     ingest_mode.add_argument(
         "--update",
         action="store_true",
         help="Update existing .md file, preserving human-edited fields "
-             "(role_*, client, impact_*). Regenerates derived fields.",
+        "(role_*, client, impact_*). Regenerates derived fields.",
     )
     args = parser.parse_args(argv)
 
@@ -1397,11 +1562,16 @@ def open_draft_pr(*, title: str, body: str, base: str = "dev") -> str:
 
     result = subprocess.run(
         [
-            "gh", "pr", "create",
+            "gh",
+            "pr",
+            "create",
             "--draft",
-            "--title", title,
-            "--body", body,
-            "--base", base,
+            "--title",
+            title,
+            "--body",
+            body,
+            "--base",
+            base,
         ],
         capture_output=True,
         text=True,
@@ -1416,16 +1586,13 @@ def open_draft_pr(*, title: str, body: str, base: str = "dev") -> str:
 
 def print_manual_pr_instructions(branch_name: str, *, base: str = "dev") -> None:
     """Print instructions for manually opening the PR."""
-    print(
-        f"\nManual PR creation required for branch {branch_name!r}:"
-    )
+    print(f"\nManual PR creation required for branch {branch_name!r}:")
     print(
         f"  gh pr create --draft --title ... --body ... "
         f"--base {base} --head {branch_name}"
     )
     print(
-        f"  or visit: https://github.com/<owner>/<repo>/"
-        f"compare/{base}...{branch_name}"
+        f"  or visit: https://github.com/<owner>/<repo>/compare/{base}...{branch_name}"
     )
 
 
@@ -1435,20 +1602,31 @@ def print_manual_pr_instructions(branch_name: str, *, base: str = "dev") -> None
 
 # Fields preserved from existing frontmatter during --update mode.
 # Human-edited values that must NOT be overwritten on re-ingest.
-_UPDATE_PRESERVED_FIELDS: frozenset[str] = frozenset({
-    "role_es", "role_en", "client", "impact_es", "impact_en",
-})
+_UPDATE_PRESERVED_FIELDS: frozenset[str] = frozenset(
+    {
+        "role_es",
+        "role_en",
+        "client",
+        "impact_es",
+        "impact_en",
+    }
+)
 
 # Fields that come from the source repo and are always regenerated.
 # Slug is excluded — it's the filename and stays stable for the same repo.
-_UPDATE_REGENERATED_FIELDS: frozenset[str] = frozenset({
-    "title_es", "title_en",
-    "summary_es", "summary_en",
-    "stack_es", "stack_en",
-    "tags",
-    "year",
-    "links",
-})
+_UPDATE_REGENERATED_FIELDS: frozenset[str] = frozenset(
+    {
+        "title_es",
+        "title_en",
+        "summary_es",
+        "summary_en",
+        "stack_es",
+        "stack_en",
+        "tags",
+        "year",
+        "links",
+    }
+)
 
 
 def merge_frontmatter_for_update(existing: dict, new: dict) -> dict:
@@ -1472,11 +1650,7 @@ def merge_frontmatter_for_update(existing: dict, new: dict) -> dict:
     """
     new_slug = new.get("slug")
     existing_slug = existing.get("slug")
-    if (
-        new_slug is not None
-        and existing_slug is not None
-        and new_slug != existing_slug
-    ):
+    if new_slug is not None and existing_slug is not None and new_slug != existing_slug:
         raise ValueError(
             f"slug mismatch: existing has {existing_slug!r}, "
             f"new would produce {new_slug!r}. Use --force to rename."
