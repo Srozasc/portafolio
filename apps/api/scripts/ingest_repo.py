@@ -291,8 +291,16 @@ def build_frontmatter(
     repo_data: dict,
     role: str,
     detected_lang: str,
+    *,
+    llm_client=None,
+    readme_text: str = "",
 ) -> dict:
     """Build a portfolio frontmatter dict from GitHub repo metadata.
+
+    ``llm_client`` is duck-typed (must have a ``chat(system, user, **kwargs)
+    -> str`` method). Tests pass a mock; production passes an LLMClient.
+    Type annotation is intentionally loose so pyright accepts both the
+    real client and mocks without requiring structural compatibility.
 
     Args:
         repo_data: parsed JSON from GitHub /repos/{owner}/{repo}.
@@ -308,12 +316,20 @@ def build_frontmatter(
         on the result before passing it to write_project_md().
 
     Raises:
-        ValueError: if detected_lang is not 'es' or 'en', or if role is empty.
+        ValueError: if detected_lang is not 'es' or 'en', role is empty,
+            or llm_client is None.
+        RuntimeError: propagated from ``generate_tags_with_llm()`` if the
+            LLM fails or returns invalid output.
     """
     if detected_lang not in ("es", "en"):
         raise ValueError(f"detected_lang must be 'es' or 'en': got {detected_lang!r}")
     if not role or not role.strip():
         raise ValueError("role must be a non-empty string")
+    if llm_client is None:
+        raise ValueError(
+            "llm_client is required to generate portfolio tags. "
+            "Pass an LLMClient or mock with a chat() method to build_frontmatter()."
+        )
 
     name = repo_data["name"]
     slug = slugify_repo_name(name)
@@ -352,10 +368,9 @@ def build_frontmatter(
         seen.add(item.lower())
         stack.append(item)
 
-    # Tags: misma fuente que stack (language + topics), lowercase + dedup.
-    # Vacío solo cuando language también es None — validate_frontmatter
-    # aborta con un mensaje claro en ese caso (no es nuestro objetivo enmascarar).
-    tags: list = []
+    # Tags: existing (language + topics) + LLM-generated, dedup case-insensitive.
+    # Per user policy, LLM is REQUIRED and its failure is loud (RuntimeError).
+    existing_tags: list = []
     tags_seen: set = set()
     for item in ([lang] if lang else []) + topics:
         if not isinstance(item, str) or not item:
@@ -364,7 +379,20 @@ def build_frontmatter(
         if tag in tags_seen:
             continue
         tags_seen.add(tag)
-        tags.append(tag)
+        existing_tags.append(tag)
+
+    llm_tags = generate_tags_with_llm(
+        readme_text=readme_text,
+        description=description,
+        language=lang,
+        existing_topics=topics,
+        llm_client=llm_client,
+    )
+    tags = list(existing_tags)
+    for tag in llm_tags:
+        if tag not in tags_seen:
+            tags_seen.add(tag)
+            tags.append(tag)
 
     html_url = repo_data.get("html_url") or None
     if isinstance(html_url, str) and not html_url.startswith(("http://", "https://")):
@@ -412,6 +440,97 @@ _TRANSLATION_SYSTEM_PROMPT = (
     "Always respond with a JSON object — never with prose, markdown, "
     "or code fences."
 )
+
+# Vocabulary of preferred tags, derived from the seed projects. The LLM
+# is steered toward these terms when generating new tags so the RAG
+# vocabulary stays consistent across ingests. Domain-specific terms
+# (e.g., "circuit-breaker", "rate-limiting") are added on top by the LLM
+# when relevant — this set is the *floor*, not the ceiling.
+_KNOWN_TAGS_VOCABULARY: frozenset[str] = frozenset(
+    {
+        # Tech
+        "python",
+        "typescript",
+        "javascript",
+        "rust",
+        "go",
+        "aws",
+        "gcp",
+        "azure",
+        "kubernetes",
+        "docker",
+        "terraform",
+        "kafka",
+        "rabbitmq",
+        "redis",
+        "postgresql",
+        "mongodb",
+        "fastapi",
+        "flask",
+        "django",
+        "react",
+        "vue",
+        "astro",
+        "spark",
+        "flink",
+        "airflow",
+        "openai",
+        "llm",
+        "rag",
+        "vector-db",
+        "chromadb",
+        "pinecone",
+        "ml",
+        "mlops",
+        "aws-sagemaker",
+        # Domain
+        "data-engineering",
+        "real-time",
+        "fraud-detection",
+        "senior",
+        "tech-lead",
+        "fullstack",
+        "backend",
+        "frontend",
+        "i18n",
+        "sse",
+        "rest-api",
+        "graphql",
+        # Other
+        "microservices",
+        "monolith",
+        "ci-cd",
+        "devops",
+        "observability",
+    }
+)
+
+_TAG_GENERATION_SYSTEM_PROMPT = (
+    "You are a portfolio tagging assistant. "
+    "Output ONLY a JSON array of strings — no prose, no markdown, "
+    "no code fences. Tags are lowercase with kebab-case for multi-word."
+)
+
+_TAG_GENERATION_USER_TEMPLATE = """Generate exactly 5 tags for a portfolio project.
+
+**Project description**: {description}
+**Primary language**: {language}
+**Existing GitHub topics**: {existing_topics}
+**README (excerpt, first 2000 chars)**:
+```
+{readme_excerpt}
+```
+
+**Preferred vocabulary** (prefer these when they apply): {vocab}
+
+Rules:
+- Output EXACTLY 5 tags (not 4, not 6).
+- Lowercase, kebab-case for multi-word (e.g., "circuit-breaker").
+- Prefer terms from the preferred vocabulary when they match the project's domain.
+- Add domain-specific terms when clearly relevant (e.g., "rate-limiting", "api-gateway", "circuit-breaker").
+- Do not invent terms that don't apply to the project.
+- Output ONLY a JSON array. No commentary, no markdown, no code fences.
+"""
 
 _TRANSLATION_PROMPT_TEMPLATE = """Translate these portfolio project metadata fields from {source_name} to {target_name}.
 
@@ -1202,16 +1321,127 @@ def _print_repo_summary(repo_data: dict, slug: str, role: str) -> None:
     print(f"  role:           {role}")
 
 
+def generate_tags_with_llm(
+    *,
+    readme_text: str,
+    description: str,
+    language: str | None,
+    existing_topics: list[str],
+    llm_client: LLMClient,
+) -> list[str]:
+    """Generate exactly 5 portfolio tags for a repo via LLM.
+
+    Uses temperature 0.2 for consistency. Steered by `_KNOWN_TAGS_VOCABULARY`
+    as the preferred vocabulary (the LLM adds domain-specific terms on top
+    when relevant).
+
+    Args:
+        readme_text: Raw README markdown from the repo. Truncated to the
+            first 2000 chars before being sent to the LLM.
+        description: GitHub repo description (may be empty).
+        language: Primary language from GitHub (e.g., "TypeScript"); may be None.
+        existing_topics: GitHub topics configured on the repo (may be empty).
+        llm_client: An LLMClient instance.
+
+    Returns:
+        A list of exactly 5 lowercase tags.
+
+    Raises:
+        RuntimeError: If the LLM fails (StreamError), returns invalid JSON,
+            returns a non-list, returns the wrong number of tags, or
+            returns any non-string tag. **No fallback** — caller must
+            handle (per user decision: cancel the ingest).
+    """
+    readme_excerpt = (readme_text or "")[:2000]
+    topics_str = ", ".join(existing_topics) if existing_topics else "(none)"
+    vocab_str = ", ".join(sorted(_KNOWN_TAGS_VOCABULARY))
+    user_prompt = _TAG_GENERATION_USER_TEMPLATE.format(
+        description=description or "(none)",
+        language=language or "(unknown)",
+        existing_topics=topics_str,
+        readme_excerpt=readme_excerpt,
+        vocab=vocab_str,
+    )
+
+    try:
+        response_text = llm_client.chat(
+            system=_TAG_GENERATION_SYSTEM_PROMPT,
+            user=user_prompt,
+            temperature=0.2,
+        )
+    except StreamError as exc:
+        raise RuntimeError(
+            f"LLM failed to generate tags: {exc}. Per policy, the ingest is cancelled."
+        ) from exc
+
+    # Parse JSON array. The system prompt asks for "ONLY a JSON array"
+    # but tolerate prose preamble / code fences as defense.
+    import json as _json
+
+    raw = response_text.strip()
+    # Strip code fences if present.
+    if raw.startswith("```"):
+        first_newline = raw.find("\n")
+        if first_newline != -1:
+            raw = raw[first_newline + 1 :]
+        if raw.endswith("```"):
+            raw = raw[:-3].rstrip()
+    # Try to find the first '[' and last ']' (in case of prose preamble).
+    bracket_start = raw.find("[")
+    bracket_end = raw.rfind("]")
+    if bracket_start != -1 and bracket_end != -1 and bracket_end > bracket_start:
+        raw = raw[bracket_start : bracket_end + 1]
+
+    try:
+        parsed = _json.loads(raw)
+    except _json.JSONDecodeError as exc:
+        raise RuntimeError(
+            f"LLM returned invalid JSON for tags: {exc}; "
+            f"response={response_text[:200]!r}. Per policy, the ingest is cancelled."
+        ) from exc
+
+    if not isinstance(parsed, list):
+        raise TypeError(
+            f"LLM returned non-list for tags: {type(parsed).__name__}; "
+            f"response={response_text[:200]!r}. Per policy, the ingest is cancelled."
+        )
+
+    tags: list[str] = []
+    for item in parsed:
+        if not isinstance(item, str) or not item.strip():
+            raise RuntimeError(
+                f"LLM returned invalid tag entry: {item!r}; "
+                f"response={response_text[:200]!r}. Per policy, the ingest is cancelled."
+            )
+        tags.append(item.strip().lower())
+
+    if len(tags) != 5:
+        raise RuntimeError(
+            f"LLM returned {len(tags)} tags, expected exactly 5: {tags}. "
+            f"Per policy, the ingest is cancelled."
+        )
+
+    return tags
+
+
 def _maybe_translate_frontmatter(
     frontmatter: dict,
     detected_lang: str,
+    *,
+    llm: LLMClient | None = None,
 ) -> dict:
     """Translate the secondary-language fields of ``frontmatter`` via the LLM.
 
     Skips translation when the input for the other language is only the
     placeholder (no real content to translate). On any LLM error
     (unconfigured client, retry exhaustion, parse failure), returns the
-    input ``frontmatter`` unchanged (T4.4 fallback).
+    input ``frontmatter`` unchanged (T4.4 fallback — translation is
+    best-effort and never aborts the ingest).
+
+    If ``llm`` is provided, uses that instance (preferred path — main()
+    creates the LLMClient once and shares it with build_frontmatter for
+    tag generation). If ``llm`` is None, lazily creates one (backward
+    compat for tests that don't pass an explicit client).
     """
     if detected_lang not in ("es", "en"):
         return frontmatter
@@ -1247,21 +1477,25 @@ def _maybe_translate_frontmatter(
     if not fields_to_translate:
         return frontmatter
 
-    try:
-        # Lazy import to keep the script decoupled from backend.config at
-        # import time (Settings reads env at construction; tests may not
-        # have env vars set when the script module is imported).
-        from backend.config import Settings
+    if llm is None:
+        # Backward-compat path: lazily create LLMClient if none was passed.
+        try:
+            # Lazy import to keep the script decoupled from backend.config at
+            # import time (Settings reads env at construction; tests may not
+            # have env vars set when the script module is imported).
+            from backend.config import Settings
 
-        settings = Settings()
-        llm = LLMClient(
-            base_url=settings.LLM_BASE_URL,
-            api_key=settings.LLM_API_KEY,
-            model=settings.CHAT_MODEL,
-        )
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("LLM unavailable, skipping translation (%s)", type(exc).__name__)
-        return frontmatter
+            settings = Settings()
+            llm = LLMClient(
+                base_url=settings.LLM_BASE_URL,
+                api_key=settings.LLM_API_KEY,
+                model=settings.CHAT_MODEL,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "LLM unavailable, skipping translation (%s)", type(exc).__name__
+            )
+            return frontmatter
 
     try:
         translated = translate_fields(
@@ -1372,10 +1606,48 @@ def main(argv: list[str] | None = None) -> int:
     detected_lang = detect_language(readme)
     default_branch = repo_data.get("default_branch") or "main"
     body = rewrite_image_urls_to_absolute(readme, owner, repo, default_branch)
+
+    # Create a single LLMClient for both tag generation and translation.
+    # Per user policy, tag generation fails loud if the LLM is unavailable
+    # (build_frontmatter raises ValueError when llm_client is None).
+    # Translation has its own silent fallback (best-effort) inside
+    # _maybe_translate_frontmatter.
+    try:
+        # Lazy import: keeps the script decoupled from backend.config at
+        # import time (Settings reads env at construction; tests may not
+        # have env vars set when the script module is imported).
+        from backend.config import Settings
+
+        settings = Settings()
+        llm = LLMClient(
+            base_url=settings.LLM_BASE_URL,
+            api_key=settings.LLM_API_KEY,
+            model=settings.CHAT_MODEL,
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(
+            f"ERROR: failed to create LLM client (required for tag generation): "
+            f"{type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
+        print(
+            "  hint: check that LLM_API_KEY (and LLM_BASE_URL if non-default) are set.",
+            file=sys.stderr,
+        )
+        return 1
+
     new_frontmatter = build_frontmatter(
-        repo_data, role=role, detected_lang=detected_lang
+        repo_data,
+        role=role,
+        detected_lang=detected_lang,
+        llm_client=llm,
+        readme_text=readme,
     )
-    new_frontmatter = _maybe_translate_frontmatter(new_frontmatter, detected_lang)
+    new_frontmatter = _maybe_translate_frontmatter(
+        new_frontmatter,
+        detected_lang,
+        llm=llm,
+    )
 
     # ----- 4. report ----------------------------------------------------
     _print_repo_summary(repo_data, slug, role)

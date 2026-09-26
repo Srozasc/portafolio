@@ -22,6 +22,7 @@ Estos tests son TDD strict:
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -91,6 +92,11 @@ class _FakeLLMClient:
     extraemos ese bloque y lo devolvemos como respuesta. Asi, las
     llamadas de translate_fields resultan en un no-op de campos (el valor
     traducido es identico al original).
+
+    El prompt de tag generation no tiene JSON en el input; lo detectamos
+    por el marker ``**Project description**`` y devolvemos un array fijo
+    de 5 tags en formato JSON (que es lo que generate_tags_with_llm()
+    espera).
     """
 
     def __init__(self, *args, **kwargs) -> None:
@@ -99,6 +105,19 @@ class _FakeLLMClient:
         self.init_kwargs = kwargs
 
     def chat(self, system: str, user: str, **kwargs) -> str:
+        # Tag generation call (Phase 5.5d+): prompt has "**Project description**".
+        # No JSON input to echo back, so return 5 fixed tags as a JSON array.
+        if "**Project description**" in user:
+            return json.dumps(
+                [
+                    "api-gateway",
+                    "typescript",
+                    "rate-limiting",
+                    "circuit-breaker",
+                    "fastify",
+                ]
+            )
+        # Translation call: echo back the Input JSON.
         m = re.search(r"Input:\s*(\{.*\})\s*$", user, re.DOTALL)
         if m:
             return m.group(1)
