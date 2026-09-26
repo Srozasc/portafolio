@@ -1432,6 +1432,19 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
+    # Stage the .md we just wrote. git_commit requires the caller to stage.
+    try:
+        subprocess.run(
+            ["git", "add", str(md_path)],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except subprocess.CalledProcessError as exc:
+        print(f"ERROR: git add failed: {exc.stderr}", file=sys.stderr)
+        return 1
+
     try:
         git_commit(commit_message, body=commit_body)
     except GitError as exc:

@@ -29,9 +29,9 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 import yaml
-from scripts.ingest_repo import GitHubClient
 
 from scripts import ingest_repo
+from scripts.ingest_repo import GitHubClient
 
 # ---------------------------------------------------------------------------
 # Fixtures: octocat/Hello-World (snapshot taken from real GitHub).
@@ -174,9 +174,11 @@ class TestFullIngestDryRun:
         ):
             rc = ingest_repo.main(
                 [
-                    "--repo", "octocat/Hello-World",
+                    "--repo",
+                    "octocat/Hello-World",
                     "--dry-run",
-                    "--projects-dir", str(projects_dir),
+                    "--projects-dir",
+                    str(projects_dir),
                 ]
             )
 
@@ -211,20 +213,45 @@ class TestFullIngestWritesMd:
             _patch_github_client(transport),
             patch.object(ingest_repo, "LLMClient", _FakeLLMClient),
             patch.object(
-                ingest_repo.subprocess, "run",
+                ingest_repo.subprocess,
+                "run",
                 side_effect=mock_results,
             ) as mock_run,
         ):
             rc = ingest_repo.main(
                 [
-                    "--repo", "octocat/Hello-World",
-                    "--projects-dir", str(projects_dir),
+                    "--repo",
+                    "octocat/Hello-World",
+                    "--projects-dir",
+                    str(projects_dir),
                 ]
             )
 
         assert rc == 0
         # subprocess.run fue llamado al menos una vez (branch + PR).
         assert mock_run.call_count >= 1
+
+        # git add <md_path> se invoca ANTES de git commit. Regression guard
+        # del bug que abortaba con "nothing added to commit but untracked files
+        # present" cuando main() llamaba git_commit sin stagear primero.
+        call_cmds = [c.args[0] for c in mock_run.call_args_list]
+        git_add_calls = [
+            i for i, cmd in enumerate(call_cmds) if cmd[:2] == ["git", "add"]
+        ]
+        git_commit_calls = [
+            i for i, cmd in enumerate(call_cmds) if cmd[:2] == ["git", "commit"]
+        ]
+        assert git_add_calls, f"expected git add to be called; got {call_cmds}"
+        assert git_commit_calls, f"expected git commit to be called; got {call_cmds}"
+        assert git_add_calls[0] < git_commit_calls[0], (
+            f"git add must be called BEFORE git commit; "
+            f"got git add at {git_add_calls[0]}, git commit at {git_commit_calls[0]}"
+        )
+        # Y el archivo stageado es el .md que escribimos.
+        git_add_cmd = call_cmds[git_add_calls[0]]
+        assert git_add_cmd[2].endswith("proj-hello-world.md"), (
+            f"git add debe stagear proj-hello-world.md; got {git_add_cmd[2]}"
+        )
 
         # El .md existe.
         md_path = projects_dir / "proj-hello-world.md"
@@ -283,16 +310,16 @@ class TestFullIngestExistingProjectGuards:
         ):
             rc = ingest_repo.main(
                 [
-                    "--repo", "octocat/Hello-World",
-                    "--projects-dir", str(projects_dir),
+                    "--repo",
+                    "octocat/Hello-World",
+                    "--projects-dir",
+                    str(projects_dir),
                 ]
             )
 
         assert rc == 1
         # El .md pre-existente no se modifica.
-        content = (projects_dir / "proj-hello-world.md").read_text(
-            encoding="utf-8"
-        )
+        content = (projects_dir / "proj-hello-world.md").read_text(encoding="utf-8")
         assert content == "existing content\n"
         # subprocess.run no se llama (no se llega a branch/PR).
         mock_run.assert_not_called()
