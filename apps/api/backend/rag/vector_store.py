@@ -14,6 +14,7 @@ import chromadb
 
 class Hit(NamedTuple):
     """A single retrieved chunk from a query result."""
+
     text: str
     metadata: dict
     score: float
@@ -21,6 +22,7 @@ class Hit(NamedTuple):
 
 class CollectionStats(NamedTuple):
     """Statistics for one ChromaDB collection."""
+
     name: str
     chunk_count: int
 
@@ -46,8 +48,22 @@ class VectorStore:
         return [str(col) for col in self._client.list_collections()]
 
     def get_or_create(self, name: str) -> chromadb.Collection:
-        """Return an existing collection by name or create it if it doesn't exist."""
-        return self._client.get_or_create_collection(name=name)
+        """Return an existing collection by name or create it if it doesn't exist.
+
+        Collections are created with cosine distance metric so that
+        ``1 - distance`` in query results equals cosine similarity directly.
+        (ChromaDB defaults to Euclidean/L2 distance, where ``1 - dist`` can be
+        negative even for semantically related chunks in high-dimensional
+        embedding spaces — see ChromaDB docs on hnsw:space.)
+
+        Note: an existing collection's distance metric cannot be changed in
+        place — the caller must ``delete_collection(name)`` first (the
+        reindex flow does this automatically when ``force=True``).
+        """
+        return self._client.get_or_create_collection(
+            name=name,
+            metadata={"hnsw:space": "cosine"},
+        )
 
     def delete_collection(self, name: str) -> None:
         """Delete a collection by name. Idempotent (no-op if not found)."""
@@ -78,7 +94,9 @@ class VectorStore:
             documents: Raw text documents.
             metadatas: Metadata dicts, one per document.
         """
-        collection = self._client.get_or_create_collection(name=name)
+        # Use self.get_or_create (not _client.get_or_create_collection directly)
+        # so the cosine distance metadata is applied to NEW collections.
+        collection = self.get_or_create(name)
         # ChromaDB 0.6.x requires non-empty metadata dicts; use None for empty
         cleaned_metadatas = [m if m else None for m in metadatas]
         collection.upsert(
