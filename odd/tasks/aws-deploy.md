@@ -37,12 +37,21 @@
 - Document the registered domain and nameservers in this repo for future reference
 
 ### T2. Provision S3 + CloudFront + ACM for the frontend
-- Create S3 bucket `portafolio-web-prod` in `us-west-2`
-- Enable static website hosting; block all public access; use Origin Access Control (OAC) instead
-- Request ACM wildcard certificate `*.srozas.men` in `us-east-1` (CloudFront requires it there)
-- Validate the cert via DNS CNAMEs in Cloudflare
-- Create CloudFront distribution: bucket as origin (OAC), ACM cert attached, alternate domain name `portafolio.srozas.men`
-- Add CNAME in Cloudflare DNS pointing `portafolio.srozas.men` to the CloudFront distribution endpoint
+- [x] Create S3 bucket `portafolio-web-prod` in `us-west-2` — Bucket ARN: `arn:aws:s3:::portafolio-web-prod`
+- [x] Block all public access (BPA: `BlockPublicAcls=true, IgnorePublicAcls=true, BlockPublicPolicy=true, RestrictPublicBuckets=true`); OAC is the only ingress
+- [x] Request ACM wildcard certificate `*.srozas.men` in `us-east-1` — Cert ARN: `arn:aws:acm:us-east-1:467640459757:certificate/6636d82b-5839-4603-9fe5-c6bb9513c0c2`
+- [x] Validate the cert via DNS CNAMEs in Cloudflare — Validation token `_c62176285a39cff1d245601bc43e4e00.srozas.men` → `_aaeb00c7d9ac3a6f11808ed66ce8bc58.wzccmgtwzk.acm-validations.aws` (CNAME added by user 2026-09-29; status moved to ISSUED)
+- [x] Create Origin Access Control (OAC) — ID: `EN5LKIP1DFMJ3` (sigv4, signing behavior always)
+- [x] Create CloudFront distribution — ID: `EJ12TBQTYJ43D`, domain: `d2tjrpncms9n6q.cloudfront.net`, alternate domain `portafolio.srozas.men`, PriceClass_100, HTTP/2, Compress enabled, CachePolicyId `658327ea-f89d-4fab-a63d-7e88639e58f6` (Managed-CachingOptimized), ResponseHeadersPolicyId `67f7725c-6f97-4210-82d7-5512b31e9d03` (Managed-SecurityHeadersPolicy)
+- [x] Update bucket policy to allow OAC access (Condition: `AWS:SourceArn` pinned to this distribution ARN — restricts to our distribution only)
+- [ ] Add CNAME in Cloudflare DNS pointing `portafolio.srozas.men` to `d2tjrpncms9n6q.cloudfront.net` (DNS only / grey cloud, not proxied — to keep ACM cert in use)
+- [ ] Wait for CloudFront distribution to finish deploying (status `InProgress` → `Deployed`, ~5-15 min)
+- [ ] Verify `curl https://portafolio.srozas.men` returns 200 + valid HTML
+
+**Notes for T2**:
+- Script `scripts/aws/cloudfront-portafolio-config.json` holds the full distribution config — re-runnable for `update-distribution` later.
+- Script `scripts/aws/portafolio-bucket-policy.json` holds the bucket policy — re-runnable for `put-bucket-policy` later.
+- AWS MCP server (`mcp-proxy-for-aws`) is read-only diagnostic only (Lambda logs, traces); provisioning goes via raw `aws` CLI through bash.
 
 ### T3. Provision EC2 + IAM role + security group
 - Launch `t3.micro` Amazon Linux 2023 in `us-west-2`, default VPC, public subnet
