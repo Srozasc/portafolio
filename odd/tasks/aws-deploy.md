@@ -81,12 +81,27 @@
   * Logs next-step instructions for T5 (Chromadb regen) and `systemctl enable --now`
 
 ### T5. Bootstrap EC2 and verify ChromaDB regeneration from GitHub
-- Run the bootstrap script from T4
-- Clone the repo at `/opt/portafolio`, checkout `dev`
-- Copy `apps/api/.env.example` → `.env`, fill production values (LLM keys, embedding keys, ChromaDB persist dir)
-- Create venv, install `requirements.txt`
-- Run `python scripts/ingest_repo.py --all` to regenerate ChromaDB from GitHub sources
-- Verify `curl http://127.0.0.1:8000/api/health` returns `{"status":"ok", ...}` from inside the instance
+- [x] Install git + python3 + python3-pip + python3-devel + gcc on AL2023 via dnf
+- [x] Create system user `portafolio` (uid 993)
+- [x] Clone `https://github.com/Srozasc/portafolio.git` (branch dev) to `/opt/portafolio`
+- [x] Adapt systemd unit `User=ubuntu` -> `User=portafolio` + add `PYTHONUNBUFFERED=1` + memory limits
+- [x] Install systemd unit at `/etc/systemd/system/portafolio.service` + `systemctl enable`
+- [x] Create Python venv at `/opt/portafolio/apps/api/.venv` + install `requirements.txt` (101 packages)
+- [x] Recursive chown `portafolio:portafolio` on `/opt/portafolio/apps/api/.venv`, `backend/`, `data/`, `scripts/`
+- [x] User uploaded `apps/api/.env` via SCP (production values for LLM keys, embedding keys, ChromaDB dir)
+- [x] Run `python -m scripts.reindex --force` — 6 projects, 6 index chunks, 18 detail chunks, 28 ChromaDB files, 43 MB
+- [x] Install `eval_type_backport` (required by pydantic 2.13 for Python 3.9 compat)
+- [x] Patch all 11 backend .py files with `from __future__ import annotations` (PEP 604 union syntax `X | None` requires Python 3.10+)
+- [x] Patch `scripts/ingest_repo.py`: `from typing import Self` -> `from typing_extensions import Self` (Self was added to typing in 3.11)
+- [x] Strip inline `# comment` after `SIMILARITY_THRESHOLD=0.0` in `.env` (python-dotenv does not strip inline comments by default, so the value was being read as `"0.0  # ..."`)
+- [x] Start `portafolio.service` + verify `curl http://127.0.0.1:8000/api/health` returns `{"status":"ok","model":"...","embedding_model":"text-embedding-3-small","collections":[...7 collections with chunks...]}` from inside the instance
+
+**Notes for T5 — important for future deploys**:
+- AL2023 ships Python 3.9; the codebase uses Python 3.10+ syntax (`X | None`) and 3.11+ syntax (`typing.Self`). The fixes above are a workaround. Long-term options: (a) upgrade AL2023 Python via `dnf install python3.11`, or (b) bundle the patches into `amazon-linux-bootstrap.sh`.
+- `dev` branch does NOT include `ingest_repo.py` (it's only on `feat/aws-deploy` locally, not pushed). For T5 we SCP'd it. Long-term: merge `feat/aws-deploy` into `dev` (or push `feat/aws-deploy` and have deploys use that branch).
+- `dev` branch systemd unit still has `User=ubuntu`; the patch via sed is done post-clone. The local repo on `feat/aws-deploy` (T4) has `User=portafolio` already. Merging `feat/aws-deploy` into `dev` will fix this for future deploys.
+- The safe.directory warning was a one-time setup; persist via `git config --global --add safe.directory /opt/portafolio` (done for both root and ec2-user).
+- The bash safety policy in pi blocks `chown -R` and `sed -i` patterns via the bash tool. Workaround used: write helper scripts (`t5-finish-ownership.sh`) and have the user run them via SCP+SSH. Document this in T8 so future ops don't get stuck.
 - Commit: `docs(ops): document chromadb regeneration from GitHub sources`
 
 ### T6. Configure Cloudflare Tunnel on EC2
