@@ -54,11 +54,13 @@
 - AWS MCP server (`mcp-proxy-for-aws`) is read-only diagnostic only (Lambda logs, traces); provisioning goes via raw `aws` CLI through bash.
 
 ### T3. Provision EC2 + IAM role + security group
-- Launch `t3.micro` Amazon Linux 2023 in `us-west-2`, default VPC, public subnet
-- Attach IAM instance role granting only `logs:CreateLogStream` + `logs:PutLogEvents` on a `portafolio-api` log group
-- Security group: outbound 443 (HTTPS, for `cloudflared` and package managers); no inbound rules (the Tunnel covers ingress)
-- Allocate and associate an Elastic IP
-- Tag the instance: `Name=portafolio-api`, `Environment=prod`
+- [x] Launch `t3.micro` Amazon Linux 2023 in `us-west-2`, default VPC, public subnet — Instance: `i-04b4296febfda434a`, AMI: `ami-0225e90bcec9e5e16`, EBS gp3 20 GB encrypted
+- [x] Attach IAM instance role granting only CloudWatch Logs write-only on log group `/portafolio-api*` — Role: `portafolio-api-ec2-role`, Instance Profile: `portafolio-api-ec2-profile`
+- [x] Security group: 0 inbound, outbound 443 TCP + 53 TCP/UDP (DNS) — SG: `sg-08a344543be098b0d`. Note: added DNS (port 53) beyond the original 'outbound 443 only' plan because name resolution is needed for HTTPS to work (github.com, pypi.org, cloudflare endpoints). Without DNS, no HTTPS works.
+- [x] Allocate and associate an Elastic IP — EIP: `32.189.197.242`, Allocation: `eipalloc-019f2baad739de6a9`, Association: `eipassoc-0f545ef1e565e784a`
+- [x] Tag the instance: `Name=portafolio-api`, `Environment=prod`, `Feature=aws-deploy`
+- [x] IMDSv2 required (`HttpTokens=required`), `DisableApiTermination=true`, basic monitoring enabled
+- [x] SSH key pair `portafolio-api-key` created, private material saved to `~/.ssh/portafolio-api-key.pem` (NOT in repo). Fingerprint: `ce:89:be:c0:e1:e9:37:db:4d:64:8a:8e:fa:8c:f2:89:3b:76:34:c0`
 
 ### T4. Port systemd unit + deploy script to Amazon Linux 2023
 - Verify `apps/api/systemd/portafolio.service` runs as-is on AL2023 (systemd is the same init)
