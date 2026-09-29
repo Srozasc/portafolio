@@ -63,10 +63,22 @@
 - [x] SSH key pair `portafolio-api-key` created, private material saved to `~/.ssh/portafolio-api-key.pem` (NOT in repo). Fingerprint: `ce:89:be:c0:e1:e9:37:db:4d:64:8a:8e:fa:8c:f2:89:3b:76:34:c0`
 
 ### T4. Port systemd unit + deploy script to Amazon Linux 2023
-- Verify `apps/api/systemd/portafolio.service` runs as-is on AL2023 (systemd is the same init)
-- Verify `scripts/deploy.sh` works on AL2023: Python 3 path, `pip` vs `pip3`, dnf vs apt for `python3-venv` and `build-essential`
-- Add an idempotent bootstrap script at `scripts/aws/amazon-linux-bootstrap.sh` that installs the runtime deps and clones the repo to `/opt/portafolio`
-- Commit: `chore(infra): adapt systemd unit and deploy script for Amazon Linux 2023`
+- [x] Verified `apps/api/systemd/portafolio.service` for AL2023 compatibility — only `User=` needs change (systemd is the same init on AL2023)
+- [x] Adapted `portafolio.service`:
+  * `User=ubuntu` → `User=portafolio` (dedicated system user created by bootstrap; AL2023 default `ec2-user` is for SSH only)
+  * Added `Environment=PYTHONUNBUFFERED=1` so logs flow to journald without buffering
+  * Added `MemoryHigh=700M` + `MemoryMax=900M` (t3.micro has 1 GB RAM; keeps headroom for kernel + cloudflared)
+- [x] Verified `scripts/deploy.sh` works on AL2023 as-is — uses `python3`, `pip`, `sudo systemctl` which are all present
+- [x] Added idempotent `scripts/aws/amazon-linux-bootstrap.sh`:
+  * Installs system deps via `dnf` (git, python3, python3-pip, python3-devel, gcc)
+  * Creates `portafolio` system user (skips if exists)
+  * Clones repo to `/opt/portafolio` (skips if already cloned)
+  * Creates Python venv at `apps/api/.venv` (skips if exists)
+  * Installs `requirements.txt`
+  * Installs systemd unit at `/etc/systemd/system/portafolio.service`
+  * Creates `.env` from `.env.example` only if missing (preserves prod values)
+  * Reloads systemd
+  * Logs next-step instructions for T5 (Chromadb regen) and `systemctl enable --now`
 
 ### T5. Bootstrap EC2 and verify ChromaDB regeneration from GitHub
 - Run the bootstrap script from T4

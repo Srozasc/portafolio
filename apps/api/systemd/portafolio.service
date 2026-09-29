@@ -4,15 +4,18 @@ After=network.target
 
 [Service]
 Type=simple
-User=ubuntu
+User=portafolio
 WorkingDirectory=/opt/portafolio/apps/api
 EnvironmentFile=/opt/portafolio/apps/api/.env
+Environment=PYTHONUNBUFFERED=1
 ExecStart=/opt/portafolio/apps/api/.venv/bin/uvicorn backend.main:app --host 127.0.0.1 --port 8000 --workers 2
 Restart=always
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=portafolio-api
+MemoryHigh=700M
+MemoryMax=900M
 
 [Install]
 WantedBy=multi-user.target
