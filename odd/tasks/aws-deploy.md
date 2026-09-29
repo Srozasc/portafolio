@@ -1,0 +1,106 @@
+# Feature: AWS Deployment
+
+> Migrate the Portafolio RAG stack from "Vercel + Linux VPS + Cloudflare Tunnel" to "S3 + CloudFront + EC2 + Cloudflare Tunnel" on AWS Free Tier, in `us-west-2`. Frontend at `portafolio.srozas.men`, backend at `api.portafolio.srozas.men`.
+
+## Metadata
+
+- **Status**: planning (no source writes yet)
+- **Region**: `us-west-2` (Oregon)
+- **Domain**: `srozas.men` registered at Cloudflare Registrar
+- **Frontend hostname**: `portafolio.srozas.men`
+- **Backend hostname**: `api.portafolio.srozas.men`
+- **Account**: free-tier-only, prepaid card with minimal balance, $100 promotional credits
+- **Free Tier window**: 12 months
+- **Post-Free-Tier plan**: migrate backend to Lightsail ($3.50/mo) or Hetzner VPS ($4/mo); frontend stays cheap in any case
+- **Branch policy**: feature branch `feat/aws-deploy`, branched from `dev`
+
+## Architecture
+
+| Layer | Service | Notes |
+|---|---|---|
+| Frontend | S3 + CloudFront + ACM | Static Astro SSG; Origin Access Control (OAC); ACM wildcard `*.srozas.men` requested in `us-east-1` |
+| DNS | Cloudflare | Already configured; CNAME for `portafolio.srozas.men` → CloudFront, CNAME for `api.portafolio.srozas.men` → Tunnel endpoint |
+| Backend exposure | Cloudflare Tunnel | Outbound-only from EC2; zero inbound ports; TLS handled by Cloudflare |
+| Backend runtime | EC2 `t3.micro` (Amazon Linux 2023) | Default VPC, public subnet, Elastic IP, IAM instance role for CloudWatch Logs |
+| Backend storage | EBS `gp3` 20 GB | Ephemeral — ChromaDB is a derived cache regenerated from GitHub via `apps/api/scripts/ingest_repo.py` |
+| Logs | CloudWatch Logs | Retention 7 days |
+| Billing safety | Billing alarms at $5 / $10 / $20 / $50 | Insurance against Free Tier edge cases |
+
+**Excluded by design**: NAT Gateway, ALB, RDS, EFS, Secrets Manager, S3 backup of ChromaDB, multi-AZ HA, custom VPC. Each one adds cost or complexity this project does not need. Add only when justified.
+
+## Tasks
+
+### T1. Register domain in Cloudflare
+- The domain `srozas.men` is already purchased; verify it appears in the Cloudflare account and nameservers are pointed to Cloudflare
+- Confirm the registrar DNS records are Cloudflare's nameservers (auto-set when registered via Cloudflare Registrar)
+- Subdomain strategy: `portafolio.srozas.men` for frontend, `api.portafolio.srozas.men` for backend (already decided in planning)
+- Document the registered domain and nameservers in this repo for future reference
+
+### T2. Provision S3 + CloudFront + ACM for the frontend
+- Create S3 bucket `portafolio-web-prod` in `us-west-2`
+- Enable static website hosting; block all public access; use Origin Access Control (OAC) instead
+- Request ACM wildcard certificate `*.srozas.men` in `us-east-1` (CloudFront requires it there)
+- Validate the cert via DNS CNAMEs in Cloudflare
+- Create CloudFront distribution: bucket as origin (OAC), ACM cert attached, alternate domain name `portafolio.srozas.men`
+- Add CNAME in Cloudflare DNS pointing `portafolio.srozas.men` to the CloudFront distribution endpoint
+
+### T3. Provision EC2 + IAM role + security group
+- Launch `t3.micro` Amazon Linux 2023 in `us-west-2`, default VPC, public subnet
+- Attach IAM instance role granting only `logs:CreateLogStream` + `logs:PutLogEvents` on a `portafolio-api` log group
+- Security group: outbound 443 (HTTPS, for `cloudflared` and package managers); no inbound rules (the Tunnel covers ingress)
+- Allocate and associate an Elastic IP
+- Tag the instance: `Name=portafolio-api`, `Environment=prod`
+
+### T4. Port systemd unit + deploy script to Amazon Linux 2023
+- Verify `apps/api/systemd/portafolio.service` runs as-is on AL2023 (systemd is the same init)
+- Verify `scripts/deploy.sh` works on AL2023: Python 3 path, `pip` vs `pip3`, dnf vs apt for `python3-venv` and `build-essential`
+- Add an idempotent bootstrap script at `scripts/aws/amazon-linux-bootstrap.sh` that installs the runtime deps and clones the repo to `/opt/portafolio`
+- Commit: `chore(infra): adapt systemd unit and deploy script for Amazon Linux 2023`
+
+### T5. Bootstrap EC2 and verify ChromaDB regeneration from GitHub
+- Run the bootstrap script from T4
+- Clone the repo at `/opt/portafolio`, checkout `dev`
+- Copy `apps/api/.env.example` → `.env`, fill production values (LLM keys, embedding keys, ChromaDB persist dir)
+- Create venv, install `requirements.txt`
+- Run `python scripts/ingest_repo.py --all` to regenerate ChromaDB from GitHub sources
+- Verify `curl http://127.0.0.1:8000/api/health` returns `{"status":"ok", ...}` from inside the instance
+- Commit: `docs(ops): document chromadb regeneration from GitHub sources`
+
+### T6. Configure Cloudflare Tunnel on EC2
+- Install `cloudflared` (official package or direct binary; choose during execution)
+- Authenticate by copying `cert.pem` from a local machine to `~/.cloudflared/`
+- Create tunnel `portafolio-api`; save credentials JSON (never commit)
+- Configure `~/.cloudflared/config.yml`: ingress rule for `api.portafolio.srozas.men` → `http://127.0.0.1:8000`, catch-all `http_status:404`
+- Create CNAME in Cloudflare DNS for `api.portafolio.srozas.men` → tunnel endpoint
+- Install `cloudflared` as a systemd service (`sudo cloudflared service install`), enable and start
+- Verify `curl https://api.portafolio.srozas.men/api/health` from a machine outside the VPS returns 200 JSON
+
+### T7. Update CORS, PUBLIC_API_URL, and env wiring
+- Update `apps/api/.env` on EC2: append `https://portafolio.srozas.men` to `CORS_ALLOW_ORIGINS`
+- Confirm the regex-based allowance covers `*.cloudfront.net` preview hostnames (or relax it for the production CloudFront distribution)
+- Update `apps/web/astro.config.mjs`: set `site` to `https://portafolio.srozas.men`
+- Rebuild the frontend (`pnpm build`), sync `apps/web/dist/` to S3, invalidate CloudFront cache for `/`
+- Verify end-to-end: open `https://portafolio.srozas.men`, trigger the chat FAB, confirm a streamed answer from `https://api.portafolio.srozas.men` arrives
+
+### T8. Write `docs/deploy/aws.md` and update README
+- Author `docs/deploy/aws.md` mirroring the structure of `docs/deploy/vercel.md`, `docs/deploy/generic-linux.md`, and `docs/deploy/cloudflare-tunnel.md`, but consolidated for AWS
+- Update top-level `README.md` "Architecture" section to reflect the new AWS-backed stack with the new hostnames
+- Update the "Documentation" links block
+- Add a "Post-Free-Tier decision matrix" section to `aws.md` with the month-13 migration paths (Lightsail $3.50/mo, Hetzner VPS $4/mo, EC2 Spot)
+- Commit: `docs(deploy): add AWS deployment guide and update README`
+
+## Acceptance criteria
+
+- Frontend serves from S3 + CloudFront at `https://portafolio.srozas.men`, HTTPS via the wildcard ACM cert
+- Backend serves from EC2 + Cloudflare Tunnel at `https://api.portafolio.srozas.men`, no inbound ports on EC2
+- `curl https://api.portafolio.srozas.men/api/health` returns `{"status":"ok", ...}` from any external machine
+- Browser → `portafolio.srozas.men` → chat FAB → streaming answer from `api.portafolio.srozas.men` → real response (no `localhost:8000` fallback)
+- ChromaDB can be regenerated from GitHub sources in <30 min on a fresh EC2 instance, with no manual data restoration step
+- No AWS service outside Free Tier limits is in active use at any time during the 12-month window
+- Billing alarms configured at $5 / $10 / $20 / $50
+
+## Open questions deferred to execution
+
+- IaC approach: lean raw AWS CLI + bash under `scripts/aws/`, not Terraform/CDK, for a single-instance project
+- Secret storage on EC2: start with `.env` on disk; if uncomfortable, migrate to SSM Parameter Store (free)
+- Whether to use the AWS-provided `cloudflared` package or a direct binary (T6)
