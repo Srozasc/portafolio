@@ -872,18 +872,18 @@ export default function Chatbot({ locale, availableTags, projects, strings }: Ch
     sub: strings.tutorialSub ?? (locale === "en"
       ? "The editor answers questions about the indexed projects — by stack, domain or idea. Open the chat and try it out."
       : "El editor responde preguntas sobre los proyectos indexados — por stack, dominio o idea. Abrí el chat y probá."),
-    step1Title: strings.tutorialStep1Title ?? (locale === "en" ? "Open the chat" : "Abrí el chat"),
+    step1Title: strings.tutorialStep1Title ?? (locale === "en" ? "Pick your areas of interest" : "Elegí tus áreas de interés"),
     step1Desc: strings.tutorialStep1Desc ?? (locale === "en"
-      ? "Tap the <strong>blue</strong> button at the bottom-right, or the <strong>«Ask the bot»</strong> button on the homepage."
-      : "Tocá el botón <strong>azul</strong> abajo a la derecha, o el botón <strong>«Preguntale al bot»</strong> en la portada."),
-    step2Title: strings.tutorialStep2Title ?? (locale === "en" ? "Ask anything" : "Preguntá lo que quieras"),
+      ? "When you open the chat, pick one or more tags with stacks (<code>python</code>, <code>aws</code>, <code>data</code>…). The editor filters the portfolio by what you care about."
+      : "Cuando abras el chat, elegí una o más etiquetas con stacks (<code>python</code>, <code>aws</code>, <code>data</code>…). El editor filtra el portafolio por lo que te interesa."),
+    step2Title: strings.tutorialStep2Title ?? (locale === "en" ? "See the filtered projects" : "Mirá los proyectos filtrados"),
     step2Desc: strings.tutorialStep2Desc ?? (locale === "en"
-      ? "By stack (<code>python</code>, <code>aws</code>), domain (<code>data</code>) or idea (<code>side projects</code>)."
-      : "Por stack (<code>python</code>, <code>aws</code>), dominio (<code>data</code>) o idea (<code>side projects</code>)."),
-    step3Title: strings.tutorialStep3Title ?? (locale === "en" ? "Get prose + reviews" : "Recibí prosa + reseñas"),
+      ? "The editor shows only the projects that match your tags. Click any to see the full detail."
+      : "El editor te muestra solo los proyectos que matchean con tus etiquetas. Hacé click en cualquiera para ver el detalle completo."),
+    step3Title: strings.tutorialStep3Title ?? (locale === "en" ? "Ask the bot (optional)" : "Preguntale al bot (opcional)"),
     step3Desc: strings.tutorialStep3Desc ?? (locale === "en"
-      ? "The editor returns a response and, if there's a match, a list of projects with links to detail pages."
-      : "El editor devuelve una respuesta y, si hay match, una lista de proyectos con enlace a la página de detalle."),
+      ? "If you want more context on a specific project, type your question below in the chat."
+      : "Si querés más contexto sobre un proyecto puntual, escribí tu pregunta abajo en el chat."),
     noShow: strings.tutorialNoShow ?? (locale === "en" ? "Don't show again" : "No mostrar de nuevo"),
     startChat: strings.tutorialStartChat ?? (locale === "en" ? "Start chatting" : "Empezar a chatear"),
   };

@@ -2,6 +2,7 @@
 
 Usage:
     python scripts/reindex.py [--force] [--projects-dir PATH]
+    python -m scripts.reindex [--force] [--projects-dir PATH]
 
 Defaults:
     projects_dir = apps/api/data/projects/
@@ -17,14 +18,20 @@ import argparse
 import sys
 from pathlib import Path
 
-from backend.config import Settings
-from backend.rag.embedder import Embedder
-from backend.rag.vector_store import VectorStore
-from backend.services.projects_service import ProjectsService
-
 
 def main() -> None:
     """Parse args, build the ProjectsService, run ingest_all, print results."""
+    # Make 'backend' importable when run as a script: python scripts/reindex.py.
+    # When run as -m, the cwd is already on sys.path so this is a no-op.
+    _app_root = str(Path(__file__).resolve().parent.parent)
+    if _app_root not in sys.path:
+        sys.path.insert(0, _app_root)
+
+    from backend.config import Settings
+    from backend.rag.embedder import Embedder
+    from backend.rag.vector_store import VectorStore
+    from backend.services.projects_service import ProjectsService
+
     parser = argparse.ArgumentParser(description="Reindex project .md files")
     parser.add_argument(
         "--force",
@@ -40,7 +47,9 @@ def main() -> None:
     args = parser.parse_args()
 
     settings = Settings()
-    projects_dir = args.projects_dir or (Path(__file__).parent.parent / "data" / "projects")
+    projects_dir = args.projects_dir or (
+        Path(__file__).parent.parent / "data" / "projects"
+    )
 
     if not projects_dir.exists():
         print(f"ERROR: projects_dir does not exist: {projects_dir}", file=sys.stderr)
