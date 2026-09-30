@@ -145,11 +145,11 @@
 - bundle hash changed between builds (different content) - `Chatbot.CQ8jU9Xs.js` -> `Chatbot.DOeg3O4F.js` after the API URL fix
 
 ### T8. Write `docs/deploy/aws.md` and update README
-- Author `docs/deploy/aws.md` mirroring the structure of `docs/deploy/vercel.md`, `docs/deploy/generic-linux.md`, and `docs/deploy/cloudflare-tunnel.md`, but consolidated for AWS
-- Update top-level `README.md` "Architecture" section to reflect the new AWS-backed stack with the new hostnames
-- Update the "Documentation" links block
-- Add a "Post-Free-Tier decision matrix" section to `aws.md` with the month-13 migration paths (Lightsail $3.50/mo, Hetzner VPS $4/mo, EC2 Spot)
-- Commit: `docs(deploy): add AWS deployment guide and update README`
+- [x] Author `docs/deploy/aws.md` mirroring the structure of `docs/deploy/vercel.md`, `docs/deploy/generic-linux.md`, and `docs/deploy/cloudflare-tunnel.md`, but consolidated for AWS. Sections: Architecture, Free Tier strategy, Provisioning steps (T1-T8 summary), Gotchas (Python 3.9, PUBLIC_API_URL, CloudFront+S3 dir URLs, Universal SSL, cloudflared port, AWS MCP read-only, Default Host Management, bash safety policy), Post-Free-Tier decision matrix (Lightsail $3.50/mo, Hetzner €4.35, EC2 Spot $3-5), Operational runbook (SSM session, restart, reindex, rollback, teardown), Cross-references.
+- [x] Update top-level `README.md` "Architecture" section to reflect the new AWS-backed stack with the new hostnames (S3+CloudFront+ACM frontend, EC2+t3.micro backend, Cloudflare Tunnel ingress)
+- [x] Update the "Documentation" links block to point at `docs/deploy/aws.md`
+- [x] Add a "Post-Free-Tier decision matrix" section to `aws.md` with the month-13 migration paths (Lightsail $3.50/mo, Hetzner €4.35, EC2 Spot)
+- [ ] Commit (in progress)
 
 ## Acceptance criteria
 
