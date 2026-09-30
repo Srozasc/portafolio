@@ -130,11 +130,19 @@
 - Cloudflare edges currently connected: `1xpdx02, 1xpdx03, 1xsea01, 1xsea11` (mix of LA/SF/SEA regions)
 
 ### T7. Update CORS, PUBLIC_API_URL, and env wiring
-- Update `apps/api/.env` on EC2: append `https://portafolio.srozas.men` to `CORS_ALLOW_ORIGINS`
-- Confirm the regex-based allowance covers `*.cloudfront.net` preview hostnames (or relax it for the production CloudFront distribution)
-- Update `apps/web/astro.config.mjs`: set `site` to `https://portafolio.srozas.men`
-- Rebuild the frontend (`pnpm build`), sync `apps/web/dist/` to S3, invalidate CloudFront cache for `/`
-- Verify end-to-end: open `https://portafolio.srozas.men`, trigger the chat FAB, confirm a streamed answer from `https://api.portafolio.srozas.men` arrives
+- [x] Update `apps/api/.env` on EC2: `CORS_ALLOW_ORIGINS` now includes `https://portafolio.srozas.men` (appended via Python script + restart)
+- [x] Restart `portafolio.service` - verified `ActiveState: active`, `/api/health` returns 200 with all 7 ChromaDB collections
+- [x] Update `apps/web/astro.config.mjs`: `site: 'https://portafolio.srozas.men'`
+- [x] Rebuild frontend with `PUBLIC_API_URL=https://api.portafolio.srozas.men npm run build` - bundle now references correct API URL
+- [x] Sync `dist/` to S3 with `--delete` (removes old placeholder/index.html from T2)
+- [x] Invalidate CloudFront cache `/*` - completed in ~20s
+- [ ] End-to-end chat FAB test: `https://portafolio.srozas.men` -> click chat -> confirm streamed answer from `https://api.portafolio.srozas.men` arrives. **Blocked on Universal SSL** (same blocker as T6).
+
+**Notes for T7**:
+- Astro's Chatbot component uses `import.meta.env.PUBLIC_API_URL ?? FALLBACK_API_URL`. Without `PUBLIC_API_URL` at build time, the bundle bakes in `"http://localhost:8000"` (the fallback). First build attempt had this wrong; rebuild with `PUBLIC_API_URL=https://api.portafolio.srozas.men` fixed it.
+- `aws s3 sync --delete` removes files in S3 not in local dist - this dropped the T2 placeholder/index.html
+- CloudFront invalidation `/*` took ~20s for this distribution
+- bundle hash changed between builds (different content) - `Chatbot.CQ8jU9Xs.js` -> `Chatbot.DOeg3O4F.js` after the API URL fix
 
 ### T8. Write `docs/deploy/aws.md` and update README
 - Author `docs/deploy/aws.md` mirroring the structure of `docs/deploy/vercel.md`, `docs/deploy/generic-linux.md`, and `docs/deploy/cloudflare-tunnel.md`, but consolidated for AWS
