@@ -26,7 +26,9 @@ CLI + bash; no Terraform / CDK by design — single-instance project).
 | DNS (frontend CNAME) | Cloudflare | — | `portafolio.srozas.men → d2tjrpncms9n6q.cloudfront.net` (DNS only / grey cloud, **not proxied** — to keep ACM cert in use). |
 | Backend runtime | EC2 `t3.micro` Amazon Linux 2023 | us-west-2 | Default VPC public subnet, IMDSv2 required, `DisableApiTermination=true`, EBS `gp3` 20 GB encrypted. |
 | Backend storage | EBS only | us-west-2 | ChromaDB persisted to EBS at `/opt/portafolio/apps/api/data/chroma` (ephemeral — re-creatable from GitHub). |
-| Backend ingress | Cloudflare Tunnel | — | `portafolio-api` (tunnel ID `82107417-fe78-4d8c-b210-0d62f03ad372`), CNAME `api.portafolio.srozas.men → <uuid>.cfargotunnel.com`. HTTPS terminated by Cloudflare. |
+| Backend ingress | nginx on EC2 (direct HTTPS) | us-west-2 | `listen 443 ssl http2` on EC2 Elastic IP `32.189.197.242`, terminates TLS with **Let's Encrypt** cert (ECC P-256, 90-day), proxies to `http://127.0.0.1:8000` (FastAPI). DNS for `api.portafolio.srozas.men` is **DNS-only** (grey cloud, not Cloudflare proxied) — A record points directly to the Elastic IP. |
+| Cert management | Let's Encrypt via acme.sh + Cloudflare DNS-01 | — | Cert at `/etc/nginx/ssl/{fullchain,key}.pem`, auto-renewed by `~/.acme.sh/acme.sh --renew`. Email registered with Let's Encrypt: `srozas.dev@gmail.com` (replace with your own). |
+| Cloudflare role | DNS only | — | Cloudflare is still the authoritative DNS for `srozas.men` and the registrar, but **no longer proxies** the `api.*` subdomain. Frontend CNAME (`portafolio.srozas.men → d2tjrpncms9n6q.cloudfront.net`) remains DNS-only (grey cloud) so Cloudflare doesn't intercept and break ACM cert usage on CloudFront. |
 | Backend logs | CloudWatch Logs | us-west-2 | Log group `/portafolio-api*`, retention 7d. |
 | IAM (backend) | Role `portafolio-api-ec2-role` + profile `portafolio-api-ec2-profile` | — | Inline policy: write-only CloudWatch Logs access to `/portafolio-api*`. Plus `AmazonSSMManagedInstanceCore` for Session Manager. |
 | IAM (SSM) | Role `AWSSystemsManagerDefaultEC2InstanceManagementRole-us-west-2` | — | Trust policy: `ssm.amazonaws.com`. Required for the SSM agent to register with the account. |
@@ -101,21 +103,104 @@ Summary:
 - Strip inline `# comment` after numeric values in `.env` (python-dotenv does not handle inline comments by default).
 - Run `python -m scripts.reindex --force` to populate ChromaDB from the 6 project `.md` files.
 
-### T6. Configure Cloudflare Tunnel on EC2
-- Install cloudflared from GitHub releases (no dnf repo for AL2023):
-  ```bash
-  curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /tmp/cloudflared
-  sudo mv /tmp/cloudflared /usr/local/bin/cloudflared && sudo chmod +x /usr/local/bin/cloudflared
-  ```
-- Authenticate via browser: `cloudflared tunnel login` (opens URL, user authorizes with their Cloudflare account).
-- Create tunnel: `cloudflared tunnel create portafolio-api`.
-- Auto-create CNAME in Cloudflare: `cloudflared tunnel route dns portafolio-api api.portafolio.srozas.men`.
-- Install as systemd service: `cloudflared service install` (creates `/etc/systemd/system/cloudflared.service`).
-- Copy cert.pem and credentials JSON to `/etc/cloudflared/`, write `/etc/cloudflared/config.yml` (see `scripts/aws/cloudflared-tunnel-setup.json` for the SSM params).
-- Override the default `TimeoutStartSec=15` (too short for tunnel handshake): drop-in `/etc/systemd/system/cloudflared.service.d/override.conf` with `TimeoutStartSec=0`.
-- Force `protocol: http2` in config.yml (cloudflared defaults to QUIC/UDP, which our SG blocks).
-- Add TCP 7844 outbound to SG (cloudflared HTTP/2 tunnel port; NOT 443).
-- `systemctl enable --now cloudflared` — verify connection to 4 edges in `cloudflared tunnel info`.
+### T6. HTTPS ingress via nginx + Let's Encrypt on EC2
+
+The backend is exposed at `https://api.portafolio.srozas.men` via nginx on the EC2 instance (no Cloudflare Tunnel). nginx terminates TLS with a Let's Encrypt certificate and reverse-proxies to FastAPI on `127.0.0.1:8000`.
+
+**6a. Switch `api.portafolio.srozas.men` to DNS-only** (so Cloudflare doesn't proxy and we serve TLS directly from EC2):
+- Delete the existing Cloudflare "Tunnel" record
+- Create an A record pointing to EC2 Elastic IP `32.189.197.242`, **proxied=false** (grey cloud)
+
+Can be done via Cloudflare dashboard or API:
+```bash
+# Via API (replace CF_API_TOKEN with a token that has Zone:DNS:Edit permission)
+curl -X PATCH "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$RECORD_ID" \
+  -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" \
+  --data '{"type":"A","content":"32.189.197.242","proxied":false,"ttl":60}'
+```
+
+**6b. Open TCP 443 inbound on the EC2 security group** (Cloudflare edge is no longer in the path, so browsers hit the EC2 IP directly):
+```bash
+aws ec2 authorize-security-group-ingress \
+  --group-id sg-08a344543be098b0d \
+  --protocol tcp --port 443 --cidr 0.0.0.0/0 \
+  --profile portafolio
+```
+
+**6c. Install `acme.sh` on EC2 and issue a Let's Encrypt cert** via Cloudflare DNS-01 challenge (free, automated, no inbound ports needed for validation):
+```bash
+# SSH to EC2 (port 22 was opened temporarily for this; close after)
+ssh -i ~/.ssh/portafolio-api-key.pem ec2-user@32.189.197.242
+
+# On EC2: install acme.sh (AL2023 minimal has no cron; use --force to skip)
+curl -fsSL https://get.acme.sh | sh -s -- email=YOUR_EMAIL@example.com --force
+source ~/.bashrc
+
+# Set Cloudflare API token + Zone ID (for DNS-01 challenge)
+export CF_Token="your-cloudflare-api-token"
+export CF_Zone_ID="your-zone-id"
+
+# Issue cert (DNS-01 via Cloudflare API; acme.sh writes _acme-challenge TXT record automatically)
+~/.acme.sh/acme.sh --issue -d api.portafolio.srozas.men --dns dns_cf
+# Note: default CA is ZeroSSL, which can hang for hours. Switch to Let's Encrypt first:
+~/.acme.sh/acme.sh --set-default-ca --server letsencrypt
+
+# Install cert files to /tmp/le-cert for nginx to pick up
+~/.acme.sh/acme.sh --install-cert -d api.portafolio.srozas.men \
+  --cert-file /tmp/le-cert/cert.pem \
+  --key-file /tmp/le-cert/key.pem \
+  --fullchain-file /tmp/le-cert/fullchain.pem
+```
+
+**6d. Install nginx and configure the vhost**:
+```bash
+sudo dnf install -y nginx
+sudo mkdir -p /etc/nginx/ssl
+sudo cp /tmp/le-cert/fullchain.pem /etc/nginx/ssl/fullchain.pem
+sudo cp /tmp/le-cert/key.pem /etc/nginx/ssl/key.pem
+sudo chmod 644 /etc/nginx/ssl/fullchain.pem
+sudo chmod 600 /etc/nginx/ssl/key.pem
+
+sudo tee /etc/nginx/conf.d/portafolio-api.conf > /dev/null <<'NGINX'
+server {
+    listen 443 ssl http2;
+    server_name api.portafolio.srozas.men;
+    ssl_certificate     /etc/nginx/ssl/fullchain.pem;
+    ssl_certificate_key /etc/nginx/ssl/key.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    access_log /var/log/nginx/portafolio-api.access.log;
+    error_log  /var/log/nginx/portafolio-api.error.log;
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+NGINX
+
+# Disable default nginx welcome site (we don't serve port 80)
+sudo sed -i 's|^    listen       80 default_server;|#    listen       80 default_server;|' /etc/nginx/nginx.conf
+
+# Test config and start
+sudo nginx -t
+sudo systemctl enable --now nginx
+```
+
+**6e. Verify end-to-end**:
+```bash
+curl -i https://api.portafolio.srozas.men/api/health
+# Should return: HTTP/1.1 200 OK, Server: nginx/1.30.5, JSON body
+openssl s_client -servername api.portafolio.srozas.men -connect api.portafolio.srozas.men:443
+# Should show: subject=CN=api.portafolio.srozas.men, issuer=Let's Encrypt
+```
+
+**Cert renewal** (every ~60 days):
+- `~/.acme.sh/acme.sh --renew -d api.portafolio.srozas.men` (regenerates files in `/tmp/le-cert/`)
+- `sudo cp /tmp/le-cert/{fullchain,key}.pem /etc/nginx/ssl/ && sudo systemctl reload nginx`
+- Configure systemd timer or cron before cert expires at day 90
 
 ### T7. Update CORS, PUBLIC_API_URL, env wiring + redeploy
 - On EC2, append `https://portafolio.srozas.men` to `CORS_ALLOW_ORIGINS` in `/opt/portafolio/apps/api/.env`; restart `portafolio.service`.
@@ -160,18 +245,36 @@ Summary:
 - CloudFront passes that path as-is to S3; S3 returns 403 (Block Public Access + the key doesn't exist).
 - Fix in source: all internal nav URLs include explicit `/index.html` suffix. Alternative: a CloudFront Function at the edge that rewrites `/foo/` → `/foo/index.html` (kept in `scripts/aws/cloudfront-directory-index.js` for future when the schema is fixed).
 
-### cloudflared defaults to QUIC (UDP 7844), needs HTTP/2 + TCP 7844 on AWS
+### acme.sh defaults to ZeroSSL — switch to Let's Encrypt for fast issuance
 
-- QUIC requires UDP outbound; our SG only allows TCP.
-- Force `protocol: http2` in `/etc/cloudflared/config.yml`.
-- cloudflared HTTP/2 tunnel uses **TCP 7844** (not 443); add this to the SG outbound.
-- The default systemd `TimeoutStartSec=15` is too short for tunnel handshake; override with `TimeoutStartSec=0`.
+- acme.sh's default CA is ZeroSSL, which can hang for **hours** in the "processing" state (no useful error, just polls). Symptom: cert validates via DNS but `Order status is 'processing'` never finishes.
+- Fix: `~/.acme.sh/acme.sh --set-default-ca --server letsencrypt` and re-issue. Let's Encrypt typically completes in 10-30 seconds.
 
-### Cloudflare Universal SSL propagation is not instant
+### AL2023 minimal AMI has no cron
 
-- Universal SSL takes 5-15 min (sometimes up to 24h) to provision across all Cloudflare edge nodes.
-- During the window, some edges return `alert 40 handshake_failure` while others serve the cert.
-- The dashboard shows "Active" once the cert is issued, but the global edge cache may lag.
+- acme.sh tries to install a cron job for auto-renewal; install fails on the minimal AL2023 AMI (`crontab: command not found`).
+- Workaround: install with `--force` flag (`curl ... | sh -s -- email=... --force`). Set up a systemd timer later for actual renewal:
+  ```ini
+  # /etc/systemd/system/acme-renewal.timer
+  [Unit]
+  Description=Renew Let's Encrypt certs
+  [Timer]
+  OnCalendar=*-*-* 03:00:00
+  Persistent=true
+  [Install]
+  WantedBy=timers.target
+  ```
+
+### Backend IP exposed in DNS (security trade-off vs Cloudflare Tunnel)
+
+- By removing Cloudflare Tunnel and pointing DNS directly to the EC2 Elastic IP, the origin IP is publicly visible (anyone who runs `dig api.portafolio.srozas.men` learns the EC2 IP).
+- For a low-traffic portfolio chat this is acceptable. For higher-stakes production, consider keeping Cloudflare Tunnel (with its overhead) or putting nginx behind a CDN/WAF that hides the origin IP.
+
+### SG changes vs the original Cloudflare Tunnel setup
+
+- We **added** TCP 443 inbound (for browser HTTPS to nginx).
+- We **removed** TCP 7844 outbound (was needed for cloudflared HTTP/2 tunnel; not needed anymore).
+- Final SG: 1 inbound (443) + 3 egress (53 TCP, 53 UDP, 443 TCP).
 - Workaround if stuck: upload a custom SSL certificate to Cloudflare (SSL/TLS → Edge Certificates → Upload).
 
 ### Bash tool safety policy blocks some patterns
@@ -192,12 +295,12 @@ Summary:
 
 ## Post-Free-Tier decision matrix
 
-At month 13, evaluate migration paths. All three are designed to keep the backend reachable via `api.portafolio.srozas.men` (tunnel CNAME is portable).
+At month 13, evaluate migration paths. All three are designed to keep the backend reachable at `https://api.portafolio.srozas.men` — nginx + Let's Encrypt is portable across providers (just move the nginx vhost config + the cert files).
 
 | Option | Monthly cost | Effort | When to choose |
 |---|---|---|---|
 | **Lightsail $3.50/mo bundle** | ~$3.50 (1 GB RAM, 1 vCPU, 40 GB SSD) | Lowest — 30 min snapshot restore + retag | Default choice for solo dev. Same instance type as t3.micro. Egress free up to 1 TB/mo. |
-| **Hetzner VPS CX22** | €4.35 (~$4.50) | Medium — re-run bootstrap, new EIP, swap ACM origin | Cheapest USD/CAD/EUR; excellent network. Need to swap ACM cert to Hetzner DNS or use Cloudflare Origin CA. |
+| **Hetzner VPS CX22** | €4.35 (~$4.50) | Medium — re-run bootstrap, new EIP, re-issue LE cert for new IP | Cheapest USD/CAD/EUR; excellent network. DNS-01 via Hetzner DNS API (acme.sh supports `dns_hetzner`). |
 | **EC2 Spot (`t4g.small`)** | ~$3-5 (variable) | Low — same AMI, same bootstrap | If you want to stay on AWS and don't mind occasional restarts. |
 
 **Frontend stays where it is** (S3 + CloudFront + ACM is essentially free after Free Tier — pay only for data transfer out at $0.085/GB after the first 1 TB, which this project won't approach).
@@ -232,6 +335,60 @@ aws ssm send-command --instance-ids i-04b4296febfda434a \
   --profile portafolio
 ```
 
+### Restart / reload nginx (after config or cert change)
+
+```bash
+# Test config first
+aws ssm send-command --instance-ids i-04b4296febfda434a \
+  --document-name AWS-RunShellScript \
+  --parameters 'commands=["sudo nginx -t"]' \
+  --profile portafolio
+
+# Reload (zero-downtime) — preferred for cert renewals
+aws ssm send-command --instance-ids i-04b4296febfda434a \
+  --document-name AWS-RunShellScript \
+  --parameters 'commands=["sudo systemctl reload nginx"]' \
+  --profile portafolio
+
+# Hard restart (downtime)
+aws ssm send-command --instance-ids i-04b4296febfda434a \
+  --document-name AWS-RunShellScript \
+  --parameters 'commands=["sudo systemctl restart nginx"]' \
+  --profile portafolio
+```
+
+### Tail nginx access/error logs
+
+```bash
+aws ssm start-session --target i-04b4296febfda434a --profile portafolio
+# Inside the session:
+sudo tail -f /var/log/nginx/portafolio-api.access.log
+sudo tail -f /var/log/nginx/portafolio-api.error.log
+```
+
+### Renew Let's Encrypt cert (every ~60 days)
+
+```bash
+# 1. Renew via acme.sh
+aws ssm send-command --instance-ids i-04b4296febfda434a \
+  --document-name AWS-RunShellScript \
+  --parameters 'commands=["sudo -u ec2-user /home/ec2-user/.acme.sh/acme.sh --renew -d api.portafolio.srozas.men"]' \
+  --profile portafolio
+
+# 2. Copy renewed certs to nginx ssl dir and reload
+aws ssm send-command --instance-ids i-04b4296febfda434a \
+  --document-name AWS-RunShellScript \
+  --parameters 'commands=["sudo cp /tmp/le-cert/fullchain.pem /etc/nginx/ssl/fullchain.pem && sudo cp /tmp/le-cert/key.pem /etc/nginx/ssl/key.pem && sudo chmod 600 /etc/nginx/ssl/key.pem && sudo systemctl reload nginx"]' \
+  --profile portafolio
+```
+
+### Test SSL handshake from outside
+
+```bash
+openssl s_client -servername api.portafolio.srozas.men -connect api.portafolio.srozas.men:443 -showcerts 2>&1 | head -30
+# Look for: subject=CN=api.portafolio.srozas.men, issuer=Let's Encrypt, verify return:1
+```
+
 ### Re-populate ChromaDB after data changes
 
 ```bash
@@ -255,21 +412,32 @@ aws cloudfront create-invalidation --distribution-id EJ12TBQTYJ43D --paths "/*" 
 # Tag the resources with Feature=aws-deploy first so this is auditable
 aws resourcegroupstaggingapi get-resources --tag-filters Key=Feature,Values=aws-deploy
 # Then delete in reverse order:
+# 1. nginx + cert cleanup on EC2 (via SSM)
+aws ssm send-command --instance-ids i-04b4296febfda434a \
+  --document-name AWS-RunShellScript \
+  --parameters 'commands=["sudo systemctl stop nginx", "sudo yum remove -y nginx"]' \
+  --profile portafolio
+# 2. CloudFront + ACM (frontend cert + distribution)
 aws cloudfront delete-distribution --id EJ12TBQTYJ43D --if-match <etag>
 aws acm delete-certificate --certificate-arn <cert-arn> --region us-east-1
+# 3. S3 (frontend bucket)
 aws s3 rm s3://portafolio-web-prod/ --recursive
 aws s3api delete-bucket --bucket portafolio-web-prod
+# 4. EC2 (instance + Elastic IP + SG)
 aws ec2 terminate-instances --instance-ids i-04b4296febfda434a
 aws ec2 release-address --allocation-id eipalloc-019f2baad739de6a9
 aws ec2 delete-security-group --group-id sg-08a344543be098b0d
+# 5. IAM (instance profile + role)
 aws iam remove-role-from-instance-profile --instance-profile-name portafolio-api-ec2-profile --role-name portafolio-api-ec2-role
 aws iam delete-instance-profile --instance-profile-name portafolio-api-ec2-profile
 aws iam delete-role --role-name portafolio-api-ec2-role
+# 6. SSM Default Host Management config (account-wide)
 aws ssm delete-service-setting --setting-id /ssm/managed-instance/default-ec2-instance-management-role --region us-west-2
-# Cloudflare side (user does via dashboard):
-# - cloudflared tunnel delete portafolio-api
-# - DNS: remove CNAME api.portafolio.srozas.men
-# - SSL/TLS: revoke cert if uploaded
+# 7. Cloudflare side (user does via dashboard or API):
+#    - Delete the api.portafolio.srozas.men A record (32.189.197.242)
+#    - The srozas.men zone itself stays (still used for portafolio.srozas.men DNS-only CNAME)
+#    - If you don't want to keep the zone: delete via dashboard
+#    - Let's Encrypt cert expires on its own at day 90 — no action needed
 ```
 
 ---
@@ -277,6 +445,6 @@ aws ssm delete-service-setting --setting-id /ssm/managed-instance/default-ec2-in
 ## Cross-references
 
 - [`domains.md`](./domains.md) — canonical domain reference (registered domain, hostnames, DNS, TLS layout).
-- [`cloudflare-tunnel.md`](./cloudflare-tunnel.md) — deeper coverage of Cloudflare Tunnel mechanics and security properties.
+- [`cloudflare-tunnel.md`](./cloudflare-tunnel.md) — **historical** (kept for reference only). This project originally used Cloudflare Tunnel but pivoted to direct nginx + Let's Encrypt (T6 architectural change). The doc is still useful if you want to use Cloudflare Tunnel for a different deployment.
 - [`generic-linux.md`](./generic-linux.md) — non-AWS Linux VPS variant (for the Hetzner post-Free-Tier path).
 - [`vercel.md`](./vercel.md) — historical (kept for reference). The frontend is no longer on Vercel.
