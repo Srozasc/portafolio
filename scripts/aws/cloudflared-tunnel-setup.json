@@ -1,0 +1,30 @@
+{
+  "commands": [
+    "set +e",
+    "echo '=== Write config.yml with protocol: http2 (top-level) ==='",
+    "sudo tee /etc/cloudflared/config.yml > /dev/null <<'CFG'",
+    "tunnel: 82107417-fe78-4d8c-b210-0d62f03ad372",
+    "credentials-file: /etc/cloudflared/82107417-fe78-4d8c-b210-0d62f03ad372.json",
+    "protocol: http2",
+    "",
+    "ingress:",
+    "  - hostname: api.portafolio.srozas.men",
+    "    service: http://127.0.0.1:8000",
+    "  - service: http_status:404",
+    "CFG",
+    "echo '=== New config ==='",
+    "sudo cat /etc/cloudflared/config.yml",
+    "echo ''",
+    "echo '=== Restart cloudflared ==='",
+    "sudo systemctl restart cloudflared",
+    "sleep 12",
+    "echo '=== service state ==='",
+    "sudo systemctl show cloudflared.service --property=ActiveState,SubState --no-pager",
+    "echo ''",
+    "echo '=== latest logs ==='",
+    "sudo journalctl -u cloudflared.service --no-pager -n 10 2>&1 | LC_ALL=C.UTF-8 cat 2>&1 | tail -10",
+    "echo ''",
+    "echo '=== tunnel info ==='",
+    "cloudflared tunnel info portafolio-api 2>&1 | head -5"
+  ]
+}

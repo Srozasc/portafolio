@@ -105,13 +105,29 @@
 - Commit: `docs(ops): document chromadb regeneration from GitHub sources`
 
 ### T6. Configure Cloudflare Tunnel on EC2
-- Install `cloudflared` (official package or direct binary; choose during execution)
-- Authenticate by copying `cert.pem` from a local machine to `~/.cloudflared/`
-- Create tunnel `portafolio-api`; save credentials JSON (never commit)
-- Configure `~/.cloudflared/config.yml`: ingress rule for `api.portafolio.srozas.men` → `http://127.0.0.1:8000`, catch-all `http_status:404`
-- Create CNAME in Cloudflare DNS for `api.portafolio.srozas.men` → tunnel endpoint
-- Install `cloudflared` as a systemd service (`sudo cloudflared service install`), enable and start
-- Verify `curl https://api.portafolio.srozas.men/api/health` from a machine outside the VPS returns 200 JSON
+- [x] Install `cloudflared` binary direct from GitHub releases (no dnf repo in AL2023) - version 2026.9.3 at `/usr/local/bin/cloudflared`
+- [x] User authenticated via `cloudflared tunnel login` (browser auth; cert.pem at `~/.cloudflared/cert.pem` on EC2)
+- [x] Created tunnel `portafolio-api`, ID `82107417-fe78-4d8c-b210-0d62f03ad372`, credentials at `~/.cloudflared/<ID>.json`
+- [x] Auto-created CNAME in Cloudflare: `api.portafolio.srozas.men` -> tunnel (via `cloudflared tunnel route dns`)
+- [x] Created `/etc/cloudflared/` directory with config.yml + cert.pem + credentials (mode 0600)
+- [x] `cloudflared service install` (creates systemd unit at `/etc/systemd/system/cloudflared.service`)
+- [x] Override: `TimeoutStartSec=0` (default 15s was killing service before tunnel could connect)
+- [x] Protocol: `http2` (QUIC/UDP not viable - SG only allows TCP outbound; also need TCP 7844)
+- [x] Added TCP 7844 outbound to SG `sg-08a344543be098b0d` (cloudflared's tunnel port)
+- [x] `systemctl enable --now cloudflared`; service `active (running)`; connected to 4 edges (`1xpdx02`, `1xpdx03`, `1xsea01`, `1xsea11`)
+- [ ] **Verify external `curl https://api.portafolio.srozas.men/api/health` returns 200** - blocked by **Universal SSL not provisioned yet** on Cloudflare zone `srozas.men` (typical for newly added domains, can take 5-15 min up to 24h). Error observed: `SSLV3_ALERT_HANDSHAKE_FAILURE (alert 40)`.
+
+**Notes for T6**:
+- cloudflared uses port **TCP 7844** (not 443) for HTTP/2 tunnel connection - required SG egress rule addition
+- cloudflared defaults to **QUIC (UDP 7844)** which our SG blocks; forced `protocol: http2` in config
+- `TimeoutStartSec=15` (cloudflared default unit) is too short - tunnel handshake takes longer; overrode to 0 (unlimited)
+- **Universal SSL provision can take time for new zones.** User needs to verify SSL/TLS status in Cloudflare dashboard. Once Universal SSL is active, the external curl should work.
+
+**Operational notes**:
+- Tunnel credentials in `/etc/cloudflared/<ID>.json` (mode 0600, root-owned). DO NOT commit to repo.
+- The cert.pem in `/etc/cloudflared/` is the Cloudflare auth cert (from `cloudflared tunnel login`). Don't commit either.
+- For backups/restores of the tunnel, the credentials JSON is the source of truth - re-install with `cloudflared service install` + the same config + credentials JSON.
+- Cloudflare edges currently connected: `1xpdx02, 1xpdx03, 1xsea01, 1xsea11` (mix of LA/SF/SEA regions)
 
 ### T7. Update CORS, PUBLIC_API_URL, and env wiring
 - Update `apps/api/.env` on EC2: append `https://portafolio.srozas.men` to `CORS_ALLOW_ORIGINS`
