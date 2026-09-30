@@ -1,0 +1,126 @@
+name: Deploy to AWS
+
+# Trigger: every push to main triggers a production deploy.
+# Frontend rebuild + S3 sync + CloudFront invalidate (parallel with backend
+# SSM deploy). OIDC for AWS auth (no long-lived secrets in GitHub).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # allow manual trigger from GitHub UI
+
+# Required for aws-actions/configure-aws-credentials@v4 to assume role via OIDC
+permissions:
+  id-token: write
+  contents: read
+
+# Cancel any in-progress run for the same branch when a new commit is pushed
+concurrency:
+  group: deploy-main
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy frontend (S3+CF) + backend (EC2 via SSM)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ----- Frontend build -----
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install frontend deps
+        run: npm ci
+        working-directory: apps/web
+
+      - name: Build frontend
+        # PUBLIC_API_URL is REQUIRED at build time; without it the Chatbot
+        # bundle bakes in the fallback "http://localhost:8000" and breaks
+        # end-to-end chat. See docs/deploy/aws.md gotchas section.
+        run: PUBLIC_API_URL=https://api.portafolio.srozas.men npm run build
+        working-directory: apps/web
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::467640459757:role/github-actions-deploy
+          aws-region: us-west-2
+
+      - name: Verify EC2 instance is reachable (sanity)
+        run: |
+          aws ec2 describe-instances \
+            --instance-ids i-04b4296febfda434a \
+            --query 'Reservations[].Instances[].[State.Name,PublicIpAddress]' \
+            --output table
+
+      - name: Deploy frontend to S3
+        # --delete drops old placeholder/assets not in dist/.
+        # Then re-upload index.html with Cache-Control: max-age=300 so deploys
+        # take effect fast at the CDN edge.
+        run: |
+          aws s3 sync apps/web/dist/ s3://portafolio-web-prod/ --delete
+          aws s3 cp apps/web/dist/index.html \
+            s3://portafolio-web-prod/index.html \
+            --cache-control "max-age=300" \
+            --metadata-directive REPLACE
+
+      - name: Invalidate CloudFront cache
+        run: aws cloudfront create-invalidation \
+          --distribution-id EJ12TBQTYJ43D \
+          --paths "/*"
+
+      # ----- Backend deploy via SSM -----
+      - name: Deploy backend (git pull + restart on EC2)
+        run: |
+          CMD=$(aws ssm send-command \
+            --instance-ids i-04b4296febfda434a \
+            --document-name AWS-RunShellScript \
+            --parameters 'commands=[
+              "cd /opt/portafolio",
+              "git fetch origin main",
+              "git reset --hard origin/main",
+              "pip install -r apps/api/requirements.txt --quiet",
+              "sudo systemctl restart portafolio.service",
+              "sleep 3",
+              "sudo systemctl is-active portafolio.service"
+            ]' \
+            --comment "GitHub Actions deploy: pull main + restart service" \
+            --query 'Command.CommandId' \
+            --output text)
+          echo "SSM CommandId: $CMD"
+          aws ssm wait command-executed --command-id "$CMD" || true
+          aws ssm get-command-invocation \
+            --command-id "$CMD" \
+            --query 'Status,StandardOutputContent,StandardErrorContent' \
+            --output json
+
+      - name: Verify backend is healthy
+        # Verify backend via curl on localhost (via SSM SendCommand).
+        run: |
+          HEALTH=$(aws ssm send-command \
+            --instance-ids i-04b4296febfda434a \
+            --document-name AWS-RunShellScript \
+            --parameters 'commands=[
+              "curl -sS -m 5 http://127.0.0.1:8000/api/health"
+            ]' \
+            --query 'Command.CommandId' \
+            --output text)
+          aws ssm wait command-executed --command-id "$HEALTH" || true
+          OUT=$(aws ssm get-command-invocation \
+            --command-id "$HEALTH" \
+            --query 'StandardOutputContent' \
+            --output text)
+          echo "Health response: $OUT"
+          if echo "$OUT" | grep -q '"status":"ok"'; then
+            echo "Backend healthy"
+          else
+            echo "Backend NOT healthy"
+            exit 1
+          fi
