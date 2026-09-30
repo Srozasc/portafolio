@@ -29,8 +29,8 @@ const title = isEs ? project.data.title_es : project.data.title_en;
 const role = isEs ? project.data.role_es : project.data.role_en;
 const summary = isEs ? project.data.summary_es : project.data.summary_en;
 const detailHref = isEs
-  ? `/proyectos/${project.id}/`
-  : `/en/proyectos/${project.id}/`;
+  ? `/proyectos/${project.id}/index.html`
+  : `/en/proyectos/${project.id}/index.html`;
 ---
 
 <a class="project-card" href={detailHref} aria-label={title}>

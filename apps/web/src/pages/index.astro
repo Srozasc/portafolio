@@ -13,8 +13,8 @@ const projects = (await getCollection('projects'))
   .sort((a, b) => b.data.year - a.data.year)
   .slice(0, 3);
 
-const projectsHref = locale === 'en' ? '/en/proyectos/' : '/proyectos/';
-const aboutHref = locale === 'en' ? '/en/sobre-mi/' : '/sobre-mi/';
+const projectsHref = locale === 'en' ? '/en/proyectos/index.html' : '/proyectos/index.html';
+const aboutHref = locale === 'en' ? '/en/sobre-mi/index.html' : '/sobre-mi/index.html';
 ---
 
 <Base title={t.site.title} description={t.site.tagline}>

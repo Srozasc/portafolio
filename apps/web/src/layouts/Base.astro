@@ -17,9 +17,12 @@ const t = locale === 'en' ? en : es;
 
 // Locale-aware URL helpers. ES has no prefix (`/proyectos/`), EN uses
 // `/en/proyectos/`. This matches the `prefixDefaultLocale: false` config.
-const homePath = locale === 'en' ? '/en/' : '/';
-const projectsPath = locale === 'en' ? '/en/proyectos/' : '/proyectos/';
-const aboutPath = locale === 'en' ? '/en/sobre-mi/' : '/sobre-mi/';
+// Note: explicit `/index.html` suffix because CloudFront + S3 do not auto-serve
+// index.html for directory URLs (the Astro default trailing-slash URL style
+// would otherwise 403 on the bucket with Block Public Access + OAC).
+const homePath = locale === 'en' ? '/en/index.html' : '/index.html';
+const projectsPath = locale === 'en' ? '/en/proyectos/index.html' : '/proyectos/index.html';
+const aboutPath = locale === 'en' ? '/en/sobre-mi/index.html' : '/sobre-mi/index.html';
 
 // Lang switcher: navigate to the same page in the other locale by
 // swapping the leading /es/ or /en/ prefix in the current pathname.
