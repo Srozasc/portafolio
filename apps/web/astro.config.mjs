@@ -18,5 +18,5 @@ export default defineConfig({
       en: 'es',
     },
   },
-  site: 'https://portafolio.example.com',
+  site: 'https://portafolio.srozas.men',
 });

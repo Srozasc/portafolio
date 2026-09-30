@@ -281,9 +281,9 @@ const clearPersistedMessages = (projectSlug: string | null) => {
   }
 };
 
-/** Locale-aware project detail URL. ES: `/proyectos/<slug>/`. EN: `/en/proyectos/<slug>/`. */
+/** Locale-aware project detail URL. ES: `/proyectos/<slug>/index.html`. EN: `/en/proyectos/<slug>/index.html`. */
 const projectHref = (locale: "es" | "en", slug: string): string =>
-  locale === "en" ? `/en/proyectos/${slug}/` : `/proyectos/${slug}/`;
+  locale === "en" ? `/en/proyectos/${slug}/index.html` : `/proyectos/${slug}/index.html`;
 
 /**
  * Compact project card used inside the FilteredProjectsView. Smaller than
