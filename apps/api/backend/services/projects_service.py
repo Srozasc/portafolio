@@ -25,7 +25,6 @@ from backend.rag.chunker import Chunk, chunk_markdown
 from backend.rag.embedder import Embedder
 from backend.rag.vector_store import VectorStore
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -146,8 +145,7 @@ class ProjectsService:
             raise ProjectParseError(f"Could not read {file_path}: {exc}") from exc
 
         # Strip BOM
-        if content.startswith("\ufeff"):
-            content = content[1:]
+        content = content.removeprefix("\ufeff")
 
         # Normalise line endings
         content = content.replace("\r\n", "\n").replace("\r", "\n")
@@ -187,9 +185,7 @@ class ProjectsService:
         try:
             frontmatter = yaml.safe_load(frontmatter_text)
         except yaml.YAMLError as exc:
-            raise ProjectParseError(
-                f"{file_path}: invalid YAML: {exc}"
-            ) from exc
+            raise ProjectParseError(f"{file_path}: invalid YAML: {exc}") from exc
 
         if not isinstance(frontmatter, dict):
             raise ProjectParseError(
@@ -204,8 +200,7 @@ class ProjectsService:
             )
         if not _SLUG_RE.fullmatch(slug):
             raise ProjectParseError(
-                f"{file_path}: slug '{slug}' does not match pattern "
-                f"{_SLUG_RE.pattern}."
+                f"{file_path}: slug '{slug}' does not match pattern {_SLUG_RE.pattern}."
             )
 
         return Project(
@@ -232,13 +227,9 @@ class ProjectsService:
             ProjectParseError: A file in the directory is malformed.
         """
         if not projects_dir.exists():
-            raise FileNotFoundError(
-                f"projects_dir does not exist: {projects_dir}"
-            )
+            raise FileNotFoundError(f"projects_dir does not exist: {projects_dir}")
         if not projects_dir.is_dir():
-            raise NotADirectoryError(
-                f"projects_dir is not a directory: {projects_dir}"
-            )
+            raise NotADirectoryError(f"projects_dir is not a directory: {projects_dir}")
 
         md_files = sorted(projects_dir.glob("*.md"))
         return [self.parse_project_file(p) for p in md_files]
@@ -270,11 +261,7 @@ class ProjectsService:
         tags_str = ", ".join(str(t) for t in tags)
 
         document_text = (
-            f"{title_es}\n"
-            f"{title_en}\n"
-            f"{summary_es}\n"
-            f"{summary_en}\n"
-            f"Tags: {tags_str}"
+            f"{title_es}\n{title_en}\n{summary_es}\n{summary_en}\nTags: {tags_str}"
         )
 
         metadata: dict = {
@@ -461,9 +448,7 @@ class ProjectsService:
         start_ns = time.monotonic_ns()
 
         if not projects_dir.exists():
-            raise FileNotFoundError(
-                f"projects_dir does not exist: {projects_dir}"
-            )
+            raise FileNotFoundError(f"projects_dir does not exist: {projects_dir}")
 
         index_state: dict = {
             "index_ids": [],
@@ -492,9 +477,13 @@ class ProjectsService:
                 continue
 
             try:
-                _, n_detail = self._ingest_one(project, force=force, index_state=index_state)
+                _, n_detail = self._ingest_one(
+                    project, force=force, index_state=index_state
+                )
             except ProjectParseError as exc:
-                logger.warning("Skipping project %s after indexing error: %s", project.slug, exc)
+                logger.warning(
+                    "Skipping project %s after indexing error: %s", project.slug, exc
+                )
                 errors.append(f"{project.slug}: {exc}")
                 continue
             except Exception as exc:
@@ -520,6 +509,15 @@ class ProjectsService:
                 metadatas=index_state["index_metas"],
             )
 
+        # When force=True, also clean up per-project collections whose source
+        # .md no longer exists on disk. This prevents accumulating orphan
+        # collections across re-ingests (e.g., after a project is removed from
+        # the portfolio). Safe with force=False (no-op — orphans persist
+        # until the next --force run, which is the right semantics for
+        # incremental updates).
+        if force:
+            self._cleanup_orphan_collections(project_slugs)
+
         duration_ms = (time.monotonic_ns() - start_ns) // 1_000_000
 
         return ProjectsIngestResult(
@@ -530,3 +528,38 @@ class ProjectsService:
             project_slugs=project_slugs,
             errors=errors,
         )
+
+    def _cleanup_orphan_collections(self, current_slugs: list[str]) -> int:
+        """Delete per-project detail collections whose slug is not in current_slugs.
+
+        Called from ``ingest_all(force=True)`` to remove orphan collections
+        (per-project collections whose source ``.md`` was deleted from disk).
+        The master ``INDEX_COLLECTION`` is handled separately by the force
+        delete-then-upsert flow, so it's skipped here.
+
+        Args:
+            current_slugs: Slugs of projects that exist on disk in this reindex.
+
+        Returns:
+            Count of orphan collections deleted.
+        """
+        current_set = set(current_slugs)
+        deleted = 0
+        for col_name in self._store.list_collections():
+            # Skip the master index (deleted/upserted by the force flow)
+            if col_name == self.INDEX_COLLECTION:
+                continue
+            # Only per-project detail collections (projects_<slug>)
+            if not col_name.startswith(self.DETAIL_COLLECTION_PREFIX + "_"):
+                continue
+            # Extract slug: "projects_proj-foo" -> "proj-foo"
+            slug = col_name[len(self.DETAIL_COLLECTION_PREFIX) + 1 :]
+            if slug not in current_set:
+                logger.info(
+                    "Deleting orphan detail collection: %s (slug %r not on disk)",
+                    col_name,
+                    slug,
+                )
+                self._store.delete_collection(col_name)
+                deleted += 1
+        return deleted

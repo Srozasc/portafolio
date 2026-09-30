@@ -24,7 +24,6 @@ from backend.services.projects_service import (
     ProjectsService,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -49,11 +48,11 @@ def _make_sample_md(
         f"tags:\n"
         f"  - python\n"
         f"  - aws\n"
-        f"summary_es: \"Resumen ES\"\n"
-        f"summary_en: \"Summary EN\"\n"
+        f'summary_es: "Resumen ES"\n'
+        f'summary_en: "Summary EN"\n'
         f"impact_es:\n"
-        f"  - \"Métrica 1\"\n"
-        f"  - \"Métrica 2\"\n"
+        f'  - "Métrica 1"\n'
+        f'  - "Métrica 2"\n'
         f"---\n"
         f"\n"
         f"{body}\n"
@@ -76,7 +75,9 @@ def _write_md(tmp_path: Path, name: str, content: str) -> Path:
 def embedder_mock():
     """Mock embedder returning a deterministic 16-dim vector per text."""
     embedder = MagicMock()
-    embedder.embed.side_effect = lambda texts: [[float(i)] * 16 for i, _ in enumerate(texts)]
+    embedder.embed.side_effect = lambda texts: [
+        [float(i)] * 16 for i, _ in enumerate(texts)
+    ]
     return embedder
 
 
@@ -119,74 +120,61 @@ class TestParseProjectFile:
         # Leading whitespace before the body was stripped.
         assert not project.body.startswith("\n")
 
-    def test_invalid_slug_raises(self, tmp_path: Path, service: ProjectsService) -> None:
+    def test_invalid_slug_raises(
+        self, tmp_path: Path, service: ProjectsService
+    ) -> None:
         """frontmatter with `slug: BadSlug` raises ProjectParseError."""
-        bad = (
-            "---\n"
-            "slug: BadSlug\n"
-            "title_es: X\n"
-            "title_en: Y\n"
-            "---\n\n"
-            "Body\n"
-        )
+        bad = "---\nslug: BadSlug\ntitle_es: X\ntitle_en: Y\n---\n\nBody\n"
         md = _write_md(tmp_path, "bad.md", bad)
 
         with pytest.raises(ProjectParseError) as excinfo:
             service.parse_project_file(md)
         assert "slug" in str(excinfo.value).lower()
 
-    def test_invalid_slug_uppercase_raises(self, tmp_path: Path, service: ProjectsService) -> None:
+    def test_invalid_slug_uppercase_raises(
+        self, tmp_path: Path, service: ProjectsService
+    ) -> None:
         """Slug with uppercase letters is rejected."""
-        bad = (
-            "---\n"
-            "slug: proj-Foo\n"
-            "title_es: X\n"
-            "title_en: Y\n"
-            "---\n\n"
-            "Body\n"
-        )
+        bad = "---\nslug: proj-Foo\ntitle_es: X\ntitle_en: Y\n---\n\nBody\n"
         md = _write_md(tmp_path, "bad.md", bad)
         with pytest.raises(ProjectParseError):
             service.parse_project_file(md)
 
-    def test_invalid_slug_no_prefix_raises(self, tmp_path: Path, service: ProjectsService) -> None:
+    def test_invalid_slug_no_prefix_raises(
+        self, tmp_path: Path, service: ProjectsService
+    ) -> None:
         """Slug without proj- prefix is rejected."""
-        bad = (
-            "---\n"
-            "slug: foo\n"
-            "title_es: X\n"
-            "title_en: Y\n"
-            "---\n\n"
-            "Body\n"
-        )
+        bad = "---\nslug: foo\ntitle_es: X\ntitle_en: Y\n---\n\nBody\n"
         md = _write_md(tmp_path, "bad.md", bad)
         with pytest.raises(ProjectParseError):
             service.parse_project_file(md)
 
-    def test_missing_frontmatter_raises(self, tmp_path: Path, service: ProjectsService) -> None:
+    def test_missing_frontmatter_raises(
+        self, tmp_path: Path, service: ProjectsService
+    ) -> None:
         """File without `---` opening separator raises ProjectParseError."""
-        md = _write_md(tmp_path, "nofm.md", "# Just a heading\n\nNo frontmatter here.\n")
+        md = _write_md(
+            tmp_path, "nofm.md", "# Just a heading\n\nNo frontmatter here.\n"
+        )
 
         with pytest.raises(ProjectParseError) as excinfo:
             service.parse_project_file(md)
         assert "frontmatter" in str(excinfo.value).lower()
 
-    def test_unclosed_frontmatter_raises(self, tmp_path: Path, service: ProjectsService) -> None:
+    def test_unclosed_frontmatter_raises(
+        self, tmp_path: Path, service: ProjectsService
+    ) -> None:
         """Frontmatter without closing `---` raises ProjectParseError."""
         md = _write_md(tmp_path, "unclosed.md", "---\nslug: proj-foo\ntitle_es: x\n")
 
         with pytest.raises(ProjectParseError):
             service.parse_project_file(md)
 
-    def test_missing_slug_field_raises(self, tmp_path: Path, service: ProjectsService) -> None:
+    def test_missing_slug_field_raises(
+        self, tmp_path: Path, service: ProjectsService
+    ) -> None:
         """Valid frontmatter but missing slug field raises ProjectParseError."""
-        bad = (
-            "---\n"
-            "title_es: X\n"
-            "title_en: Y\n"
-            "---\n\n"
-            "Body\n"
-        )
+        bad = "---\ntitle_es: X\ntitle_en: Y\n---\n\nBody\n"
         md = _write_md(tmp_path, "no-slug.md", bad)
         with pytest.raises(ProjectParseError) as excinfo:
             service.parse_project_file(md)
@@ -204,7 +192,9 @@ class TestListProjects:
         with pytest.raises(FileNotFoundError):
             service.list_projects(tmp_path / "does-not-exist")
 
-    def test_returns_one_project_per_file(self, service: ProjectsService, tmp_path: Path) -> None:
+    def test_returns_one_project_per_file(
+        self, service: ProjectsService, tmp_path: Path
+    ) -> None:
         """Two valid .md files → two Project entries."""
         _write_md(tmp_path, "a.md", _make_sample_md(slug="proj-a"))
         _write_md(tmp_path, "b.md", _make_sample_md(slug="proj-b"))
@@ -294,7 +284,9 @@ class TestBuildIndexEntry:
         assert isinstance(meta["tags"], str)
         assert json.loads(meta["tags"]) == ["python", "aws"]
 
-    def test_metadata_includes_impact_when_present(self, service: ProjectsService) -> None:
+    def test_metadata_includes_impact_when_present(
+        self, service: ProjectsService
+    ) -> None:
         """impact_es / impact_en are JSON-encoded when present."""
         project = Project(
             slug="proj-x",
@@ -399,7 +391,10 @@ class TestBuildProjectChunks:
 class TestDetailCollectionName:
     def test_prefixes_with_projects_underscore(self, service: ProjectsService) -> None:
         """Detail collection name uses `projects_<slug>` (underscore separator)."""
-        assert service.detail_collection_name("proj-data-pipeline") == "projects_proj-data-pipeline"
+        assert (
+            service.detail_collection_name("proj-data-pipeline")
+            == "projects_proj-data-pipeline"
+        )
 
     def test_rejects_invalid_chroma_names(self, service: ProjectsService) -> None:
         """Slugs that would produce invalid ChromaDB names raise ProjectParseError."""
@@ -422,7 +417,9 @@ class TestIngestAll:
         _write_md(tmp_path, "a.md", _make_sample_md(slug="proj-a"))
         _write_md(tmp_path, "b.md", _make_sample_md(slug="proj-b"))
 
-        service = ProjectsService(embedder=embedder_mock, store=store_mock, settings=None)
+        service = ProjectsService(
+            embedder=embedder_mock, store=store_mock, settings=None
+        )
         result = service.ingest_all(tmp_path, force=True)
 
         # Force deleted the master collection once.
@@ -450,16 +447,24 @@ class TestIngestAll:
     ) -> None:
         """One malformed file does NOT abort the batch; errors list populated."""
         _write_md(tmp_path, "good.md", _make_sample_md(slug="proj-good"))
-        _write_md(tmp_path, "bad.md", "---\nslug: BadSlug\ntitle_es: x\ntitle_en: y\n---\n\nBody\n")
+        _write_md(
+            tmp_path,
+            "bad.md",
+            "---\nslug: BadSlug\ntitle_es: x\ntitle_en: y\n---\n\nBody\n",
+        )
         _write_md(tmp_path, "other-good.md", _make_sample_md(slug="proj-other"))
 
-        service = ProjectsService(embedder=embedder_mock, store=store_mock, settings=None)
+        service = ProjectsService(
+            embedder=embedder_mock, store=store_mock, settings=None
+        )
         result = service.ingest_all(tmp_path, force=True)
 
         assert result.indexed_projects == 2
         assert sorted(result.project_slugs) == ["proj-good", "proj-other"]
         assert len(result.errors) == 1
-        assert "bad.md" in result.errors[0].lower() or "slug" in result.errors[0].lower()
+        assert (
+            "bad.md" in result.errors[0].lower() or "slug" in result.errors[0].lower()
+        )
 
     def test_index_chunks_count_matches_projects(
         self, embedder_mock, store_mock, tmp_path: Path
@@ -468,7 +473,9 @@ class TestIngestAll:
         for i in range(5):
             _write_md(tmp_path, f"p{i}.md", _make_sample_md(slug=f"proj-p{i}"))
 
-        service = ProjectsService(embedder=embedder_mock, store=store_mock, settings=None)
+        service = ProjectsService(
+            embedder=embedder_mock, store=store_mock, settings=None
+        )
         result = service.ingest_all(tmp_path, force=True)
 
         assert result.indexed_projects == 5
@@ -492,7 +499,9 @@ class TestIngestAll:
         """Without force, the master index is NOT deleted."""
         _write_md(tmp_path, "a.md", _make_sample_md(slug="proj-a"))
 
-        service = ProjectsService(embedder=embedder_mock, store=store_mock, settings=None)
+        service = ProjectsService(
+            embedder=embedder_mock, store=store_mock, settings=None
+        )
         service.ingest_all(tmp_path, force=False)
 
         # The master index should not have been deleted.
@@ -503,7 +512,9 @@ class TestIngestAll:
         self, embedder_mock, store_mock, tmp_path: Path
     ) -> None:
         """Empty directory returns a result with zero counts, no errors."""
-        service = ProjectsService(embedder=embedder_mock, store=store_mock, settings=None)
+        service = ProjectsService(
+            embedder=embedder_mock, store=store_mock, settings=None
+        )
         result = service.ingest_all(tmp_path, force=True)
 
         assert result.indexed_projects == 0
@@ -516,7 +527,9 @@ class TestIngestAll:
         self, embedder_mock, store_mock, tmp_path: Path
     ) -> None:
         """Non-existent projects_dir raises FileNotFoundError."""
-        service = ProjectsService(embedder=embedder_mock, store=store_mock, settings=None)
+        service = ProjectsService(
+            embedder=embedder_mock, store=store_mock, settings=None
+        )
         with pytest.raises(FileNotFoundError):
             service.ingest_all(tmp_path / "missing", force=True)
 
@@ -533,10 +546,12 @@ class TestAgainstSeedFixtures:
     (mocked) so this stays in the unit tier.
     """
 
-    def test_seed_files_parse_and_index(
-        self, embedder_mock, store_mock
-    ) -> None:
-        """All 5 seed projects in apps/api/data/projects/ parse and index."""
+    def test_seed_files_parse_and_index(self, embedder_mock, store_mock) -> None:
+        """All seed projects in apps/api/data/projects/ parse and index.
+
+        As of the placeholder cleanup (commit 17483be), only the 2 real
+        projects remain: proj-portafolio-rag and proj-safegateway.
+        """
         from backend.config import Settings
 
         seed_dir = Path(__file__).parent.parent.parent / "data" / "projects"
@@ -551,14 +566,11 @@ class TestAgainstSeedFixtures:
         )
         result = service.ingest_all(seed_dir, force=True)
 
-        assert result.indexed_projects == 5
-        assert result.index_chunks == 5
+        assert result.indexed_projects == 2
+        assert result.index_chunks == 2
         assert result.detail_chunks_total > 0
         assert sorted(result.project_slugs) == [
-            "proj-cloud-migration",
-            "proj-data-pipeline",
-            "proj-ml-scoring",
-            "proj-rag-customer",
-            "proj-realtime-fraud",
+            "proj-portafolio-rag",
+            "proj-safegateway",
         ]
         assert result.errors == []
