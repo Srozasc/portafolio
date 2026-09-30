@@ -1,14 +1,16 @@
 # AWS Deploy (frontend + backend on AWS Free Tier)
 
 End-to-end guide for deploying the Portafolio RAG stack on AWS Free Tier:
-**S3 + CloudFront + ACM** for the static frontend, **EC2 t3.micro + IAM + SG**
-for the FastAPI backend, and **Cloudflare Tunnel** for HTTPS ingress to the
-backend (no ALB, no public IP on EC2).
+**S3 + CloudFront + ACM** for the static frontend, **EC2 t3.micro + IAM + SG
++ nginx** for the FastAPI backend, and **Let's Encrypt via acme.sh** for
+HTTPS on the backend (no ALB, no Cloudflare Tunnel, no paid Cloudflare
+features — the EC2 Elastic IP serves TLS directly).
 
-> **Audience**: solo freelancer with an AWS account (Free Tier eligible) and a
-> Cloudflare account with a domain registered.
-> **Time**: ~2-3 hours for a fresh deploy (mostly waiting on Cloudflare
-> Universal SSL provisioning and ChromaDB ingest).
+> **Audience**: solo freelancer with an AWS account (Free Tier eligible),
+> a Cloudflare account (DNS-only, no proxy needed), and a domain
+> registered through Cloudflare Registrar.
+> **Time**: ~2-3 hours for a fresh deploy (mostly waiting on acme.sh
+> Let's Encrypt issuance and ChromaDB ingest).
 > **Cost**: $0 during the 12-month Free Tier window with billing alarms at
 > $5/$10/$20/$50.
 
@@ -32,7 +34,7 @@ CLI + bash; no Terraform / CDK by design — single-instance project).
 | Backend logs | CloudWatch Logs | us-west-2 | Log group `/portafolio-api*`, retention 7d. |
 | IAM (backend) | Role `portafolio-api-ec2-role` + profile `portafolio-api-ec2-profile` | — | Inline policy: write-only CloudWatch Logs access to `/portafolio-api*`. Plus `AmazonSSMManagedInstanceCore` for Session Manager. |
 | IAM (SSM) | Role `AWSSystemsManagerDefaultEC2InstanceManagementRole-us-west-2` | — | Trust policy: `ssm.amazonaws.com`. Required for the SSM agent to register with the account. |
-| Security group | `sg-08a344543be098b0d` | — | 0 inbound rules. Outbound: TCP 443 (HTTPS), TCP 7844 (cloudflared), TCP 53 + UDP 53 (DNS). |
+| Security group | `sg-08a344543be098b0d` | — | 1 inbound (TCP 443 from 0.0.0.0/0 for browser HTTPS to nginx). 3 egress: TCP 443 (HTTPS, acme.sh, dnf, git), TCP 53 + UDP 53 (DNS). |
 
 **Excluded by design:** NAT Gateway, ALB, RDS, EFS, Secrets Manager, S3
 backup of ChromaDB, multi-AZ HA, custom VPC. Each one adds cost or
@@ -49,7 +51,7 @@ complexity this project does not need. Add only when justified.
 | S3 Standard | 5 GB storage + 15 GB transfer × 12 months | ~0.5 GB storage + <1 GB/mo transfer | ✅ |
 | CloudFront | 1 TB data transfer + 10 M requests/mo for 12 months | <1 GB transfer + <100 k req/mo | ✅ |
 | CloudWatch Logs | 5 GB ingest + 5 GB storage | ~50 MB/mo | ✅ |
-| Data transfer OUT (EC2 → internet) | 100 GB/mo for 12 months | <5 GB/mo (only `dnf`, `git`, `pip`, `cloudflared`) | ✅ |
+| Data transfer OUT (EC2 → internet) | 100 GB/mo for 12 months | <5 GB/mo (only `dnf`, `git`, `pip`, acme.sh DNS-01) | ✅ |
 
 After the 12-month window, see [Post-Free-Tier decision matrix](#post-free-tier-decision-matrix) below.
 
