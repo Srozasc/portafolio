@@ -80,50 +80,66 @@ jobs:
           --paths "/*"
 
       # ----- Backend deploy via SSM -----
-      - name: Deploy backend (git pull + restart on EC2)
+      - name: Deploy backend (capture prev + pull + restart + health check)
+        id: deploy
+        # Atomic: capture prev SHA -> porcelain guard -> pull --ff-only -> pip install ->
+        # restart -> sleep -> is-active -> health curl. set -euo pipefail aborts on any
+        # failure. prev_sha is exposed as step output for the rollback step below.
         run: |
           CMD=$(aws ssm send-command \
             --instance-ids i-04b4296febfda434a \
             --document-name AWS-RunShellScript \
             --parameters 'commands=[
+              "set -euo pipefail",
               "cd /opt/portafolio",
-              "[ -z \"$(git status --porcelain)\" ] || { echo \"ERROR: EC2 has uncommitted changes, aborting\"; git status --porcelain; exit 1; }",
-              "cd /opt/portafolio && git pull --ff-only origin main",
+              "PREV=$(git rev-parse HEAD)",
+              "echo \\"Previous commit: $PREV\\"",
+              "[ -z \\"$(git status --porcelain)\\" ] || { echo \\"ERROR: EC2 has uncommitted changes, aborting\\"; git status --porcelain; exit 1; }",
+              "git pull --ff-only origin main",
               "pip install -r apps/api/requirements.txt --quiet",
               "sudo systemctl restart portafolio.service",
               "sleep 3",
-              "sudo systemctl is-active portafolio.service"
+              "sudo systemctl is-active portafolio.service",
+              "HEALTH=$(curl -sS -m 5 http://127.0.0.1:8000/api/health || true)",
+              "echo \\"$HEALTH\\" | grep -q \\\\"status\\\\":\\\\"ok\\\\" || { echo \\\\"HEALTH FAILED: $HEALTH\\\\"; exit 1; }",
+              "echo \\\\"DEPLOY OK\\\\""
             ]' \
-            --comment "GitHub Actions deploy: pull main + restart service" \
+            --comment "GitHub Actions deploy: capture prev, pull main, restart, health check" \
             --query 'Command.CommandId' \
             --output text)
-          echo "SSM CommandId: $CMD"
           aws ssm wait command-executed --command-id "$CMD" || true
-          aws ssm get-command-invocation \
-            --command-id "$CMD" \
-            --query 'Status,StandardOutputContent,StandardErrorContent' \
-            --output json
-
-      - name: Verify backend is healthy
-        # Verify backend via curl on localhost (via SSM SendCommand).
-        run: |
-          HEALTH=$(aws ssm send-command \
-            --instance-ids i-04b4296febfda434a \
-            --document-name AWS-RunShellScript \
-            --parameters 'commands=[
-              "curl -sS -m 5 http://127.0.0.1:8000/api/health"
-            ]' \
-            --query 'Command.CommandId' \
-            --output text)
-          aws ssm wait command-executed --command-id "$HEALTH" || true
           OUT=$(aws ssm get-command-invocation \
-            --command-id "$HEALTH" \
+            --command-id "$CMD" \
             --query 'StandardOutputContent' \
             --output text)
-          echo "Health response: $OUT"
-          if echo "$OUT" | grep -q '"status":"ok"'; then
-            echo "Backend healthy"
-          else
-            echo "Backend NOT healthy"
-            exit 1
-          fi
+          PREV_SHA=$(echo "$OUT" | grep -oP 'Previous commit: \K[0-9a-f]+' | head -1)
+          echo "Captured previous commit SHA: $PREV_SHA"
+          echo "prev_sha=$PREV_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Rollback on deploy failure
+        if: failure() && steps.deploy.outputs.prev_sha
+        # Only runs if the deploy step failed AND we captured a prev_sha.
+        # git reset --hard here is intentional: this is an explicit recovery
+        # operation, not the normal pull path (which uses --ff-only).
+        run: |
+          PREV="${{ steps.deploy.outputs.prev_sha }}"
+          CMD=$(aws ssm send-command \
+            --instance-ids i-04b4296febfda434a \
+            --document-name AWS-RunShellScript \
+            --parameters "commands=[
+              \"set -euo pipefail\",
+              \"cd /opt/portafolio\",
+              \"git reset --hard $PREV\",
+              \"pip install -r apps/api/requirements.txt --quiet\",
+              \"sudo systemctl restart portafolio.service\",
+              \"sleep 3\",
+              \"sudo systemctl is-active portafolio.service\",
+              \"HEALTH=$(curl -sS -m 5 http://127.0.0.1:8000/api/health || true)\",
+              \"echo \\\"$HEALTH\\\" | grep -q \\\\\\\"status\\\\\\\":\\\\\\\"ok\\\\\\\" || { echo \\\\\\\"ROLLBACK HEALTH FAILED: $HEALTH\\\\\\\"; exit 1; }\",
+              \"echo \\\\\\\"ROLLED BACK TO $PREV\\\\\\\"\"
+            ]" \
+            --comment "GitHub Actions rollback: reset to $PREV and restart" \
+            --query 'Command.CommandId' \
+            --output text)
+          aws ssm wait command-executed --command-id "$CMD"
+          echo "Rollback command issued"
