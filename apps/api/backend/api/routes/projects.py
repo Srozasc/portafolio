@@ -15,7 +15,6 @@ from backend.rag.embedder import Embedder
 from backend.rag.vector_store import VectorStore
 from backend.services.projects_service import ProjectsService
 
-
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 

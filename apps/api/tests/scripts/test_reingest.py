@@ -20,6 +20,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+
 from scripts.ingest_repo import (
     load_existing_frontmatter,
     merge_frontmatter_for_update,
@@ -28,6 +29,7 @@ from scripts.ingest_repo import (
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 def _existing() -> dict:
     """Simulating a previous ingest + manual edits by the human."""
@@ -83,6 +85,7 @@ def _new() -> dict:
 # merge_frontmatter_for_update — preserved fields
 # ===========================================================================
 
+
 class TestMergePreservesHumanFields:
     def test_preserves_role_es(self):
         result = merge_frontmatter_for_update(_existing(), _new())
@@ -108,6 +111,7 @@ class TestMergePreservesHumanFields:
 # ===========================================================================
 # merge_frontmatter_for_update — regenerated fields
 # ===========================================================================
+
 
 class TestMergeRegeneratesDerivedFields:
     def test_regenerates_title_es(self):
@@ -151,6 +155,7 @@ class TestMergeRegeneratesDerivedFields:
 # merge_frontmatter_for_update — slug stability
 # ===========================================================================
 
+
 class TestMergeSlugStability:
     def test_keeps_existing_slug(self):
         result = merge_frontmatter_for_update(_existing(), _new())
@@ -176,6 +181,7 @@ class TestMergeSlugStability:
 # ===========================================================================
 # merge_frontmatter_for_update — unknown / edge fields
 # ===========================================================================
+
 
 class TestMergeUnknownFields:
     def test_preserves_unknown_field_from_existing(self):
@@ -211,6 +217,7 @@ class TestMergeUnknownFields:
 # merge_frontmatter_for_update — sparse inputs
 # ===========================================================================
 
+
 class TestMergeSparseInputs:
     def test_existing_with_only_slug_and_title_es(self):
         sparse_existing = {"slug": "proj-hello", "title_es": "Hola"}
@@ -231,9 +238,14 @@ class TestMergeSparseInputs:
         }
         result = merge_frontmatter_for_update(_existing(), minimal_new)
         # Fields only in new: minimal_new's value
-        assert result["title_es"] == "Hola"  # from new (not preserved since existing has it but new also has it; new wins for regenerated fields)
+        assert (
+            result["title_es"] == "Hola"
+        )  # from new (not preserved since existing has it but new also has it; new wins for regenerated fields)
         # Actually, the regenerated fields take from new. The existing has tags/role_es/client/impact.
-        assert result["tags"] == ["manual", "tags"]  # not in new; use existing (unknown field)
+        assert result["tags"] == [
+            "manual",
+            "tags",
+        ]  # not in new; use existing (unknown field)
 
     def test_full_merge_yields_expected_shape(self):
         result = merge_frontmatter_for_update(_existing(), _new())
@@ -246,6 +258,7 @@ class TestMergeSparseInputs:
 # load_existing_frontmatter
 # ===========================================================================
 
+
 class TestLoadExistingFrontmatter:
     def test_returns_none_when_file_missing(self, tmp_path: Path):
         assert load_existing_frontmatter(tmp_path / "missing.md") is None
@@ -253,12 +266,7 @@ class TestLoadExistingFrontmatter:
     def test_loads_valid_frontmatter(self, tmp_path: Path):
         md = tmp_path / "proj-hello.md"
         md.write_text(
-            "---\n"
-            "slug: proj-hello\n"
-            "title_es: Hola\n"
-            "title_en: Hello\n"
-            "---\n\n"
-            "# Body content\n",
+            "---\nslug: proj-hello\ntitle_es: Hola\ntitle_en: Hello\n---\n\n# Body content\n",
             encoding="utf-8",
         )
         result = load_existing_frontmatter(md)
@@ -275,11 +283,7 @@ class TestLoadExistingFrontmatter:
     def test_returns_none_for_malformed_yaml(self, tmp_path: Path):
         md = tmp_path / "broken.md"
         md.write_text(
-            "---\n"
-            "slug: proj-hello\n"
-            "  bad-indent: x\n"
-            "\talso: y\n"
-            "---\n\n",
+            "---\nslug: proj-hello\n  bad-indent: x\n\talso: y\n---\n\n",
             encoding="utf-8",
         )
         assert load_existing_frontmatter(md) is None

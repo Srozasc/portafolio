@@ -11,12 +11,12 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from backend.api.routes.debug import router as debug_router, _get_chat_service
 from backend.api.errors import register_exception_handlers
-from backend.rag.vector_store import VectorStore
+from backend.api.routes.debug import _get_chat_service
+from backend.api.routes.debug import router as debug_router
 from backend.rag.retriever import Retriever
+from backend.rag.vector_store import VectorStore
 from backend.services.chat_service import ChatService
-
 
 # ---------------------------------------------------------------------------
 # Fake LLM (not used by debug endpoint but required by ChatService init)
@@ -73,7 +73,7 @@ class TestDebugRetrieveHappyPath:
 
     def test_debug_retrieve_returns_top_k_hits(self, tmp_path: Path):
         """When collection has chunks, returns up to top_k hits with scores."""
-        app, client, service = make_debug_test_app(tmp_path)
+        app, client, _service = make_debug_test_app(tmp_path)
 
         store = app.state.chat_service.retriever._store
         store.upsert(
@@ -86,9 +86,27 @@ class TestDebugRetrieveHappyPath:
                 "Tercer documento para completar.",
             ],
             metadatas=[
-                {"section_header": "Intro", "source": "doc1.md", "chunk_index": 0, "char_start": 0, "char_end": 35},
-                {"section_header": "Body", "source": "doc2.md", "chunk_index": 0, "char_start": 0, "char_end": 40},
-                {"section_header": "End", "source": "doc3.md", "chunk_index": 0, "char_start": 0, "char_end": 30},
+                {
+                    "section_header": "Intro",
+                    "source": "doc1.md",
+                    "chunk_index": 0,
+                    "char_start": 0,
+                    "char_end": 35,
+                },
+                {
+                    "section_header": "Body",
+                    "source": "doc2.md",
+                    "chunk_index": 0,
+                    "char_start": 0,
+                    "char_end": 40,
+                },
+                {
+                    "section_header": "End",
+                    "source": "doc3.md",
+                    "chunk_index": 0,
+                    "char_start": 0,
+                    "char_end": 30,
+                },
             ],
         )
 
@@ -110,7 +128,7 @@ class TestDebugRetrieveHappyPath:
 
     def test_debug_retrieve_resolves_single_collection_automatically(self, tmp_path: Path):
         """When collection=None and exactly one collection exists, it is used."""
-        app, client, service = make_debug_test_app(tmp_path)
+        app, client, _service = make_debug_test_app(tmp_path)
 
         store = app.state.chat_service.retriever._store
         store.upsert(
@@ -118,7 +136,15 @@ class TestDebugRetrieveHappyPath:
             ids=["c1"],
             embeddings=[[0.5] * 8],
             documents=["Unico documento."],
-            metadatas=[{"section_header": "", "source": "d.md", "chunk_index": 0, "char_start": 0, "char_end": 17}],
+            metadatas=[
+                {
+                    "section_header": "",
+                    "source": "d.md",
+                    "chunk_index": 0,
+                    "char_start": 0,
+                    "char_end": 17,
+                }
+            ],
         )
 
         response = client.post(
@@ -139,7 +165,7 @@ class TestDebugRetrieveThresholdZero:
         (0.75) filters out chunks that still contain relevant information.
         The debug endpoint uses threshold=0.0 to expose those candidates.
         """
-        app, client, service = make_debug_test_app(tmp_path)
+        app, client, _service = make_debug_test_app(tmp_path)
 
         store = app.state.chat_service.retriever._store
         # FakeEmbedder always returns [0.5]*8 for any query.
@@ -153,8 +179,20 @@ class TestDebugRetrieveThresholdZero:
             embeddings=[[0.5] * 8, [0.4] * 8],
             documents=["Alta similitud.", "Baja similitud."],
             metadatas=[
-                {"section_header": "A", "source": "a.md", "chunk_index": 0, "char_start": 0, "char_end": 16},
-                {"section_header": "B", "source": "b.md", "chunk_index": 0, "char_start": 0, "char_end": 16},
+                {
+                    "section_header": "A",
+                    "source": "a.md",
+                    "chunk_index": 0,
+                    "char_start": 0,
+                    "char_end": 16,
+                },
+                {
+                    "section_header": "B",
+                    "source": "b.md",
+                    "chunk_index": 0,
+                    "char_start": 0,
+                    "char_end": 16,
+                },
             ],
         )
 
@@ -176,7 +214,7 @@ class TestDebugRetrieveErrors:
 
     def test_debug_retrieve_unknown_collection_returns_error(self, tmp_path: Path):
         """Unknown explicit collection → 404 UNKNOWN_COLLECTION."""
-        app, client, service = make_debug_test_app(tmp_path)
+        _app, client, _service = make_debug_test_app(tmp_path)
 
         response = client.post(
             "/api/_debug/retrieve",
@@ -188,7 +226,7 @@ class TestDebugRetrieveErrors:
 
     def test_debug_retrieve_ambiguous_collection_returns_error(self, tmp_path: Path):
         """No override + multiple collections → 400 AMBIGUOUS_COLLECTION."""
-        app, client, service = make_debug_test_app(tmp_path)
+        app, client, _service = make_debug_test_app(tmp_path)
 
         store = app.state.chat_service.retriever._store
         store.upsert(
@@ -196,14 +234,30 @@ class TestDebugRetrieveErrors:
             ids=["c1"],
             embeddings=[[0.1] * 8],
             documents=["Doc X."],
-            metadatas=[{"section_header": "", "source": "x.md", "chunk_index": 0, "char_start": 0, "char_end": 6}],
+            metadatas=[
+                {
+                    "section_header": "",
+                    "source": "x.md",
+                    "chunk_index": 0,
+                    "char_start": 0,
+                    "char_end": 6,
+                }
+            ],
         )
         store.upsert(
             name="coll-y",
             ids=["c2"],
             embeddings=[[0.2] * 8],
             documents=["Doc Y."],
-            metadatas=[{"section_header": "", "source": "y.md", "chunk_index": 0, "char_start": 0, "char_end": 6}],
+            metadatas=[
+                {
+                    "section_header": "",
+                    "source": "y.md",
+                    "chunk_index": 0,
+                    "char_start": 0,
+                    "char_end": 6,
+                }
+            ],
         )
 
         response = client.post(
@@ -216,7 +270,7 @@ class TestDebugRetrieveErrors:
 
     def test_debug_retrieve_empty_question_returns_400(self, tmp_path: Path):
         """Empty question string → 400 MISSING_QUESTION (via error handler)."""
-        app, client, service = make_debug_test_app(tmp_path)
+        _app, client, _service = make_debug_test_app(tmp_path)
 
         response = client.post(
             "/api/_debug/retrieve",

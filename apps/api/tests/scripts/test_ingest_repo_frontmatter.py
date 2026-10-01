@@ -286,9 +286,7 @@ class TestBuildFrontmatter:
     def test_empty_role_raises(self):
         repo = make_repo_data()
         with pytest.raises(ValueError, match="role"):
-            build_frontmatter(
-                repo, role="", detected_lang="en", llm_client=_MockLLMClient()
-            )
+            build_frontmatter(repo, role="", detected_lang="en", llm_client=_MockLLMClient())
 
     def test_missing_llm_client_raises(self):
         """Per user policy: build_frontmatter requires an LLM client."""
@@ -383,9 +381,7 @@ class TestBuildFrontmatter:
             llm_client=_MockLLMClient(),
         )
         assert len(fm_en["summary_es"]) >= 20
-        assert ("TODO" in fm_en["summary_es"]) or (
-            "traducc" in fm_en["summary_es"].lower()
-        )
+        assert ("TODO" in fm_en["summary_es"]) or ("traducc" in fm_en["summary_es"].lower())
 
     def test_es_detection_placeholder_in_en_side(self):
         repo = make_repo_data()
@@ -429,9 +425,7 @@ class TestBuildFrontmatter:
         repo = make_repo_data(language="Python", topics=[])
         # Mock LLM that returns a tag matching the existing language.
         mock_llm = _MockLLMClient(
-            response_text=json.dumps(
-                ["python", "django", "flask", "fastapi", "postgres"]
-            )
+            response_text=json.dumps(["python", "django", "flask", "fastapi", "postgres"])
         )
         fm = build_frontmatter(
             repo,
@@ -712,9 +706,7 @@ class TestWriteProjectMd:
         assert "second body" in text
         assert "first body" not in text
 
-    def test_atomic_write_no_partial_files_on_failure(
-        self, tmp_path: Path, monkeypatch
-    ):
+    def test_atomic_write_no_partial_files_on_failure(self, tmp_path: Path, monkeypatch):
         # Force os.replace to raise after the temp file has been written.
         target_path = tmp_path / "proj-hello.md"
 

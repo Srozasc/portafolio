@@ -9,6 +9,6 @@ Modules:
     prompts   — SYSTEM_PROMPT_TEMPLATE verbatim from design doc §8.
 """
 
-from backend.rag import chunker, embedder, vector_store, retriever, llm_client, prompts
+from backend.rag import chunker, embedder, llm_client, prompts, retriever, vector_store
 
-__all__ = ["chunker", "embedder", "vector_store", "retriever", "llm_client", "prompts"]
+__all__ = ["chunker", "embedder", "llm_client", "prompts", "retriever", "vector_store"]

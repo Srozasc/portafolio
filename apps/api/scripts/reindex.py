@@ -47,9 +47,7 @@ def main() -> None:
     args = parser.parse_args()
 
     settings = Settings()
-    projects_dir = args.projects_dir or (
-        Path(__file__).parent.parent / "data" / "projects"
-    )
+    projects_dir = args.projects_dir or (Path(__file__).parent.parent / "data" / "projects")
 
     if not projects_dir.exists():
         print(f"ERROR: projects_dir does not exist: {projects_dir}", file=sys.stderr)

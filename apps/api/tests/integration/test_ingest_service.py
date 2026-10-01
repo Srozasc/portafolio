@@ -7,22 +7,19 @@ collection_override.
 
 from __future__ import annotations
 
-import os
-import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
 from backend.config import Settings
-from backend.rag.chunker import Chunk, chunk_markdown
+from backend.rag.chunker import Chunk
 from backend.rag.vector_store import VectorStore
 from backend.services.ingest_service import (
     FileTooLargeError,
     IngestService,
     UnsupportedExtensionError,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -10,6 +10,7 @@ Covers routing priority:
 from __future__ import annotations
 
 import pytest
+
 from backend.rag.project_router import ProjectRouter, RouteDecision, RouteKind
 
 # ---------------------------------------------------------------------------
@@ -146,7 +147,10 @@ class TestRoutePronounResolution:
         """History mentions proj-data-pipeline; question 'el primero' -> DETAIL."""
         history = [
             {"role": "user", "content": "show me all your python projects"},
-            {"role": "assistant", "content": "I built proj-data-pipeline and proj-rag-customer."},
+            {
+                "role": "assistant",
+                "content": "I built proj-data-pipeline and proj-rag-customer.",
+            },
         ]
         decision = router.route("el primero", history=history)
         assert decision.kind == RouteKind.DETAIL_PROJECT

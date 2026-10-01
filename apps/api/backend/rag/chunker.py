@@ -18,8 +18,9 @@ Metadata per Chunk: text, source, section_header, chunk_index,
 from __future__ import annotations
 
 import re
-import tiktoken
 from dataclasses import dataclass
+
+import tiktoken
 
 
 @dataclass
@@ -94,8 +95,7 @@ def chunk_markdown(
         return []
 
     # Step 1: Strip BOM
-    if text.startswith("\ufeff"):
-        text = text[1:]
+    text = text.removeprefix("\ufeff")
 
     # Step 2: Normalise line endings
     text = text.replace("\r\n", "\n").replace("\r", "\n")
@@ -210,8 +210,14 @@ def chunk_markdown(
             else:
                 # Split the body (no heading)
                 _chunks, prev_tail_words, prev_tail_tok = _split_section(
-                    sec_body, sec_header, source, chunk_index,
-                    overlap, text, prev_tail_words, prev_tail_tok
+                    sec_body,
+                    sec_header,
+                    source,
+                    chunk_index,
+                    overlap,
+                    text,
+                    prev_tail_words,
+                    prev_tail_tok,
                 )
                 chunks.extend(_chunks)
                 chunk_index += len(_chunks)
@@ -219,8 +225,14 @@ def chunk_markdown(
 
         # Section body exceeds chunk_size — split by paragraph then by line
         _chunks, prev_tail_words, prev_tail_tok = _split_section(
-            sec_body, sec_header, source, chunk_index,
-            overlap, text, prev_tail_words, prev_tail_tok
+            sec_body,
+            sec_header,
+            source,
+            chunk_index,
+            overlap,
+            text,
+            prev_tail_words,
+            prev_tail_tok,
         )
         chunks.extend(_chunks)
         chunk_index += len(_chunks)

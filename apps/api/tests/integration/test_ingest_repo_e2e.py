@@ -54,9 +54,7 @@ OCTOCAT_HELLO_WORLD: dict = {
     "private": False,
 }
 
-OCTOCAT_README = (
-    "# Hello World\n\nThis is my first repo.\n\n![screenshot](./screenshot.png)\n"
-)
+OCTOCAT_README = "# Hello World\n\nThis is my first repo.\n\n![screenshot](./screenshot.png)\n"
 
 
 # ---------------------------------------------------------------------------
@@ -192,9 +190,7 @@ def _make_subprocess_side_effect():
 class TestFullIngestDryRun:
     """main() --dry-run imprime el summary pero NO escribe .md ni branch."""
 
-    def test_full_ingest_dry_run(
-        self, tmp_path: Path, capsys: pytest.CaptureFixture
-    ) -> None:
+    def test_full_ingest_dry_run(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
         projects_dir = tmp_path / "projects"
         projects_dir.mkdir()
         transport = httpx.MockTransport(_make_github_handler())
@@ -267,12 +263,8 @@ class TestFullIngestWritesMd:
         # del bug que abortaba con "nothing added to commit but untracked files
         # present" cuando main() llamaba git_commit sin stagear primero.
         call_cmds = [c.args[0] for c in mock_run.call_args_list]
-        git_add_calls = [
-            i for i, cmd in enumerate(call_cmds) if cmd[:2] == ["git", "add"]
-        ]
-        git_commit_calls = [
-            i for i, cmd in enumerate(call_cmds) if cmd[:2] == ["git", "commit"]
-        ]
+        git_add_calls = [i for i, cmd in enumerate(call_cmds) if cmd[:2] == ["git", "add"]]
+        git_commit_calls = [i for i, cmd in enumerate(call_cmds) if cmd[:2] == ["git", "commit"]]
         assert git_add_calls, f"expected git add to be called; got {call_cmds}"
         assert git_commit_calls, f"expected git commit to be called; got {call_cmds}"
         assert git_add_calls[0] < git_commit_calls[0], (
@@ -288,9 +280,7 @@ class TestFullIngestWritesMd:
         # git push -u origin <branch> se invoca DESPUÉS de git commit y
         # ANTES de gh pr create. Regression guard del bug que abortaba con
         # "you must first push the current branch to a remote".
-        git_push_calls = [
-            i for i, cmd in enumerate(call_cmds) if cmd[:2] == ["git", "push"]
-        ]
+        git_push_calls = [i for i, cmd in enumerate(call_cmds) if cmd[:2] == ["git", "push"]]
         gh_pr_calls = [i for i, cmd in enumerate(call_cmds) if cmd[:2] == ["gh", "pr"]]
         assert git_push_calls, f"expected git push to be called; got {call_cmds}"
         assert gh_pr_calls, f"expected gh pr create to be called; got {call_cmds}"
@@ -307,12 +297,9 @@ class TestFullIngestWritesMd:
         assert git_push_cmd[:3] == ["git", "push", "-u"], (
             f"git push debe usar -u flag; got {git_push_cmd[:3]}"
         )
-        assert git_push_cmd[3] == "origin", (
-            f"git push debe apuntar a origin; got {git_push_cmd[3]}"
-        )
+        assert git_push_cmd[3] == "origin", f"git push debe apuntar a origin; got {git_push_cmd[3]}"
         assert git_push_cmd[4].startswith("content/ingest-"), (
-            f"git push debe pushear la branch content/ingest-<slug>; "
-            f"got {git_push_cmd[4]}"
+            f"git push debe pushear la branch content/ingest-<slug>; got {git_push_cmd[4]}"
         )
 
         # El .md existe.
@@ -338,10 +325,7 @@ class TestFullIngestWritesMd:
         # Body contiene el README con la imagen reescrita a URL absoluta.
         assert "Hello World" in body
         assert "This is my first repo." in body
-        assert (
-            "https://raw.githubusercontent.com/octocat/Hello-World/master/screenshot.png"
-            in body
-        )
+        assert "https://raw.githubusercontent.com/octocat/Hello-World/master/screenshot.png" in body
         # La ruta relativa original ya no esta presente.
         assert "./screenshot.png" not in body
 
@@ -354,15 +338,11 @@ class TestFullIngestWritesMd:
 class TestFullIngestExistingProjectGuards:
     """Si el .md ya existe sin --force ni --update, main() aborta con exit 1."""
 
-    def test_existing_project_without_force_or_update_aborts(
-        self, tmp_path: Path
-    ) -> None:
+    def test_existing_project_without_force_or_update_aborts(self, tmp_path: Path) -> None:
         projects_dir = tmp_path / "projects"
         projects_dir.mkdir()
         # Pre-crear el .md destino.
-        (projects_dir / "proj-hello-world.md").write_text(
-            "existing content\n", encoding="utf-8"
-        )
+        (projects_dir / "proj-hello-world.md").write_text("existing content\n", encoding="utf-8")
         transport = httpx.MockTransport(_make_github_handler())
 
         with (

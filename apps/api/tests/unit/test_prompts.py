@@ -9,6 +9,7 @@ import unicodedata
 from pathlib import Path
 
 import pytest
+
 from backend.rag.chunker import Chunk
 from backend.rag.prompts import (
     SYSTEM_PROMPT_TEMPLATE,
@@ -20,6 +21,7 @@ from backend.rag.prompts import (
 # Byte-for-byte pinning test (Decision 7 / REQ-CHS-003)
 # ---------------------------------------------------------------------------
 
+
 def _extract_design_doc_template() -> str:
     """Read design doc §8 template.
 
@@ -28,7 +30,9 @@ def _extract_design_doc_template() -> str:
     We use "Sos un asistente" as the start anchor to avoid matching
     "INFORMACIÓN RECUPERADA" which appears inside the template body.
     """
-    design_doc = Path(__file__).parent.parent.parent / "docs" / "plans" / "2026-07-01-hirag15k-design.md"
+    design_doc = (
+        Path(__file__).parent.parent.parent / "docs" / "plans" / "2026-07-01-hirag15k-design.md"
+    )
     content = design_doc.read_text(encoding="utf-8")
 
     # The template starts at "Sos un asistente" and ends right after "=== FIN ==="
@@ -46,7 +50,7 @@ def _extract_design_doc_template() -> str:
 
     # Extract from start through the end marker INCLUSIVE (slicing is half-open,
     # so we add len(end_marker) to keep the marker in the extracted template).
-    template_text = content[start_idx:end_idx + len(end_marker)]
+    template_text = content[start_idx : end_idx + len(end_marker)]
     return unicodedata.normalize("NFC", template_text)
 
 
@@ -67,8 +71,8 @@ class TestPromptPinning:
                         f"SYSTEM_PROMPT_TEMPLATE drifted from design doc §8 at position {i}.\n"
                         f"Our char: {our_template[i]!r} (U+{ord(our_template[i]):04X})\n"
                         f"Doc  char: {design_doc_template[i]!r} (U+{ord(design_doc_template[i]):04X})\n"
-                        f"Our context: {our_template[max(0,i-10):i+10]!r}\n"
-                        f"Doc  context: {design_doc_template[max(0,i-10):i+10]!r}"
+                        f"Our context: {our_template[max(0, i - 10) : i + 10]!r}\n"
+                        f"Doc  context: {design_doc_template[max(0, i - 10) : i + 10]!r}"
                     )
             raise AssertionError(
                 f"Length mismatch: ours={len(our_template)} vs doc={len(design_doc_template)}"

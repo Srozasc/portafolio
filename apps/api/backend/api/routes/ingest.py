@@ -14,15 +14,11 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from backend.api.errors import json_error
 from backend.api.schemas import IngestRequest, IngestResponse
 from backend.config import Settings
 from backend.services.ingest_service import (
     IngestService,
-    UnsupportedExtensionError,
-    FileTooLargeError,
 )
-
 
 router = APIRouter(prefix="/api", tags=["ingest"])
 

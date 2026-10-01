@@ -5,10 +5,10 @@ from scripts.ingest_repo import (
     rewrite_image_urls_to_absolute,
 )
 
-
 # ===========================================================================
 # detect_language
 # ===========================================================================
+
 
 class TestDetectLanguage:
     """Heuristic detector based on stopword counts. 'en' is the fallback."""
@@ -121,9 +121,7 @@ La configuración del sistema es automática.
 
     def test_tie_returns_en_fallback(self):
         # Equal counts of ES and EN stopwords → 'en'
-        text = (
-            "el un la una  the a an\n"
-        )
+        text = "el un la una  the a an\n"
         assert detect_language(text) == "en"
 
     def test_unknown_language_with_only_uncommon_words(self):
@@ -189,6 +187,7 @@ according to their needs and get results quickly.
 # rewrite_image_urls_to_absolute
 # ===========================================================================
 
+
 class TestRewriteImageUrlsAbsolute:
     """Rewrite relative image paths to raw.githubusercontent.com URLs."""
 
@@ -202,30 +201,22 @@ class TestRewriteImageUrlsAbsolute:
     def test_relative_dot_slash_rewritten(self):
         text = "![alt](./screenshot.png)"
         expected = f"![alt]({self.BASE}screenshot.png)"
-        assert rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, self.BRANCH
-        ) == expected
+        assert rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, self.BRANCH) == expected
 
     def test_bare_filename_rewritten(self):
         text = "![logo](logo.png)"
         expected = f"![logo]({self.BASE}logo.png)"
-        assert rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, self.BRANCH
-        ) == expected
+        assert rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, self.BRANCH) == expected
 
     def test_nested_relative_rewritten(self):
         text = "![docs](docs/screenshot.png)"
         expected = f"![docs]({self.BASE}docs/screenshot.png)"
-        assert rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, self.BRANCH
-        ) == expected
+        assert rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, self.BRANCH) == expected
 
     def test_deeply_nested_rewritten(self):
         text = "![a](assets/images/icons/logo.svg)"
         expected = f"![a]({self.BASE}assets/images/icons/logo.svg)"
-        assert rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, self.BRANCH
-        ) == expected
+        assert rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, self.BRANCH) == expected
 
     # ----- Markdown: parent paths --------------------------------------
 
@@ -233,99 +224,69 @@ class TestRewriteImageUrlsAbsolute:
         # ../  resolves at the repo root → just the trailing segment.
         text = "![up](../screenshot.png)"
         expected = f"![up]({self.BASE}screenshot.png)"
-        assert rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, self.BRANCH
-        ) == expected
+        assert rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, self.BRANCH) == expected
 
     def test_parent_with_nested_rewritten(self):
         text = "![nested](../docs/screenshot.png)"
         expected = f"![nested]({self.BASE}docs/screenshot.png)"
-        assert rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, self.BRANCH
-        ) == expected
+        assert rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, self.BRANCH) == expected
 
     def test_multiple_parents_clamped(self):
         # ../../../foo clamps at root
         text = "![flat](../../../screenshot.png)"
         expected = f"![flat]({self.BASE}screenshot.png)"
-        assert rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, self.BRANCH
-        ) == expected
+        assert rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, self.BRANCH) == expected
 
     # ----- Markdown: leave absolute URLs alone --------------------------
 
     def test_https_url_left_alone(self):
         text = "![alt](https://example.com/img.png)"
-        assert rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, self.BRANCH
-        ) == text
+        assert rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, self.BRANCH) == text
 
     def test_http_url_left_alone(self):
         text = "![alt](http://example.com/img.png)"
-        assert rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, self.BRANCH
-        ) == text
+        assert rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, self.BRANCH) == text
 
     def test_data_url_left_alone(self):
         text = "![inline](data:image/png;base64,iVBORw0KGgo=)"
-        assert rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, self.BRANCH
-        ) == text
+        assert rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, self.BRANCH) == text
 
     def test_mailto_left_alone(self):
         text = "![contact](mailto:dev@example.com)"
-        assert rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, self.BRANCH
-        ) == text
+        assert rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, self.BRANCH) == text
 
     def test_anchor_left_alone(self):
         # Anchors as image URLs are weird but technically valid syntax.
         text = "![section](#installation)"
-        assert rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, self.BRANCH
-        ) == text
+        assert rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, self.BRANCH) == text
 
     # ----- Markdown: title attribute preserved --------------------------
 
     def test_markdown_image_with_title_preserved(self):
         text = '![alt](./screenshot.png "The screenshot")'
         expected = f'![alt]({self.BASE}screenshot.png "The screenshot")'
-        assert rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, self.BRANCH
-        ) == expected
+        assert rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, self.BRANCH) == expected
 
     # ----- HTML <img src="..."> forms -----------------------------------
 
     def test_html_img_double_quotes(self):
         text = '<img src="./screenshot.png" alt="demo">'
         expected = f'<img src="{self.BASE}screenshot.png" alt="demo">'
-        assert rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, self.BRANCH
-        ) == expected
+        assert rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, self.BRANCH) == expected
 
     def test_html_img_single_quotes(self):
         text = "<img src='./logo.png' alt='logo' />"
         expected = f"<img src='{self.BASE}logo.png' alt='logo' />"
-        assert rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, self.BRANCH
-        ) == expected
+        assert rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, self.BRANCH) == expected
 
     def test_html_img_absolute_url_left_alone(self):
         text = '<img src="https://cdn.example.com/img.png" alt="x">'
-        assert rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, self.BRANCH
-        ) == text
+        assert rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, self.BRANCH) == text
 
     # ----- Multiple images in one README --------------------------------
 
     def test_multiple_images_rewritten(self):
-        text = (
-            "![a](./one.png)\n"
-            "Some text.\n"
-            "![b](./two.png)\n"
-            "More text.\n"
-            "![c](docs/three.png)\n"
-        )
+        text = "![a](./one.png)\nSome text.\n![b](./two.png)\nMore text.\n![c](docs/three.png)\n"
         expected = (
             f"![a]({self.BASE}one.png)\n"
             "Some text.\n"
@@ -333,84 +294,47 @@ class TestRewriteImageUrlsAbsolute:
             "More text.\n"
             f"![c]({self.BASE}docs/three.png)\n"
         )
-        assert rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, self.BRANCH
-        ) == expected
+        assert rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, self.BRANCH) == expected
 
     def test_mixed_markdown_and_html(self):
-        text = (
-            "![md](./md.png)\n"
-            '<img src="./html.png">\n'
-        )
-        expected = (
-            f"![md]({self.BASE}md.png)\n"
-            f'<img src="{self.BASE}html.png">\n'
-        )
-        assert rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, self.BRANCH
-        ) == expected
+        text = '![md](./md.png)\n<img src="./html.png">\n'
+        expected = f'![md]({self.BASE}md.png)\n<img src="{self.BASE}html.png">\n'
+        assert rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, self.BRANCH) == expected
 
     def test_some_absolute_some_relative(self):
-        text = (
-            "![a](https://example.com/abs.png)\n"
-            "![b](./rel.png)\n"
-        )
-        expected = (
-            "![a](https://example.com/abs.png)\n"
-            f"![b]({self.BASE}rel.png)\n"
-        )
-        assert rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, self.BRANCH
-        ) == expected
+        text = "![a](https://example.com/abs.png)\n![b](./rel.png)\n"
+        expected = f"![a](https://example.com/abs.png)\n![b]({self.BASE}rel.png)\n"
+        assert rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, self.BRANCH) == expected
 
     # ----- Non-image markdown links left alone -------------------------
 
     def test_non_image_link_left_alone(self):
         text = "[docs](./README.md)"
-        assert rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, self.BRANCH
-        ) == text
+        assert rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, self.BRANCH) == text
 
     def test_link_with_image_text_left_alone(self):
         # ![alt](url) is an image. [text](url) is a link. Only images rewritten.
         text = "Click [here](./docs.md) for the documentation."
-        assert rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, self.BRANCH
-        ) == text
+        assert rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, self.BRANCH) == text
 
     # ----- Edge cases ---------------------------------------------------
 
     def test_empty_string_unchanged(self):
-        assert rewrite_image_urls_to_absolute(
-            "", self.OWNER, self.REPO, self.BRANCH
-        ) == ""
+        assert rewrite_image_urls_to_absolute("", self.OWNER, self.REPO, self.BRANCH) == ""
 
     def test_no_images_unchanged(self):
-        text = (
-            "# Title\n"
-            "\n"
-            "Some prose with **bold** and *italic*.\n"
-            "\n"
-            "- bullet one\n"
-            "- bullet two\n"
-        )
-        assert rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, self.BRANCH
-        ) == text
+        text = "# Title\n\nSome prose with **bold** and *italic*.\n\n- bullet one\n- bullet two\n"
+        assert rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, self.BRANCH) == text
 
     def test_alt_can_contain_special_chars(self):
         # The alt may contain brackets or spaces but should not break the parser.
         text = "![a [b] c](./img.png)"
         expected = f"![a [b] c]({self.BASE}img.png)"
-        assert rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, self.BRANCH
-        ) == expected
+        assert rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, self.BRANCH) == expected
 
     def test_branch_included_in_base_url(self):
         text = "![a](./x.png)"
-        out = rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, "feature/my-branch"
-        )
+        out = rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, "feature/my-branch")
         assert "raw.githubusercontent.com" in out
         assert "/feature/my-branch/" in out
 
@@ -423,14 +347,10 @@ class TestRewriteImageUrlsAbsolute:
         # `foo/./bar/x.png` should normalize to `foo/bar/x.png`
         text = "![a](foo/./bar/x.png)"
         expected = f"![a]({self.BASE}foo/bar/x.png)"
-        assert rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, self.BRANCH
-        ) == expected
+        assert rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, self.BRANCH) == expected
 
     def test_trailing_dot_segment_dropped(self):
         # `foo/bar/.` should normalize to `foo/bar`
         text = "![a](foo/bar/./x.png)"
         expected = f"![a]({self.BASE}foo/bar/x.png)"
-        assert rewrite_image_urls_to_absolute(
-            text, self.OWNER, self.REPO, self.BRANCH
-        ) == expected
+        assert rewrite_image_urls_to_absolute(text, self.OWNER, self.REPO, self.BRANCH) == expected

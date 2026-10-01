@@ -27,11 +27,10 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from backend.services.ingest_service import (
+    FileTooLargeError,
     IngestValidationError,
     UnsupportedExtensionError,
-    FileTooLargeError,
 )
-
 
 # ---------------------------------------------------------------------------
 # APIError and helper
@@ -76,13 +75,15 @@ async def _validation_exception_handler(
     # Distinguish MISSING_QUESTION (question field is empty/missing)
     # from generic INVALID_BODY (malformed JSON or wrong types)
     code = "INVALID_BODY"
-    if field_path == "question" or "question" in field_path:
-        if "missing" in msg.lower() or "field required" in msg.lower():
-            code = "MISSING_QUESTION"
-        elif isinstance(input_value, str) and input_value == "":
-            code = "MISSING_QUESTION"
-        elif "min_length" in msg or "less than" in msg.lower():
-            code = "MISSING_QUESTION"
+    if (field_path == "question" or "question" in field_path) and (
+        "missing" in msg.lower()
+        or "field required" in msg.lower()
+        or isinstance(input_value, str)
+        and input_value == ""
+        or "min_length" in msg
+        or "less than" in msg.lower()
+    ):
+        code = "MISSING_QUESTION"
 
     return json_error(
         code=code,
@@ -91,9 +92,7 @@ async def _validation_exception_handler(
     )
 
 
-async def _file_not_found_handler(
-    request: Request, exc: FileNotFoundError
-) -> JSONResponse:
+async def _file_not_found_handler(request: Request, exc: FileNotFoundError) -> JSONResponse:
     """Handle FileNotFoundError → 404 FILE_NOT_FOUND."""
     return json_error(
         code="FILE_NOT_FOUND",
@@ -113,9 +112,7 @@ async def _unsupported_extension_handler(
     )
 
 
-async def _file_too_large_handler(
-    request: Request, exc: FileTooLargeError
-) -> JSONResponse:
+async def _file_too_large_handler(request: Request, exc: FileTooLargeError) -> JSONResponse:
     """Handle FileTooLargeError → 413 FILE_TOO_LARGE."""
     return json_error(
         code="FILE_TOO_LARGE",
@@ -124,9 +121,7 @@ async def _file_too_large_handler(
     )
 
 
-async def _ingest_validation_handler(
-    request: Request, exc: IngestValidationError
-) -> JSONResponse:
+async def _ingest_validation_handler(request: Request, exc: IngestValidationError) -> JSONResponse:
     """Handle IngestValidationError → 400 INVALID_COLLECTION_NAME."""
     return json_error(
         code="INVALID_COLLECTION_NAME",
@@ -135,9 +130,7 @@ async def _ingest_validation_handler(
     )
 
 
-async def _http_exception_handler(
-    request: Request, exc: StarletteHTTPException
-) -> JSONResponse:
+async def _http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
     """Handle StarletteHTTPException (used for pre-stream 4xx from routes)."""
     # Map to our canonical codes where possible
     code_map = {
@@ -150,9 +143,7 @@ async def _http_exception_handler(
     return json_error(code=code, message=exc.detail, status_code=exc.status_code)
 
 
-async def _fastapi_http_exception_handler(
-    request: Request, exc
-) -> JSONResponse:
+async def _fastapi_http_exception_handler(request: Request, exc) -> JSONResponse:
     """Handle FastAPI HTTPException (raised by routes using `raise HTTPException`)."""
     detail = getattr(exc, "detail", str(exc))
 

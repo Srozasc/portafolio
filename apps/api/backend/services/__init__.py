@@ -3,6 +3,6 @@
 See design.md Module Layout §"Architecture".
 """
 
-from backend.services import ingest_service, chat_service, health_service
+from backend.services import chat_service, health_service, ingest_service
 
-__all__ = ["ingest_service", "chat_service", "health_service"]
+__all__ = ["chat_service", "health_service", "ingest_service"]

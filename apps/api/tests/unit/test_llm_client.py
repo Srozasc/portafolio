@@ -14,10 +14,10 @@ import pytest
 
 from backend.rag.llm_client import LLMClient, StreamError
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def fake_stream_tokens(*tokens: str, error_after: str | None = None):
     """Synchronous generator that yields token chunks then raises RuntimeError.
@@ -67,11 +67,13 @@ class TestLLMClient:
         HTTPException or raw RuntimeError.
         """
         mock_instance = MagicMock()
+
         # Create a generator that yields then raises
         def gen():
             yield MagicMock(choices=[MagicMock(delta=MagicMock(content="first"))])
             yield MagicMock(choices=[MagicMock(delta=MagicMock(content="second"))])
             raise RuntimeError("kaboom")
+
         mock_instance.chat.completions.create.return_value = gen()
         mock_openai_cls = MagicMock(return_value=mock_instance)
 
@@ -85,7 +87,7 @@ class TestLLMClient:
             tokens = []
             with pytest.raises(StreamError) as exc_info:
                 for token in client.stream_chat("system", "user"):
-                    tokens.append(token)
+                    tokens.append(token)  # noqa: PERF402 (intentional collector)
 
             # First two tokens should have been yielded
             assert tokens == ["first", "second"]
@@ -95,9 +97,7 @@ class TestLLMClient:
     def test_connection_failure_pre_first_byte_raises_stream_error(self):
         """Connection error before first token → StreamError at invocation."""
         mock_instance = MagicMock()
-        mock_instance.chat.completions.create.side_effect = ConnectionError(
-            "Connection refused"
-        )
+        mock_instance.chat.completions.create.side_effect = ConnectionError("Connection refused")
         mock_openai_cls = MagicMock(return_value=mock_instance)
 
         with patch("openai.OpenAI", mock_openai_cls):
@@ -116,9 +116,7 @@ class TestLLMClient:
     def test_llm_client_stores_model(self):
         """The model attribute reflects what was passed to __init__."""
         mock_instance = MagicMock()
-        mock_instance.chat.completions.create.return_value = list(
-            fake_stream_tokens()
-        )
+        mock_instance.chat.completions.create.return_value = list(fake_stream_tokens())
         mock_openai_cls = MagicMock(return_value=mock_instance)
 
         with patch("openai.OpenAI", mock_openai_cls):

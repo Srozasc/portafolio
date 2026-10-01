@@ -18,13 +18,15 @@ from collections.abc import Iterator
 from typing import NamedTuple
 
 from backend.rag.llm_client import LLMClient, StreamError
-from backend.rag.prompts import build_chat_system_prompt, build_portfolio_chat_system_prompt
 from backend.rag.project_router import ProjectRouter, RouteKind
+from backend.rag.prompts import (
+    build_chat_system_prompt,
+    build_portfolio_chat_system_prompt,
+)
 from backend.rag.query_expansion import expand_query
 from backend.rag.retriever import Retriever
 from backend.rag.vector_store import Hit, VectorStore
 from backend.services.projects_service import ProjectsService
-
 
 # ---------------------------------------------------------------------------
 # Stream event types (mirrors backend.api.schemas.StreamEvent for Phase 2)
@@ -252,7 +254,7 @@ class ChatService:
         """
         # Local access (avoids circular import / exposes internals via the same
         # pattern the legacy code uses).
-        store: VectorStore = self._retriever._store  # noqa: SLF001
+        store: VectorStore = self._retriever._store
         embedder = self._retriever._embedder
 
         # 1. Discover known slugs
@@ -328,9 +330,7 @@ class ChatService:
             for h in hits:
                 if h.metadata.get("slug") == project_slug:
                     resolved_title = (
-                        h.metadata.get(title_field)
-                        or h.metadata.get("title_es")
-                        or None
+                        h.metadata.get(title_field) or h.metadata.get("title_es") or None
                     )
                     break
             project_context = {
@@ -435,7 +435,7 @@ class ChatService:
                 continue
             if not name.startswith(prefix):
                 continue
-            slug = name[len(prefix):]
+            slug = name[len(prefix) :]
             # Validate slug shape (defensive — the indexer already enforces this).
             if re.fullmatch(r"proj-[a-z0-9-]+", slug):
                 slugs.append(slug)
@@ -457,10 +457,7 @@ class ChatService:
         raises ValueError on unknown collection). Any other exception is
         re-raised so the caller can emit a VECTOR_STORE_ERROR.
         """
-        try:
-            embedding = embedder.embed([question])[0]
-        except Exception:
-            raise
+        embedding = embedder.embed([question])[0]
 
         try:
             return store.query(
@@ -514,16 +511,14 @@ class ChatService:
     # Legacy private helpers (kept for stream_answer)
     # ---------------------------------------------------------------------------
 
-    def _resolve_collection(
-        self, collection: str | None
-    ) -> tuple[str | None, list[StreamEvent]]:
+    def _resolve_collection(self, collection: str | None) -> tuple[str | None, list[StreamEvent]]:
         """Resolve the collection name.
 
         Returns (collection_name, error_events). error_events is non-empty
         when a validation error occurred; the caller must yield them and return.
         """
         # Access the store through the retriever (avoids circular import)
-        store = self._retriever._store  # noqa: SLF001
+        store = self._retriever._store
 
         try:
             existing = store.list_collections()
@@ -543,9 +538,7 @@ class ChatService:
             return (None, [_error("AMBIGUOUS_COLLECTION", "AMBIGUOUS_COLLECTION")])
         return (existing[0], [])
 
-    def _stream_with_error_handling(
-        self, system: str, user: str
-    ) -> Iterator[StreamEvent]:
+    def _stream_with_error_handling(self, system: str, user: str) -> Iterator[StreamEvent]:
         """Wrap llm.stream_chat with StreamError -> SSE error event handling.
 
         Always yields exactly one `done` sentinel, even if the consumer
@@ -580,7 +573,7 @@ class ChatService:
                 if inside_think:
                     close_idx = token.find(think_close)
                     if close_idx >= 0:
-                        token = token[close_idx + len(think_close):]
+                        token = token[close_idx + len(think_close) :]
                         inside_think = False
                         holdback = ""
                         if not token:
@@ -596,11 +589,11 @@ class ChatService:
                     open_idx = combined.find(think_open)
                     if open_idx > 0:
                         yield _content(combined[:open_idx])
-                    rest = combined[open_idx + open_len:]
+                    rest = combined[open_idx + open_len :]
                     close_idx = rest.find(think_close)
                     if close_idx >= 0:
                         # Close tag also present — skip past it.
-                        token = rest[close_idx + len(think_close):]
+                        token = rest[close_idx + len(think_close) :]
                         holdback = ""
                         if token:
                             yield _content(token)

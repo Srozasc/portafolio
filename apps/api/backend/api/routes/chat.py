@@ -62,7 +62,7 @@ async def chat_stream(
         except Exception:
             # Defensive fallback — should never be reached.
             yield f"data: {json.dumps({'type': 'error', 'error': 'INTERNAL_ERROR', 'message': 'Internal error'})}\n\n"
-            yield "data: {\"type\": \"done\"}\n\n"
+            yield 'data: {"type": "done"}\n\n'
 
     response = StreamingResponse(
         sse_generator(),
@@ -115,7 +115,7 @@ async def chat_stream_projects(
             # surfaces it as an SSE event. Anything else reaching here
             # is a real bug; emit an emergency done.
             yield f"data: {json.dumps({'type': 'error', 'error': 'INTERNAL_ERROR', 'message': 'Internal error'})}\n\n"
-            yield "data: {\"type\": \"done\"}\n\n"
+            yield 'data: {"type": "done"}\n\n'
 
     response = StreamingResponse(
         sse_generator(),

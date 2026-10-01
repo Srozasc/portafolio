@@ -7,7 +7,6 @@ See tasks.md WU 0.2 acceptance criterion (updated):
 This test verifies the app boots with lifespan and serves HTML.
 """
 
-import pytest
 from fastapi.testclient import TestClient
 
 

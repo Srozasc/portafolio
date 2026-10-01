@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import itertools
+
 import pytest
 
 from backend.rag.query_expansion import KEYWORD_EXPANSIONS, expand_query
-
 
 # ---------------------------------------------------------------------------
 # Long queries: keyword presence is the only gate
@@ -37,8 +38,7 @@ def test_long_query_with_keywords_is_now_expanded():
     assert "python" in result.lower()
     # And at least one of the keyword expansions is appended.
     assert any(
-        marker in result.lower()
-        for marker in ["lenguaje programacion", "amazon web services"]
+        marker in result.lower() for marker in ["lenguaje programacion", "amazon web services"]
     )
 
 
@@ -196,7 +196,7 @@ def test_duplicate_expansion_strings_are_not_repeated():
     assert "containers" in out
     # No token-level duplication (heuristic: no word repeats back-to-back).
     tokens = out.split()
-    for prev, curr in zip(tokens, tokens[1:], strict=False):
+    for prev, curr in itertools.pairwise(tokens):
         assert not (prev == curr and len(prev) > 3), (
             f"token {curr!r} repeated back-to-back in {out!r}"
         )

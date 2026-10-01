@@ -8,19 +8,16 @@ Also covers: happy path, StreamError handling, unknown/ambiguous collection.
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Iterator
+from collections.abc import Iterator
 from unittest.mock import MagicMock
 
 import pytest
 
-from backend.rag.chunker import Chunk, chunk_markdown
 from backend.rag.embedder import Embedder
 from backend.rag.llm_client import StreamError
 from backend.rag.retriever import Retriever
 from backend.rag.vector_store import Hit, VectorStore
 from backend.services.chat_service import ChatService
-
 
 # ---------------------------------------------------------------------------
 # Mock LLM that yields scripted tokens
@@ -92,7 +89,15 @@ def _setup_collection_with_no_hits(store, collection_name: str) -> None:
         ids=["chunk_0"],
         embeddings=[[0.9] * 8],  # very different from [0.1]*8
         documents=["Some document that will not match."],
-        metadatas=[{"source": "test.md", "section_header": "Test", "chunk_index": 0, "char_start": 0, "char_end": 40}],
+        metadatas=[
+            {
+                "source": "test.md",
+                "section_header": "Test",
+                "chunk_index": 0,
+                "char_start": 0,
+                "char_end": 40,
+            }
+        ],
     )
 
 
@@ -120,8 +125,7 @@ def test_central_deflection_no_llm_call(chroma_dir, retriever):
 
     # Central assertion: LLM was NOT called
     assert fake_llm.call_count == 0, (
-        f"LLM was called {fake_llm.call_count} time(s); "
-        "expected 0 on the deflection path"
+        f"LLM was called {fake_llm.call_count} time(s); expected 0 on the deflection path"
     )
 
     # Events: deflection content + done
@@ -167,7 +171,15 @@ def test_happy_path_with_hits(retriever):
         ids=["c0"],
         embeddings=[[0.1] * 8],
         documents=["Content."],
-        metadatas=[{"source": "x.md", "section_header": "X", "chunk_index": 0, "char_start": 0, "char_end": 9}],
+        metadatas=[
+            {
+                "source": "x.md",
+                "section_header": "X",
+                "chunk_index": 0,
+                "char_start": 0,
+                "char_end": 9,
+            }
+        ],
     )
 
     service = ChatService(retriever=retriever, llm=fake_llm)
@@ -205,7 +217,15 @@ def test_llm_midstream_error(retriever):
         ids=["c0"],
         embeddings=[[0.1] * 8],
         documents=["Content."],
-        metadatas=[{"source": "x.md", "section_header": "X", "chunk_index": 0, "char_start": 0, "char_end": 9}],
+        metadatas=[
+            {
+                "source": "x.md",
+                "section_header": "X",
+                "chunk_index": 0,
+                "char_start": 0,
+                "char_end": 9,
+            }
+        ],
     )
 
     service = ChatService(retriever=retriever, llm=failing_llm)
@@ -253,14 +273,30 @@ def test_ambiguous_collection_no_override(chroma_dir, retriever):
         ids=["c0"],
         embeddings=[[0.1] * 8],
         documents=["Content A."],
-        metadatas=[{"source": "a.md", "section_header": "A", "chunk_index": 0, "char_start": 0, "char_end": 10}],
+        metadatas=[
+            {
+                "source": "a.md",
+                "section_header": "A",
+                "chunk_index": 0,
+                "char_start": 0,
+                "char_end": 10,
+            }
+        ],
     )
     retriever._store.upsert(
         name="col-b",
         ids=["c0"],
         embeddings=[[0.1] * 8],
         documents=["Content B."],
-        metadatas=[{"source": "b.md", "section_header": "B", "chunk_index": 0, "char_start": 0, "char_end": 10}],
+        metadatas=[
+            {
+                "source": "b.md",
+                "section_header": "B",
+                "chunk_index": 0,
+                "char_start": 0,
+                "char_end": 10,
+            }
+        ],
     )
 
     fake_llm2 = _FakeLLM()
@@ -283,7 +319,15 @@ def test_single_collection_auto_resolved(chroma_dir, retriever):
         ids=["c0"],
         embeddings=[[0.1] * 8],
         documents=["Content."],
-        metadatas=[{"source": "x.md", "section_header": "X", "chunk_index": 0, "char_start": 0, "char_end": 9}],
+        metadatas=[
+            {
+                "source": "x.md",
+                "section_header": "X",
+                "chunk_index": 0,
+                "char_start": 0,
+                "char_end": 9,
+            }
+        ],
     )
 
     fake_llm2 = _FakeLLM(tokens=["respuesta"])
@@ -304,7 +348,15 @@ def test_collection_override_uses_explicit_name(chroma_dir, retriever):
         ids=["c0"],
         embeddings=[[0.1] * 8],
         documents=["Explicit content."],
-        metadatas=[{"source": "x.md", "section_header": "X", "chunk_index": 0, "char_start": 0, "char_end": 16}],
+        metadatas=[
+            {
+                "source": "x.md",
+                "section_header": "X",
+                "chunk_index": 0,
+                "char_start": 0,
+                "char_end": 16,
+            }
+        ],
     )
 
     fake_llm2 = _FakeLLM(tokens=["explicit answer"])
@@ -389,9 +441,7 @@ def test_think_block_split_across_tokens():
     Realistic split: the opening tag chars come in separate tokens but
     the closing tag arrives intact.
     """
-    fake_llm = _FakeLLM(
-        tokens=["<th", "in", "k>reasoning</think>Hola mundo"]
-    )
+    fake_llm = _FakeLLM(tokens=["<th", "in", "k>reasoning</think>Hola mundo"])
     svc = ChatService(retriever=_RetrieverWithOneHit(), llm=fake_llm)
     content_text = _gather(list(svc.stream_answer("q", collection=None)))
     assert content_text == "Hola mundo"

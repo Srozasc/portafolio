@@ -13,8 +13,7 @@ Covers REQ-ING-002 scenarios:
   - edge cases: \\r\\n, BOM, single-token heading
 """
 
-import pytest
-from backend.rag.chunker import chunk_markdown, Chunk
+from backend.rag.chunker import chunk_markdown
 
 
 class TestEmptyAndWhitespace:
@@ -146,8 +145,10 @@ class TestMetadataCompleteness:
         md = "# Uno\n\nContenido uno.\n\n# Dos\n\nContenido dos."
         chunks = chunk_markdown(md, source="/test/file.md", chunk_size=700, overlap=150)
         for i in range(len(chunks) - 1):
-            assert chunks[i].char_end == chunks[i + 1].char_start or \
-                   chunks[i].char_end <= chunks[i + 1].char_start
+            assert (
+                chunks[i].char_end == chunks[i + 1].char_start
+                or chunks[i].char_end <= chunks[i + 1].char_start
+            )
 
 
 class TestEdgeCases:

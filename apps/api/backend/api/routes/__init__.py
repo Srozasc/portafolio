@@ -1,6 +1,5 @@
-"""API route blueprints. See design.md Module Layout.
-"""
+"""API route blueprints. See design.md Module Layout."""
 
-from backend.api.routes import ingest, chat, health
+from backend.api.routes import chat, health, ingest
 
-__all__ = ["ingest", "chat", "health"]
+__all__ = ["chat", "health", "ingest"]

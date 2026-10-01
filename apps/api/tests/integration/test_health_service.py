@@ -7,14 +7,10 @@ No mutations (REQ-HST-003).
 
 from __future__ import annotations
 
-from pathlib import Path
-from unittest.mock import MagicMock
-
 import pytest
 
-from backend.rag.vector_store import CollectionStats, VectorStore
+from backend.rag.vector_store import VectorStore
 from backend.services.health_service import HealthService
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -53,7 +49,15 @@ def test_healthy_with_one_collection(chroma_dir, store, health_service):
         ids=["chunk_0"],
         embeddings=[[0.1] * 8],
         documents=["Some document text."],
-        metadatas=[{"source": "test.md", "section_header": "Test", "chunk_index": 0, "char_start": 0, "char_end": 20}],
+        metadatas=[
+            {
+                "source": "test.md",
+                "section_header": "Test",
+                "chunk_index": 0,
+                "char_start": 0,
+                "char_end": 20,
+            }
+        ],
     )
 
     result = health_service.status()

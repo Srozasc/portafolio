@@ -8,8 +8,6 @@ from __future__ import annotations
 
 import pytest
 from fastapi import FastAPI
-from fastapi.exceptions import RequestValidationError
-from pydantic import ValidationError as PydanticValidationError
 
 from backend.api.errors import (
     APIError,
@@ -18,9 +16,9 @@ from backend.api.errors import (
     register_exception_handlers,
 )
 from backend.services.ingest_service import (
+    FileTooLargeError,
     IngestValidationError,
     UnsupportedExtensionError,
-    FileTooLargeError,
 )
 
 

@@ -9,26 +9,24 @@ and a scripted fake LLM to avoid network calls.
 from __future__ import annotations
 
 import json
-import pytest
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from backend.api.routes.chat import router as chat_router, _get_chat_service
 from backend.api.errors import register_exception_handlers
-from backend.config import Settings
-from backend.rag.vector_store import VectorStore
-from backend.rag.embedder import Embedder
-from backend.rag.retriever import Retriever
+from backend.api.routes.chat import _get_chat_service
+from backend.api.routes.chat import router as chat_router
 from backend.rag.llm_client import StreamError
+from backend.rag.retriever import Retriever
+from backend.rag.vector_store import VectorStore
 from backend.services.chat_service import ChatService
-
 
 # ---------------------------------------------------------------------------
 # Fake LLM (scripted token sequence)
 # ---------------------------------------------------------------------------
+
 
 class FakeLLM:
     """Scripted LLM that yields canned tokens then stops."""
@@ -65,11 +63,14 @@ class FakeRetriever:
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def make_fake_embedder():
     class _FakeEmbedder:
         dim = 8
+
         def embed(self, texts):
             return [[0.5] * self.dim for _ in texts]
+
     return _FakeEmbedder()
 
 
@@ -91,7 +92,7 @@ def make_chat_test_app(chroma_dir: Path, fake_llm) -> tuple[FastAPI, TestClient,
     register_exception_handlers(app)
 
     store = VectorStore(str(chroma_dir))
-    embedder = make_fake_embedder()
+    make_fake_embedder()
     retriever = FakeRetriever(hits=[], store=store)
     service = ChatService(retriever=retriever, llm=fake_llm)
 
@@ -106,6 +107,7 @@ def make_chat_test_app(chroma_dir: Path, fake_llm) -> tuple[FastAPI, TestClient,
 # Tests
 # ---------------------------------------------------------------------------
 
+
 class TestChatEndpointHappyPath:
     """Coherent answer path."""
 
@@ -116,7 +118,9 @@ class TestChatEndpointHappyPath:
 
         # Switch to real retriever and add a collection so retrieval finds hits
         embedder = make_fake_embedder()
-        real_retriever = Retriever(store=app.state.chat_service._retriever._store, embedder=embedder)
+        real_retriever = Retriever(
+            store=app.state.chat_service._retriever._store, embedder=embedder
+        )
         service._retriever = real_retriever
         store = app.state.chat_service._retriever._store
         store.upsert(
@@ -124,7 +128,15 @@ class TestChatEndpointHappyPath:
             ids=["c1"],
             embeddings=[[0.5] * 8],
             documents=["Test document content."],
-            metadatas=[{"section_header": "Test", "source": "test.md", "chunk_index": 0, "char_start": 0, "char_end": 20}],
+            metadatas=[
+                {
+                    "section_header": "Test",
+                    "source": "test.md",
+                    "chunk_index": 0,
+                    "char_start": 0,
+                    "char_end": 20,
+                }
+            ],
         )
 
         response = client.post(
@@ -153,7 +165,7 @@ class TestChatEndpointDeflection:
     def test_deflection_returns_exact_phrase_and_llm_not_called(self, tmp_path: Path):
         """Deflection path: content = deflection text, done, LLM not called."""
         fake_llm = FakeLLM(tokens=["Should not appear"])
-        app, client, service = make_chat_test_app(tmp_path, fake_llm)
+        app, client, _service = make_chat_test_app(tmp_path, fake_llm)
 
         # Create a collection with 0 embeddings (ChromaDB will have it but retriever gets 0 hits)
         # OR: use the FakeRetriever which always returns [] hits
@@ -197,7 +209,15 @@ class TestChatEndpointLLMError:
             ids=["c1"],
             embeddings=[[0.5] * 8],
             documents=["Test."],
-            metadatas=[{"section_header": "T", "source": "t.md", "chunk_index": 0, "char_start": 0, "char_end": 5}],
+            metadatas=[
+                {
+                    "section_header": "T",
+                    "source": "t.md",
+                    "chunk_index": 0,
+                    "char_start": 0,
+                    "char_end": 5,
+                }
+            ],
         )
 
         response = client.post(
@@ -222,7 +242,7 @@ class TestChatEndpointMissingQuestion:
     def test_missing_question_returns_400(self, tmp_path: Path):
         """Empty question string → 400 MISSING_QUESTION."""
         fake_llm = FakeLLM()
-        app, client, service = make_chat_test_app(tmp_path, fake_llm)
+        _app, client, _service = make_chat_test_app(tmp_path, fake_llm)
 
         response = client.post("/api/chat/stream", json={"question": ""})
         assert response.status_code == 400
@@ -231,7 +251,7 @@ class TestChatEndpointMissingQuestion:
     def test_missing_question_field_returns_400(self, tmp_path: Path):
         """Missing question field → 400 MISSING_QUESTION."""
         fake_llm = FakeLLM()
-        app, client, service = make_chat_test_app(tmp_path, fake_llm)
+        _app, client, _service = make_chat_test_app(tmp_path, fake_llm)
 
         response = client.post("/api/chat/stream", json={})
         assert response.status_code == 400
@@ -244,7 +264,7 @@ class TestChatEndpointInvalidBody:
     def test_malformed_json_returns_400(self, tmp_path: Path):
         """Non-JSON body → 400 INVALID_BODY."""
         fake_llm = FakeLLM()
-        app, client, service = make_chat_test_app(tmp_path, fake_llm)
+        _app, client, _service = make_chat_test_app(tmp_path, fake_llm)
 
         response = client.post(
             "/api/chat/stream",
@@ -261,7 +281,7 @@ class TestChatEndpointUnknownCollection:
     def test_unknown_collection_returns_error_event(self, tmp_path: Path):
         """Explicit unknown collection → SSE error event (service yields error + done)."""
         fake_llm = FakeLLM()
-        app, client, service = make_chat_test_app(tmp_path, fake_llm)
+        _app, client, _service = make_chat_test_app(tmp_path, fake_llm)
 
         # Store is empty; explicit unknown collection
         response = client.post(
@@ -282,7 +302,7 @@ class TestChatEndpointAmbiguousCollection:
     def test_ambiguous_collection_returns_error_event(self, tmp_path: Path):
         """No override + multiple collections → SSE error event (service yields error + done)."""
         fake_llm = FakeLLM()
-        app, client, service = make_chat_test_app(tmp_path, fake_llm)
+        app, client, _service = make_chat_test_app(tmp_path, fake_llm)
 
         # Create two collections in ChromaDB
         store = app.state.chat_service._retriever._store
@@ -291,14 +311,30 @@ class TestChatEndpointAmbiguousCollection:
             ids=["c1"],
             embeddings=[[0.1] * 8],
             documents=["doc a"],
-            metadatas=[{"section_header": "", "source": "a.md", "chunk_index": 0, "char_start": 0, "char_end": 10}],
+            metadatas=[
+                {
+                    "section_header": "",
+                    "source": "a.md",
+                    "chunk_index": 0,
+                    "char_start": 0,
+                    "char_end": 10,
+                }
+            ],
         )
         store.upsert(
             name="coll-b",
             ids=["c2"],
             embeddings=[[0.2] * 8],
             documents=["doc b"],
-            metadatas=[{"section_header": "", "source": "b.md", "chunk_index": 0, "char_start": 0, "char_end": 10}],
+            metadatas=[
+                {
+                    "section_header": "",
+                    "source": "b.md",
+                    "chunk_index": 0,
+                    "char_start": 0,
+                    "char_end": 10,
+                }
+            ],
         )
 
         response = client.post(

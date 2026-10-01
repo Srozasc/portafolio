@@ -87,8 +87,7 @@ KEYWORD_EXPANSIONS: dict[str, str] = {
 # KEYWORD_EXPANSIONS is preserved so expansion order is deterministic
 # (helps stable test output and reproducible embeddings).
 _KEYWORD_FORMS: list[tuple[str, str, str]] = [
-    (kw, _strip_accents(kw.lower()), expansion)
-    for kw, expansion in KEYWORD_EXPANSIONS.items()
+    (kw, _strip_accents(kw.lower()), expansion) for kw, expansion in KEYWORD_EXPANSIONS.items()
 ]
 # Pre-compiled patterns on the normalized key, paired with the original
 # expansion string. Not consumed by expand_query today, but kept so
@@ -128,10 +127,7 @@ def expand_query(question: str) -> str:
     expansions_to_add: list[str] = []
     seen: set[str] = set()
     for _orig_kw, norm_kw, expansion in _KEYWORD_FORMS:
-        if (
-            re.search(r"\b" + re.escape(norm_kw) + r"\b", question_norm)
-            and expansion not in seen
-        ):
+        if re.search(r"\b" + re.escape(norm_kw) + r"\b", question_norm) and expansion not in seen:
             expansions_to_add.append(expansion)
             seen.add(expansion)
 

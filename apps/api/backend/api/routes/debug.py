@@ -10,15 +10,12 @@ not part of the production chat flow.
 
 from __future__ import annotations
 
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
-from fastapi import APIRouter, Depends, HTTPException, status
-
-
-from backend.services.chat_service import ChatService
-from backend.rag.prompts import build_chat_system_prompt
 from backend.config import get_settings
-
+from backend.rag.prompts import build_chat_system_prompt
+from backend.services.chat_service import ChatService
 
 router = APIRouter(prefix="/api", tags=["debug"])
 
@@ -63,7 +60,9 @@ def _get_chat_service() -> ChatService:
     return app.state.chat_service
 
 
-def _resolve_collection(service: ChatService, collection: str | None) -> tuple[str, bool, str | None]:
+def _resolve_collection(
+    service: ChatService, collection: str | None
+) -> tuple[str, bool, str | None]:
     """Resolve collection name for the debug endpoint.
 
     Mirrors ChatService._resolve_collection but returns a tuple
@@ -72,7 +71,7 @@ def _resolve_collection(service: ChatService, collection: str | None) -> tuple[s
     Returns:
         (resolved_name, ok, error_code_or_none)
     """
-    store = service.retriever._store  # noqa: SLF001
+    store = service.retriever._store
 
     try:
         existing = store.list_collections()
@@ -110,10 +109,18 @@ async def debug_retrieve(
     if not ok:
         status_map = {
             "UNKNOWN_COLLECTION": (status.HTTP_404_NOT_FOUND, "UNKNOWN_COLLECTION"),
-            "AMBIGUOUS_COLLECTION": (status.HTTP_400_BAD_REQUEST, "AMBIGUOUS_COLLECTION"),
-            "VECTOR_STORE_ERROR": (status.HTTP_503_SERVICE_UNAVAILABLE, "VECTOR_STORE_ERROR"),
+            "AMBIGUOUS_COLLECTION": (
+                status.HTTP_400_BAD_REQUEST,
+                "AMBIGUOUS_COLLECTION",
+            ),
+            "VECTOR_STORE_ERROR": (
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "VECTOR_STORE_ERROR",
+            ),
         }
-        http_status, code = status_map.get(error_code, (status.HTTP_500_INTERNAL_SERVER_ERROR, "INTERNAL_ERROR"))
+        http_status, code = status_map.get(
+            error_code, (status.HTTP_500_INTERNAL_SERVER_ERROR, "INTERNAL_ERROR")
+        )
         raise HTTPException(
             status_code=http_status,
             detail=f"{code}: {code}",
@@ -174,6 +181,7 @@ async def debug_prompt(
     )
 
     from backend.services.chat_service import _ChunkFromHit
+
     chunks_for_prompt = [
         _ChunkFromHit(
             section_header=h.metadata.get("section_header", ""),

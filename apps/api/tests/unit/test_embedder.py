@@ -6,8 +6,6 @@ Verifies request shape: model kwarg and input list format.
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from backend.rag.embedder import Embedder
 
 

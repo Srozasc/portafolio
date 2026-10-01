@@ -63,9 +63,7 @@ class TestIsGhInstalled:
 
     @patch("scripts.ingest_repo.subprocess.run")
     def test_returns_false_on_called_process_error(self, mock_run):
-        mock_run.side_effect = subprocess.CalledProcessError(
-            returncode=1, cmd="gh --version"
-        )
+        mock_run.side_effect = subprocess.CalledProcessError(returncode=1, cmd="gh --version")
         assert is_gh_installed() is False
 
 
@@ -113,9 +111,7 @@ class TestCreateBranch:
         first_call_args = mock_run.call_args_list[0].args[0]
         assert first_call_args[0] == "git"
         assert "rev-parse" in first_call_args
-        assert "feature/test" in first_call_args[2] or "content/ingest-foo" in str(
-            first_call_args
-        )
+        assert "feature/test" in first_call_args[2] or "content/ingest-foo" in str(first_call_args)
 
     @patch("scripts.ingest_repo.subprocess.run")
     def test_calls_checkout_with_correct_args(self, mock_run):
@@ -203,9 +199,7 @@ class TestCreateBranch:
                 stdout="",
                 stderr="remote: permission denied",
             ),  # push --delete: fails
-            MagicMock(
-                returncode=0, stdout="", stderr=""
-            ),  # checkout -b: still proceeds
+            MagicMock(returncode=0, stdout="", stderr=""),  # checkout -b: still proceeds
         ]
         # Should NOT raise — warning is printed but create continues
         create_branch("foo", force=True)
@@ -241,9 +235,7 @@ class TestGitCommit:
 
     @patch("scripts.ingest_repo.subprocess.run")
     def test_raises_on_nonzero_exit(self, mock_run):
-        mock_run.return_value = MagicMock(
-            returncode=128, stderr="nothing to commit", stdout=""
-        )
+        mock_run.return_value = MagicMock(returncode=128, stderr="nothing to commit", stdout="")
         with pytest.raises(GitError, match="commit failed"):
             git_commit("feat: empty")
 

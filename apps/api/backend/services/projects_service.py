@@ -157,9 +157,7 @@ class ProjectsService:
         #   <body>
         lines = content.split("\n")
         if not lines or lines[0].rstrip() != "---":
-            raise ProjectParseError(
-                f"{file_path}: missing opening '---' for YAML frontmatter."
-            )
+            raise ProjectParseError(f"{file_path}: missing opening '---' for YAML frontmatter.")
 
         # Find the closing '---' line
         end_idx = None
@@ -168,9 +166,7 @@ class ProjectsService:
                 end_idx = i
                 break
         if end_idx is None:
-            raise ProjectParseError(
-                f"{file_path}: missing closing '---' for YAML frontmatter."
-            )
+            raise ProjectParseError(f"{file_path}: missing closing '---' for YAML frontmatter.")
 
         frontmatter_text = "\n".join(lines[1:end_idx])
         body = "\n".join(lines[end_idx + 1 :])
@@ -195,9 +191,7 @@ class ProjectsService:
 
         slug = frontmatter.get("slug")
         if not isinstance(slug, str):
-            raise ProjectParseError(
-                f"{file_path}: frontmatter missing string 'slug' field."
-            )
+            raise ProjectParseError(f"{file_path}: frontmatter missing string 'slug' field.")
         if not _SLUG_RE.fullmatch(slug):
             raise ProjectParseError(
                 f"{file_path}: slug '{slug}' does not match pattern {_SLUG_RE.pattern}."
@@ -260,9 +254,7 @@ class ProjectsService:
         tags = fm.get("tags", []) or []
         tags_str = ", ".join(str(t) for t in tags)
 
-        document_text = (
-            f"{title_es}\n{title_en}\n{summary_es}\n{summary_en}\nTags: {tags_str}"
-        )
+        document_text = f"{title_es}\n{title_en}\n{summary_es}\n{summary_en}\nTags: {tags_str}"
 
         metadata: dict = {
             "slug": project.slug,
@@ -477,13 +469,9 @@ class ProjectsService:
                 continue
 
             try:
-                _, n_detail = self._ingest_one(
-                    project, force=force, index_state=index_state
-                )
+                _, n_detail = self._ingest_one(project, force=force, index_state=index_state)
             except ProjectParseError as exc:
-                logger.warning(
-                    "Skipping project %s after indexing error: %s", project.slug, exc
-                )
+                logger.warning("Skipping project %s after indexing error: %s", project.slug, exc)
                 errors.append(f"{project.slug}: {exc}")
                 continue
             except Exception as exc:

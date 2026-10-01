@@ -9,8 +9,8 @@ Covers:
 
 from __future__ import annotations
 
-import pytest
 import httpx
+import pytest
 
 from scripts.ingest_repo import (
     GitHubClient,
@@ -19,10 +19,10 @@ from scripts.ingest_repo import (
     slugify_repo_name,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def make_transport(handler):
     """Build an httpx MockTransport from a sync handler function."""
@@ -32,6 +32,7 @@ def make_transport(handler):
 # ===========================================================================
 # parse_repo_ref
 # ===========================================================================
+
 
 class TestParseRepoRef:
     """Accept 'owner/repo', https URL, http URL, ssh form. Reject malformed."""
@@ -46,7 +47,10 @@ class TestParseRepoRef:
         assert parse_repo_ref("https://github.com/owner/repo.git") == ("owner", "repo")
 
     def test_https_url_with_trailing_path(self):
-        assert parse_repo_ref("https://github.com/owner/repo/tree/main") == ("owner", "repo")
+        assert parse_repo_ref("https://github.com/owner/repo/tree/main") == (
+            "owner",
+            "repo",
+        )
 
     def test_http_url(self):
         assert parse_repo_ref("http://github.com/owner/repo") == ("owner", "repo")
@@ -88,6 +92,7 @@ class TestParseRepoRef:
 # ===========================================================================
 # slugify_repo_name
 # ===========================================================================
+
 
 class TestSlugifyRepoName:
     """Derive portfolio slug 'proj-<kebab>' from a repo name."""
@@ -150,6 +155,7 @@ class TestSlugifyRepoName:
 # ===========================================================================
 # GitHubClient.get_repo
 # ===========================================================================
+
 
 class TestGitHubClientGetRepo:
     """Fetch repo metadata. Maps HTTP errors to GitHubError."""
@@ -221,6 +227,7 @@ class TestGitHubClientGetRepo:
 # GitHubClient.get_readme
 # ===========================================================================
 
+
 class TestGitHubClientGetReadme:
     """Fetch raw README markdown."""
 
@@ -255,6 +262,7 @@ class TestGitHubClientGetReadme:
 # ===========================================================================
 # GitHubClient headers (auth)
 # ===========================================================================
+
 
 class TestGitHubClientAuthHeaders:
     """Token presence must affect the Authorization header sent to GitHub."""

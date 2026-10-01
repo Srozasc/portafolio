@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from backend.rag.vector_store import VectorStore
 
-
 # ---------------------------------------------------------------------------
 # 503 payload keys (route checks for "error" key to decide HTTP status)
 # ---------------------------------------------------------------------------
@@ -67,7 +66,6 @@ class HealthService:
             "model": self._chat_model,
             "embedding_model": self._embedding_model,
             "collections": [
-                {"collection_name": s.name, "chunk_count": s.chunk_count}
-                for s in stats
+                {"collection_name": s.name, "chunk_count": s.chunk_count} for s in stats
             ],
         }

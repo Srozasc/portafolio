@@ -13,7 +13,6 @@ from collections.abc import Sequence
 
 from backend.rag.chunker import Chunk
 
-
 # EXACT content from design doc §8 — DO NOT EDIT
 SYSTEM_PROMPT_TEMPLATE_ES = """Sos un asistente cuyo conocimiento se limita a la
 información que aparece abajo. Respondé siempre en español.
@@ -254,9 +253,7 @@ def build_portfolio_chat_system_prompt(
         The rendered system prompt as a string.
     """
     template = (
-        SYSTEM_PROMPT_TEMPLATE_PORTFOLIO_EN
-        if lang == "en"
-        else SYSTEM_PROMPT_TEMPLATE_PORTFOLIO_ES
+        SYSTEM_PROMPT_TEMPLATE_PORTFOLIO_EN if lang == "en" else SYSTEM_PROMPT_TEMPLATE_PORTFOLIO_ES
     )
 
     # Substitute project context block (if any).
@@ -265,13 +262,13 @@ def build_portfolio_chat_system_prompt(
         title = project_context.get("title", "") or ""
         if lang == "en":
             context_block = (
-                f"The visitor is currently viewing the project \"{slug}\": "
+                f'The visitor is currently viewing the project "{slug}": '
                 f"{title}. If the question is ambiguous and could refer to "
                 f"this project, prioritize answering about it.\n\n"
             )
         else:
             context_block = (
-                f"El visitante está viendo el proyecto \"{slug}\": "
+                f'El visitante está viendo el proyecto "{slug}": '
                 f"{title}. Si la pregunta es ambigua y puede referirse a "
                 f"este proyecto, priorizá responder sobre él.\n\n"
             )

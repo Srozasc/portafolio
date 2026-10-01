@@ -9,7 +9,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-
 # ---------------------------------------------------------------------------
 # Ingest
 # ---------------------------------------------------------------------------
@@ -21,8 +20,7 @@ class IngestRequest(BaseModel):
     file_path: str = Field(..., description="Path to the markdown file to ingest.")
     collection: str | None = Field(
         default=None,
-        description="Optional explicit collection name. "
-        "If omitted, derived from the file stem.",
+        description="Optional explicit collection name. If omitted, derived from the file stem.",
     )
 
 
@@ -117,9 +115,7 @@ class ProjectsChatResponse(BaseModel):
 
     ok: bool = True
     route_kind: str = Field(..., description="LIST_PROJECTS / DETAIL_PROJECT / GENERAL.")
-    slug: str | None = Field(
-        default=None, description="Resolved slug for DETAIL_PROJECT routes."
-    )
+    slug: str | None = Field(default=None, description="Resolved slug for DETAIL_PROJECT routes.")
     project_slugs: list[str] = Field(
         default_factory=list,
         description="Slugs of projects emitted in the `projects` event.",
@@ -204,13 +200,10 @@ class ReindexResponse(BaseModel):
     """POST /api/projects/reindex success response body."""
 
     ok: bool = True
-    indexed_projects: int = Field(
-        ..., description="Number of projects successfully indexed."
-    )
+    indexed_projects: int = Field(..., description="Number of projects successfully indexed.")
     index_chunks: int = Field(
         ...,
-        description="Number of chunks in the master `projects_index` collection "
-        "(one per project).",
+        description="Number of chunks in the master `projects_index` collection (one per project).",
     )
     detail_chunks_total: int = Field(
         ...,

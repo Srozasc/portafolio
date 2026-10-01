@@ -27,10 +27,10 @@ import pytest
 from backend.rag.llm_client import LLMClient, StreamError
 from scripts.ingest_repo import translate_fields
 
-
 # ---------------------------------------------------------------------------
 # Test helpers
 # ---------------------------------------------------------------------------
+
 
 class FakeChatCompletions:
     """Stand-in for openai.OpenAI().chat.completions.
@@ -115,19 +115,17 @@ def _bad_request_error() -> openai.BadRequestError:
 # LLMClient.__init__ — client injection (A-a)
 # ===========================================================================
 
+
 class TestLLMClientConstructor:
     def test_injected_client_is_used(self):
         injected = MagicMock()
-        injected.chat.completions = FakeChatCompletions(
-            return_value=_success_response("hi")
-        )
-        client = LLMClient(
-            base_url="x", api_key="y", model="z", client=injected
-        )
+        injected.chat.completions = FakeChatCompletions(return_value=_success_response("hi"))
+        client = LLMClient(base_url="x", api_key="y", model="z", client=injected)
         assert client._client is injected
 
     def test_no_client_constructs_openai_default(self):
         from unittest.mock import patch
+
         with patch("openai.OpenAI") as mock_cls:
             mock_cls.return_value = MagicMock()
             LLMClient(base_url="x", api_key="y", model="z")
@@ -135,13 +133,13 @@ class TestLLMClientConstructor:
 
     def test_existing_streaming_path_still_works_with_injected_client(self):
         injected = MagicMock()
-        injected.chat.completions.create.return_value = iter([
-            MagicMock(choices=[MagicMock(delta=MagicMock(content="a"))]),
-            MagicMock(choices=[MagicMock(delta=MagicMock(content="b"))]),
-        ])
-        client = LLMClient(
-            base_url="x", api_key="y", model="z", client=injected
+        injected.chat.completions.create.return_value = iter(
+            [
+                MagicMock(choices=[MagicMock(delta=MagicMock(content="a"))]),
+                MagicMock(choices=[MagicMock(delta=MagicMock(content="b"))]),
+            ]
         )
+        client = LLMClient(base_url="x", api_key="y", model="z", client=injected)
         assert list(client.stream_chat("sys", "usr")) == ["a", "b"]
 
 
@@ -149,11 +147,10 @@ class TestLLMClientConstructor:
 # LLMClient.chat() — happy path
 # ===========================================================================
 
+
 class TestLLMClientChatHappyPath:
     def test_returns_content_on_success(self):
-        completions = FakeChatCompletions(
-            return_value=_success_response("translated text")
-        )
+        completions = FakeChatCompletions(return_value=_success_response("translated text"))
         client = _build_llm(completions)
         assert client.chat("sys", "usr") == "translated text"
 
@@ -176,9 +173,7 @@ class TestLLMClientChatHappyPath:
         assert completions.calls[0]["temperature"] == 0.2
 
     def test_empty_content_raises_stream_error(self):
-        completions = FakeChatCompletions(
-            return_value=_success_response(None)
-        )
+        completions = FakeChatCompletions(return_value=_success_response(None))
         client = _build_llm(completions)
         with pytest.raises(StreamError, match="empty"):
             client.chat("sys", "usr")
@@ -188,14 +183,17 @@ class TestLLMClientChatHappyPath:
 # LLMClient.chat() — retry policy (C-a)
 # ===========================================================================
 
+
 class TestLLMClientChatRetries:
     def test_retries_on_connection_error_then_succeeds(self, monkeypatch):
         sleeps: list[float] = []
         monkeypatch.setattr(time, "sleep", lambda s: sleeps.append(s))
-        completions = FakeChatCompletions(side_effect=[
-            _conn_error(),
-            _success_response("finally"),
-        ])
+        completions = FakeChatCompletions(
+            side_effect=[
+                _conn_error(),
+                _success_response("finally"),
+            ]
+        )
         client = _build_llm(completions)
         assert client.chat("sys", "usr") == "finally"
         assert completions.call_count == 2
@@ -203,20 +201,24 @@ class TestLLMClientChatRetries:
 
     def test_retries_on_rate_limit(self, monkeypatch):
         monkeypatch.setattr(time, "sleep", lambda s: None)
-        completions = FakeChatCompletions(side_effect=[
-            _rate_limit_error(),
-            _success_response("ok"),
-        ])
+        completions = FakeChatCompletions(
+            side_effect=[
+                _rate_limit_error(),
+                _success_response("ok"),
+            ]
+        )
         client = _build_llm(completions)
         assert client.chat("sys", "usr") == "ok"
         assert completions.call_count == 2
 
     def test_retries_on_timeout(self, monkeypatch):
         monkeypatch.setattr(time, "sleep", lambda s: None)
-        completions = FakeChatCompletions(side_effect=[
-            _timeout_error(),
-            _success_response("ok"),
-        ])
+        completions = FakeChatCompletions(
+            side_effect=[
+                _timeout_error(),
+                _success_response("ok"),
+            ]
+        )
         client = _build_llm(completions)
         assert client.chat("sys", "usr") == "ok"
         assert completions.call_count == 2
@@ -224,12 +226,14 @@ class TestLLMClientChatRetries:
     def test_exponential_backoff_1_2_4(self, monkeypatch):
         sleeps: list[float] = []
         monkeypatch.setattr(time, "sleep", lambda s: sleeps.append(s))
-        completions = FakeChatCompletions(side_effect=[
-            _conn_error(),
-            _conn_error(),
-            _conn_error(),
-            _success_response("ok"),
-        ])
+        completions = FakeChatCompletions(
+            side_effect=[
+                _conn_error(),
+                _conn_error(),
+                _conn_error(),
+                _success_response("ok"),
+            ]
+        )
         client = _build_llm(completions)
         client.chat("sys", "usr")
         assert sleeps == [1, 2, 4]
@@ -237,12 +241,14 @@ class TestLLMClientChatRetries:
 
     def test_exhausted_retries_raises_stream_error(self, monkeypatch):
         monkeypatch.setattr(time, "sleep", lambda s: None)
-        completions = FakeChatCompletions(side_effect=[
-            _conn_error(),
-            _conn_error(),
-            _conn_error(),
-            _conn_error(),
-        ])
+        completions = FakeChatCompletions(
+            side_effect=[
+                _conn_error(),
+                _conn_error(),
+                _conn_error(),
+                _conn_error(),
+            ]
+        )
         client = _build_llm(completions)
         with pytest.raises(StreamError, match="4 attempts"):
             client.chat("sys", "usr")
@@ -263,6 +269,7 @@ class TestLLMClientChatRetries:
 # ===========================================================================
 # LLMClient.chat() — non-retryable errors
 # ===========================================================================
+
 
 class TestLLMClientChatNonRetryable:
     def test_authentication_error_fails_loud_without_retry(self, monkeypatch):
@@ -290,96 +297,101 @@ class TestLLMClientChatNonRetryable:
 # translate_fields — happy path (B-b JSON)
 # ===========================================================================
 
+
 class TestTranslateFieldsHappy:
     def test_es_to_en_translates(self):
-        completions = FakeChatCompletions(return_value=_success_response(
-            '{"title": "Real-Time Data Pipeline", '
-            '"summary": "Pipeline for processing data in real time."}'
-        ))
+        completions = FakeChatCompletions(
+            return_value=_success_response(
+                '{"title": "Real-Time Data Pipeline", '
+                '"summary": "Pipeline for processing data in real time."}'
+            )
+        )
         client = _build_llm(completions)
         result = translate_fields(
             {
                 "title": "Pipeline de datos en tiempo real",
                 "summary": "Pipeline para procesar datos en tiempo real.",
             },
-            source_lang="es", target_lang="en", llm=client,
+            source_lang="es",
+            target_lang="en",
+            llm=client,
         )
         assert result["title"] == "Real-Time Data Pipeline"
         assert result["summary"] == "Pipeline for processing data in real time."
 
     def test_en_to_es_translates(self):
-        completions = FakeChatCompletions(return_value=_success_response(
-            '{"title": "Pipeline de datos en tiempo real"}'
-        ))
+        completions = FakeChatCompletions(
+            return_value=_success_response('{"title": "Pipeline de datos en tiempo real"}')
+        )
         client = _build_llm(completions)
         result = translate_fields(
             {"title": "Real-Time Data Pipeline"},
-            source_lang="en", target_lang="es", llm=client,
+            source_lang="en",
+            target_lang="es",
+            llm=client,
         )
         assert result["title"] == "Pipeline de datos en tiempo real"
 
     def test_handles_json_in_code_fence(self):
-        completions = FakeChatCompletions(return_value=_success_response(
-            '```json\n{"title": "Translated"}\n```'
-        ))
+        completions = FakeChatCompletions(
+            return_value=_success_response('```json\n{"title": "Translated"}\n```')
+        )
         client = _build_llm(completions)
         result = translate_fields(
             {"title": "Original"},
-            source_lang="es", target_lang="en", llm=client,
+            source_lang="es",
+            target_lang="en",
+            llm=client,
         )
         assert result["title"] == "Translated"
 
     def test_handles_bare_code_fence(self):
-        completions = FakeChatCompletions(return_value=_success_response(
-            '```\n{"title": "Translated"}\n```'
-        ))
+        completions = FakeChatCompletions(
+            return_value=_success_response('```\n{"title": "Translated"}\n```')
+        )
         client = _build_llm(completions)
         result = translate_fields(
             {"title": "Original"},
-            source_lang="es", target_lang="en", llm=client,
+            source_lang="es",
+            target_lang="en",
+            llm=client,
         )
         assert result["title"] == "Translated"
 
     def test_preamble_text_then_json(self):
-        completions = FakeChatCompletions(return_value=_success_response(
-            'Here is the translation:\n{"title": "Translated"}'
-        ))
+        completions = FakeChatCompletions(
+            return_value=_success_response('Here is the translation:\n{"title": "Translated"}')
+        )
         client = _build_llm(completions)
         result = translate_fields(
             {"title": "Original"},
-            source_lang="es", target_lang="en", llm=client,
+            source_lang="es",
+            target_lang="en",
+            llm=client,
         )
         assert result["title"] == "Translated"
 
     def test_temperature_low_for_translation(self):
-        completions = FakeChatCompletions(
-            return_value=_success_response('{"x": "y"}')
-        )
+        completions = FakeChatCompletions(return_value=_success_response('{"x": "y"}'))
         client = _build_llm(completions)
-        translate_fields(
-            {"x": "y"}, source_lang="es", target_lang="en", llm=client
-        )
+        translate_fields({"x": "y"}, source_lang="es", target_lang="en", llm=client)
         assert completions.calls[0]["temperature"] == 0.2
 
     def test_system_prompt_instructs_to_preserve_proper_names(self):
-        completions = FakeChatCompletions(
-            return_value=_success_response('{"x": "y"}')
-        )
+        completions = FakeChatCompletions(return_value=_success_response('{"x": "y"}'))
         client = _build_llm(completions)
-        translate_fields(
-            {"x": "y"}, source_lang="es", target_lang="en", llm=client
-        )
+        translate_fields({"x": "y"}, source_lang="es", target_lang="en", llm=client)
         sys_msg = completions.calls[0]["messages"][0]["content"].lower()
         assert "proper name" in sys_msg or "technical term" in sys_msg
 
     def test_user_message_contains_input_fields(self):
-        completions = FakeChatCompletions(
-            return_value=_success_response('{"name": "X"}')
-        )
+        completions = FakeChatCompletions(return_value=_success_response('{"name": "X"}'))
         client = _build_llm(completions)
         translate_fields(
             {"name": "HiRag15k"},
-            source_lang="en", target_lang="es", llm=client,
+            source_lang="en",
+            target_lang="es",
+            llm=client,
         )
         user_msg = completions.calls[0]["messages"][1]["content"]
         assert "HiRag15k" in user_msg
@@ -389,76 +401,89 @@ class TestTranslateFieldsHappy:
 # translate_fields — fallback to original (T4.4)
 # ===========================================================================
 
+
 class TestTranslateFieldsFallback:
     def test_llm_exhausted_retries_returns_original(self):
-        completions = FakeChatCompletions(side_effect=[
-            _conn_error(),
-            _conn_error(),
-            _conn_error(),
-            _conn_error(),
-        ])
+        completions = FakeChatCompletions(
+            side_effect=[
+                _conn_error(),
+                _conn_error(),
+                _conn_error(),
+                _conn_error(),
+            ]
+        )
         client = _build_llm(completions)
         result = translate_fields(
             {"title": "Original"},
-            source_lang="es", target_lang="en", llm=client,
+            source_lang="es",
+            target_lang="en",
+            llm=client,
         )
         assert result == {"title": "Original"}
 
     def test_malformed_json_returns_original(self):
-        completions = FakeChatCompletions(return_value=_success_response(
-            "This is not JSON at all"
-        ))
+        completions = FakeChatCompletions(return_value=_success_response("This is not JSON at all"))
         client = _build_llm(completions)
         result = translate_fields(
             {"title": "Original"},
-            source_lang="es", target_lang="en", llm=client,
+            source_lang="es",
+            target_lang="en",
+            llm=client,
         )
         assert result == {"title": "Original"}
 
     def test_missing_keys_fall_back_per_key(self):
-        completions = FakeChatCompletions(return_value=_success_response(
-            '{"title": "Translated"}'
-        ))
+        completions = FakeChatCompletions(return_value=_success_response('{"title": "Translated"}'))
         client = _build_llm(completions)
         result = translate_fields(
             {"title": "Original Title", "summary": "Original Summary"},
-            source_lang="es", target_lang="en", llm=client,
+            source_lang="es",
+            target_lang="en",
+            llm=client,
         )
         assert result["title"] == "Translated"
         assert result["summary"] == "Original Summary"
 
     def test_extra_keys_in_response_ignored(self):
-        completions = FakeChatCompletions(return_value=_success_response(
-            '{"title": "Translated", "summary": "T-summary", "extra": "ignored"}'
-        ))
+        completions = FakeChatCompletions(
+            return_value=_success_response(
+                '{"title": "Translated", "summary": "T-summary", "extra": "ignored"}'
+            )
+        )
         client = _build_llm(completions)
         result = translate_fields(
             {"title": "Original", "summary": "Original"},
-            source_lang="es", target_lang="en", llm=client,
+            source_lang="es",
+            target_lang="en",
+            llm=client,
         )
         assert "extra" not in result
         assert result == {"title": "Translated", "summary": "T-summary"}
 
     def test_non_string_value_falls_back_for_that_key(self):
-        completions = FakeChatCompletions(return_value=_success_response(
-            '{"title": 12345, "summary": "Translated"}'
-        ))
+        completions = FakeChatCompletions(
+            return_value=_success_response('{"title": 12345, "summary": "Translated"}')
+        )
         client = _build_llm(completions)
         result = translate_fields(
             {"title": "Original", "summary": "Original"},
-            source_lang="es", target_lang="en", llm=client,
+            source_lang="es",
+            target_lang="en",
+            llm=client,
         )
         assert result["title"] == "Original"
         assert result["summary"] == "Translated"
 
     def test_empty_string_value_falls_back(self):
-        completions = FakeChatCompletions(return_value=_success_response(
-            '{"title": "", "summary": "Translated"}'
-        ))
+        completions = FakeChatCompletions(
+            return_value=_success_response('{"title": "", "summary": "Translated"}')
+        )
         client = _build_llm(completions)
         result = translate_fields(
             {"title": "Original", "summary": "Original"},
-            source_lang="es", target_lang="en", llm=client,
+            source_lang="es",
+            target_lang="en",
+            llm=client,
         )
         assert result["title"] == "Original"
         assert result["summary"] == "Translated"
@@ -468,13 +493,16 @@ class TestTranslateFieldsFallback:
 # translate_fields — input validation
 # ===========================================================================
 
+
 class TestTranslateFieldsValidation:
     def test_same_source_and_target_returns_copy_without_calling_llm(self):
         completions = FakeChatCompletions(return_value=_success_response(""))
         client = _build_llm(completions)
         result = translate_fields(
             {"title": "Original"},
-            source_lang="es", target_lang="es", llm=client,
+            source_lang="es",
+            target_lang="es",
+            llm=client,
         )
         assert result == {"title": "Original"}
         assert completions.call_count == 0
@@ -490,22 +518,18 @@ class TestTranslateFieldsValidation:
         completions = FakeChatCompletions(return_value=_success_response(""))
         client = _build_llm(completions)
         with pytest.raises(ValueError, match="only es/en"):
-            translate_fields(
-                {"x": "y"}, source_lang="fr", target_lang="en", llm=client
-            )
+            translate_fields({"x": "y"}, source_lang="fr", target_lang="en", llm=client)
 
     def test_invalid_target_lang_raises(self):
         completions = FakeChatCompletions(return_value=_success_response(""))
         client = _build_llm(completions)
         with pytest.raises(ValueError, match="only es/en"):
-            translate_fields(
-                {"x": "y"}, source_lang="es", target_lang="de", llm=client
-            )
+            translate_fields({"x": "y"}, source_lang="es", target_lang="de", llm=client)
 
     def test_input_dict_not_mutated(self):
-        completions = FakeChatCompletions(return_value=_success_response(
-            '{"title": "Translated", "summary": "T-summary"}'
-        ))
+        completions = FakeChatCompletions(
+            return_value=_success_response('{"title": "Translated", "summary": "T-summary"}')
+        )
         client = _build_llm(completions)
         original = {"title": "Original", "summary": "Original"}
         snapshot = dict(original)

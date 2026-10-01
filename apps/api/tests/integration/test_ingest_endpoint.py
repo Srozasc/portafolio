@@ -11,23 +11,23 @@ After WU 3.4 lands, the same tests can be run against the real app
 from __future__ import annotations
 
 import os
-import pytest
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from backend.api.routes.ingest import router as ingest_router, _get_ingest_service
 from backend.api.errors import register_exception_handlers
+from backend.api.routes.ingest import _get_ingest_service
+from backend.api.routes.ingest import router as ingest_router
 from backend.config import Settings
-from backend.rag.vector_store import VectorStore
 from backend.rag.chunker import chunk_markdown
+from backend.rag.vector_store import VectorStore
 from backend.services.ingest_service import IngestService
-
 
 # ---------------------------------------------------------------------------
 # Fake embedder (returns deterministic zero vectors)
 # ---------------------------------------------------------------------------
+
 
 class _FakeEmbedder:
     dim = 8
@@ -52,6 +52,7 @@ def make_ingest_service(chroma_dir: Path) -> IngestService:
 # Standalone test app with ingest route mounted
 # ---------------------------------------------------------------------------
 
+
 def make_ingest_test_app(chroma_dir: Path, data_dir: Path) -> tuple[FastAPI, TestClient]:
     """Create a FastAPI app with the ingest route mounted and service injected."""
     app = FastAPI()
@@ -74,13 +75,16 @@ def make_ingest_test_app(chroma_dir: Path, data_dir: Path) -> tuple[FastAPI, Tes
 
     return client, lambda: (
         app.dependency_overrides.clear(),
-        os.environ.update({"DATA_DIR": original_data_dir} if original_data_dir else {"DATA_DIR": "./data"})
+        os.environ.update(
+            {"DATA_DIR": original_data_dir} if original_data_dir else {"DATA_DIR": "./data"}
+        ),
     )
 
 
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestIngestEndpointHappyPath:
     """REQ-ING-005: 200 with IngestResponse shape."""
@@ -250,7 +254,7 @@ class TestIngestEndpointIdempotentReingest:
             )
             r1 = client.post("/api/ingest", json={"file_path": str(md_file)})
             assert r1.status_code == 200
-            chunks_v1 = r1.json()["chunks_indexed"]
+            r1.json()["chunks_indexed"]
 
             # Re-ingest with different (longer) content
             md_file.write_text(

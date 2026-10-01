@@ -87,8 +87,7 @@ class TestRetrieve:
         mock_store = MagicMock()
         # Store returns 6 hits (already sorted desc)
         mock_store.query.return_value = [
-            Hit(text=f"doc {i}", metadata={}, score=1.0 - i * 0.03)
-            for i in range(6)
+            Hit(text=f"doc {i}", metadata={}, score=1.0 - i * 0.03) for i in range(6)
         ]
 
         retriever = self._make_retriever(mock_store, mock_embedder)

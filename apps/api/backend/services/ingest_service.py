@@ -14,10 +14,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from backend.config import Settings
-from backend.rag.chunker import Chunk, chunk_markdown
+from backend.rag.chunker import Chunk
 from backend.rag.embedder import Embedder
 from backend.rag.vector_store import VectorStore
-
 
 # ---------------------------------------------------------------------------
 # Custom exceptions (raised by the service; translated to HTTP by the route)

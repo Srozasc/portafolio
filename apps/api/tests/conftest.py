@@ -10,9 +10,8 @@ IMPORTANT (Engram #19 v1 gotcha):
 from __future__ import annotations
 
 import os
-import pytest
-from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -43,6 +42,7 @@ def setup_test_env():
 # ---------------------------------------------------------------------------
 # Integration test fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def client() -> TestClient:

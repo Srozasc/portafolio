@@ -173,15 +173,11 @@ def validate_frontmatter(fm: dict) -> None:
     with a message identifying the offending field and value.
     """
     if not isinstance(fm, dict):
-        raise FrontmatterValidationError(
-            f"frontmatter must be a dict: got {type(fm).__name__}"
-        )
+        raise FrontmatterValidationError(f"frontmatter must be a dict: got {type(fm).__name__}")
 
     slug = fm.get("slug")
     if not isinstance(slug, str) or not SLUG_REGEX.match(slug):
-        raise FrontmatterValidationError(
-            f"slug must match /^proj-[a-z0-9-]+$/: got {slug!r}"
-        )
+        raise FrontmatterValidationError(f"slug must match /^proj-[a-z0-9-]+$/: got {slug!r}")
 
     for key in ("title_es", "title_en"):
         v = fm.get(key)
@@ -192,12 +188,7 @@ def validate_frontmatter(fm: dict) -> None:
 
     year = fm.get("year")
     # bool is a subclass of int in Python; reject it explicitly.
-    if (
-        not isinstance(year, int)
-        or isinstance(year, bool)
-        or year < YEAR_MIN
-        or year > YEAR_MAX
-    ):
+    if not isinstance(year, int) or isinstance(year, bool) or year < YEAR_MIN or year > YEAR_MAX:
         raise FrontmatterValidationError(
             f"year must be int in [{YEAR_MIN}, {YEAR_MAX}]: got {year!r}"
         )
@@ -213,20 +204,12 @@ def validate_frontmatter(fm: dict) -> None:
         or len(tags) < MIN_TAGS
         or not all(isinstance(t, str) for t in tags)
     ):
-        raise FrontmatterValidationError(
-            f"tags must be non-empty array of strings: got {tags!r}"
-        )
+        raise FrontmatterValidationError(f"tags must be non-empty array of strings: got {tags!r}")
 
     for key in ("stack_es", "stack_en"):
         v = fm.get(key)
-        if (
-            not isinstance(v, list)
-            or len(v) < MIN_STACK
-            or not all(isinstance(s, str) for s in v)
-        ):
-            raise FrontmatterValidationError(
-                f"{key} must be non-empty array of strings: got {v!r}"
-            )
+        if not isinstance(v, list) or len(v) < MIN_STACK or not all(isinstance(s, str) for s in v):
+            raise FrontmatterValidationError(f"{key} must be non-empty array of strings: got {v!r}")
 
     for key in ("summary_es", "summary_en"):
         v = fm.get(key)
@@ -237,25 +220,19 @@ def validate_frontmatter(fm: dict) -> None:
 
     client = fm.get("client")
     if client is not None and not isinstance(client, str):
-        raise FrontmatterValidationError(
-            f"client must be string or null: got {client!r}"
-        )
+        raise FrontmatterValidationError(f"client must be string or null: got {client!r}")
 
     for key in ("impact_es", "impact_en"):
         if key not in fm or fm[key] is None:
             continue
         v = fm[key]
         if not isinstance(v, list) or not all(isinstance(s, str) for s in v):
-            raise FrontmatterValidationError(
-                f"{key} must be array of strings or null: got {v!r}"
-            )
+            raise FrontmatterValidationError(f"{key} must be array of strings or null: got {v!r}")
 
     links = fm.get("links")
     if links is not None:
         if not isinstance(links, dict):
-            raise FrontmatterValidationError(
-                f"links must be object or null: got {links!r}"
-            )
+            raise FrontmatterValidationError(f"links must be object or null: got {links!r}")
         for k in ("repo", "demo", "case_study"):
             if k not in links:
                 continue
@@ -263,13 +240,9 @@ def validate_frontmatter(fm: dict) -> None:
             if v is None:
                 continue
             if not isinstance(v, str):
-                raise FrontmatterValidationError(
-                    f"links.{k} must be string URL or null: got {v!r}"
-                )
+                raise FrontmatterValidationError(f"links.{k} must be string URL or null: got {v!r}")
             if k in ("repo", "demo") and not v.startswith(("http://", "https://")):
-                raise FrontmatterValidationError(
-                    f"links.{k} must be an http(s) URL: got {v!r}"
-                )
+                raise FrontmatterValidationError(f"links.{k} must be an http(s) URL: got {v!r}")
 
 
 # ---------------------------------------------------------------------------
@@ -301,9 +274,7 @@ def humanize_repo_name(name: str) -> str:
     Then ``.title()`` capitalizes each word.
     """
     # Insert spaces at CamelCase boundaries before normalizing separators.
-    camel_split = re.sub(
-        r"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", " ", name
-    )
+    camel_split = re.sub(r"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", " ", name)
     return re.sub(r"[-_]+", " ", camel_split).strip().title()
 
 
@@ -368,9 +339,7 @@ def build_frontmatter(
     summary = description
     if len(summary) < MIN_SUMMARY_LEN:
         if summary:
-            summary = (
-                f"{summary} (ver README del repositorio para la descripcion completa)"
-            )
+            summary = f"{summary} (ver README del repositorio para la descripcion completa)"
         else:
             summary = "Proyecto sin descripcion (ver README del repositorio)."
     if len(summary) < MIN_SUMMARY_LEN:
@@ -1021,11 +990,7 @@ def rewrite_image_urls_to_absolute(
             return tag
         # Rewrite only the src="path" within the tag, preserving everything
         # around it (alt, class, style, etc.).
-        return (
-            tag[: src_match.start()]
-            + f"src={quote}{new}{quote}"
-            + tag[src_match.end() :]
-        )
+        return tag[: src_match.start()] + f"src={quote}{new}{quote}" + tag[src_match.end() :]
 
     text = _MD_IMAGE.sub(_replace_md, readme_text)
     text = _HTML_IMG_TAG.sub(_replace_html, text)
@@ -1231,9 +1196,7 @@ class GitHubClient:
                 "(is it private? does GITHUB_TOKEN have access?)"
             )
         if r.status_code == 403:
-            raise GitHubError(
-                f"GitHub API returned 403 Forbidden (rate limit?): {r.text[:200]}"
-            )
+            raise GitHubError(f"GitHub API returned 403 Forbidden (rate limit?): {r.text[:200]}")
         if r.status_code >= 400:
             raise GitHubError(f"GitHub API error {r.status_code}: {r.text[:200]}")
 
@@ -1265,9 +1228,7 @@ class GitHubClient:
         if r.status_code == 404:
             raise GitHubError(f"no README found for {owner}/{repo}")
         if r.status_code >= 400:
-            raise GitHubError(
-                f"GitHub API error {r.status_code} fetching README: {r.text[:200]}"
-            )
+            raise GitHubError(f"GitHub API error {r.status_code} fetching README: {r.text[:200]}")
 
         return r.text
 
@@ -1313,9 +1274,7 @@ class GitHubClient:
                 "Check that GITHUB_TOKEN is valid and has repo:read scope."
             )
         if r.status_code == 403:
-            raise GitHubError(
-                f"GitHub API returned 403 Forbidden (rate limit?): {r.text[:200]}"
-            )
+            raise GitHubError(f"GitHub API returned 403 Forbidden (rate limit?): {r.text[:200]}")
         if r.status_code >= 400:
             raise GitHubError(f"GitHub API error {r.status_code}: {r.text[:200]}")
         return r.text
@@ -1511,10 +1470,8 @@ def _maybe_translate_frontmatter(
                 api_key=settings.LLM_API_KEY,
                 model=settings.CHAT_MODEL,
             )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "LLM unavailable, skipping translation (%s)", type(exc).__name__
-            )
+        except Exception as exc:
+            logger.warning("LLM unavailable, skipping translation (%s)", type(exc).__name__)
             return frontmatter
 
     try:
@@ -1537,9 +1494,7 @@ def _maybe_translate_frontmatter(
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point. Returns process exit code (0 success, 1 fatal)."""
     parser = argparse.ArgumentParser(
-        description=(
-            "Ingest a single GitHub repo into the portfolio projects directory."
-        )
+        description=("Ingest a single GitHub repo into the portfolio projects directory.")
     )
     parser.add_argument(
         "--repo",
@@ -1575,8 +1530,7 @@ def main(argv: list[str] | None = None) -> int:
     ingest_mode.add_argument(
         "--force",
         action="store_true",
-        help="Overwrite existing .md file completely (skip the "
-        "role/client/impact preservation).",
+        help="Overwrite existing .md file completely (skip the role/client/impact preservation).",
     )
     ingest_mode.add_argument(
         "--update",
@@ -1644,7 +1598,7 @@ def main(argv: list[str] | None = None) -> int:
             api_key=settings.LLM_API_KEY,
             model=settings.CHAT_MODEL,
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         print(
             f"ERROR: failed to create LLM client (required for tag generation): "
             f"{type(exc).__name__}: {exc}",
@@ -1680,9 +1634,7 @@ def main(argv: list[str] | None = None) -> int:
     # Resolve default projects dir relative to the repo root (3 parents up
     # from apps/api/scripts/ingest_repo.py).
     repo_root = Path(__file__).resolve().parents[3]
-    projects_dir = args.projects_dir or (
-        repo_root / "apps" / "api" / "data" / "projects"
-    )
+    projects_dir = args.projects_dir or (repo_root / "apps" / "api" / "data" / "projects")
     md_path = projects_dir / f"{slug}.md"
 
     try:
@@ -1756,9 +1708,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if is_gh_installed():
         pr_body = (
-            f"Generated by ingest_repo CLI.\n\n"
-            f"Repo: {repo_data.get('html_url', '')}\n"
-            f"Slug: {slug}"
+            f"Generated by ingest_repo CLI.\n\nRepo: {repo_data.get('html_url', '')}\nSlug: {slug}"
         )
         try:
             pr_url = open_draft_pr(
@@ -1852,8 +1802,7 @@ def create_branch(branch_name: str, *, base: str = "dev", force: bool = False) -
         if ls.returncode == 0:
             # ls-remote output: "<sha>\trefs/heads/<branch>" per branch
             remote_exists = any(
-                line.endswith(f"\trefs/heads/{branch_name}")
-                for line in ls.stdout.splitlines()
+                line.endswith(f"\trefs/heads/{branch_name}") for line in ls.stdout.splitlines()
             )
 
     if local_exists or remote_exists:
@@ -1918,9 +1867,7 @@ def git_commit(message: str, *, body: str = "") -> None:
         args.extend(["-m", body])
     result = subprocess.run(args, capture_output=True, text=True, check=False)
     if result.returncode != 0:
-        raise GitError(
-            f"git commit failed: {result.stderr.strip() or result.stdout.strip()}"
-        )
+        raise GitError(f"git commit failed: {result.stderr.strip() or result.stdout.strip()}")
 
 
 def git_push(branch_name: str, *, force: bool = False) -> None:
@@ -2003,13 +1950,8 @@ def open_draft_pr(*, title: str, body: str, base: str = "dev") -> str:
 def print_manual_pr_instructions(branch_name: str, *, base: str = "dev") -> None:
     """Print instructions for manually opening the PR."""
     print(f"\nManual PR creation required for branch {branch_name!r}:")
-    print(
-        f"  gh pr create --draft --title ... --body ... "
-        f"--base {base} --head {branch_name}"
-    )
-    print(
-        f"  or visit: https://github.com/<owner>/<repo>/compare/{base}...{branch_name}"
-    )
+    print(f"  gh pr create --draft --title ... --body ... --base {base} --head {branch_name}")
+    print(f"  or visit: https://github.com/<owner>/<repo>/compare/{base}...{branch_name}")
 
 
 # ---------------------------------------------------------------------------
@@ -2175,9 +2117,7 @@ def write_project_md(
     out_path = out_dir / f"{slug}.md"
 
     if out_path.exists() and not force:
-        raise ProjectExistsError(
-            f"{out_path} already exists. Use --force to overwrite."
-        )
+        raise ProjectExistsError(f"{out_path} already exists. Use --force to overwrite.")
 
     out_dir.mkdir(parents=True, exist_ok=True)
 

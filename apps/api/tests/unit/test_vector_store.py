@@ -6,7 +6,7 @@ These test the ChromaDB wrapper in isolation without FastAPI.
 
 import pytest
 
-from backend.rag.vector_store import VectorStore, Hit, CollectionStats
+from backend.rag.vector_store import CollectionStats, Hit, VectorStore
 
 
 @pytest.fixture
@@ -77,7 +77,13 @@ class TestUpsert:
         documents = ["doc a", "doc b", "doc c"]
         metadatas = [{"n": i} for i in range(3)]
 
-        store.upsert("test-col", ids=ids, embeddings=embeddings, documents=documents, metadatas=metadatas)
+        store.upsert(
+            "test-col",
+            ids=ids,
+            embeddings=embeddings,
+            documents=documents,
+            metadatas=metadatas,
+        )
 
         hits = store.query("test-col", embedding=[0.4, 0.5, 0.6], top_k=3, threshold=0.0)
         assert len(hits) == 3

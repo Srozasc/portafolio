@@ -30,20 +30,20 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from backend.config import Settings
 from backend.api.errors import register_exception_handlers
-from backend.api.routes.ingest import router as ingest_router
 from backend.api.routes.chat import router as chat_router
-from backend.api.routes.health import router as health_router
 from backend.api.routes.debug import router as debug_router
-from backend.rag.vector_store import VectorStore
-from backend.rag.embedder import Embedder
-from backend.rag.retriever import Retriever
-from backend.rag.llm_client import LLMClient
+from backend.api.routes.health import router as health_router
+from backend.api.routes.ingest import router as ingest_router
+from backend.config import Settings
 from backend.rag.chunker import chunk_markdown
-from backend.services.ingest_service import IngestService
+from backend.rag.embedder import Embedder
+from backend.rag.llm_client import LLMClient
+from backend.rag.retriever import Retriever
+from backend.rag.vector_store import VectorStore
 from backend.services.chat_service import ChatService
 from backend.services.health_service import HealthService
+from backend.services.ingest_service import IngestService
 
 
 @asynccontextmanager

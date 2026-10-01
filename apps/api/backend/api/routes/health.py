@@ -14,7 +14,6 @@ from backend.api.errors import json_error
 from backend.api.schemas import HealthResponse
 from backend.services.health_service import HealthService
 
-
 router = APIRouter(prefix="/api", tags=["health"])
 
 

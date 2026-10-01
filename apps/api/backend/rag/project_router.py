@@ -19,6 +19,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import ClassVar
 
 
 class RouteKind(str, Enum):
@@ -67,28 +68,75 @@ class ProjectRouter:
 
     # Tech/stack keywords that signal LIST intent.
     # Includes both ES and EN terms because users mix languages in tech questions.
-    LIST_TOKENS: set[str] = {
+    LIST_TOKENS: ClassVar[set[str]] = {
         # ES tech
-        "python", "aws", "kafka", "spark", "rag", "openai", "llm",
-        "terraform", "kubernetes", "docker", "ml", "data", "cloud",
-        "fraud", "real-time", "fintech", "banco",
+        "python",
+        "aws",
+        "kafka",
+        "spark",
+        "rag",
+        "openai",
+        "llm",
+        "terraform",
+        "kubernetes",
+        "docker",
+        "ml",
+        "data",
+        "cloud",
+        "fraud",
+        "real-time",
+        "fintech",
+        "banco",
         # EN tech (Spanish is OK in tech context)
-        "react", "typescript", "node", "postgres", "redis",
-        "data-engineering", "data engineering", "devops", "mlops",
+        "react",
+        "typescript",
+        "node",
+        "postgres",
+        "redis",
+        "data-engineering",
+        "data engineering",
+        "devops",
+        "mlops",
         # Generic list signals (ES + EN)
-        "qué proyectos", "que proyectos", "lista", "list", "show me",
-        "tienes", "tenés", "have", "do you have", "qué hiciste", "what did",
-        "what have", "all your", "todos tus", "all your projects",
-        "qué proyectos tienes", "que proyectos tienes",
-        "qué proyectos hiciste", "que proyectos hiciste",
-        "what projects", "what have you done", "show me projects",
+        "qué proyectos",
+        "que proyectos",
+        "lista",
+        "list",
+        "show me",
+        "tienes",
+        "tenés",
+        "have",
+        "do you have",
+        "qué hiciste",
+        "what did",
+        "what have",
+        "all your",
+        "todos tus",
+        "all your projects",
+        "qué proyectos tienes",
+        "que proyectos tienes",
+        "qué proyectos hiciste",
+        "que proyectos hiciste",
+        "what projects",
+        "what have you done",
+        "show me projects",
     }
 
     # Pronouns that signal detail intent (referring to a previous project).
-    DETAIL_PRONOUNS: set[str] = {
-        "el primero", "el segundo", "el tercero", "el último", "el anterior",
-        "the first", "the second", "the third", "the last", "the previous",
-        "that one", "este", "ese",
+    DETAIL_PRONOUNS: ClassVar[set[str]] = {
+        "el primero",
+        "el segundo",
+        "el tercero",
+        "el último",
+        "el anterior",
+        "the first",
+        "the second",
+        "the third",
+        "the last",
+        "the previous",
+        "that one",
+        "este",
+        "ese",
     }
 
     def __init__(self, known_slugs: list[str]) -> None:
@@ -176,8 +224,7 @@ class ProjectRouter:
                 kind=RouteKind.DETAIL_PROJECT,
                 slug=current_project_slug,
                 reason=(
-                    f"ambiguous question; defaulting to current project "
-                    f"'{current_project_slug}'"
+                    f"ambiguous question; defaulting to current project '{current_project_slug}'"
                 ),
             )
 
@@ -243,20 +290,57 @@ class ProjectRouter:
 
         # Generic list phrases — only used when no tech keyword matches.
         generic_tokens: set[str] = {
-            "qué proyectos", "que proyectos", "lista", "list", "show me",
-            "tienes", "tenés", "have", "do you have", "qué hiciste", "what did",
-            "what have", "all your", "todos tus", "all your projects",
-            "qué proyectos tienes", "que proyectos tienes",
-            "qué proyectos hiciste", "que proyectos hiciste",
-            "what projects", "what have you done", "show me projects",
+            "qué proyectos",
+            "que proyectos",
+            "lista",
+            "list",
+            "show me",
+            "tienes",
+            "tenés",
+            "have",
+            "do you have",
+            "qué hiciste",
+            "what did",
+            "what have",
+            "all your",
+            "todos tus",
+            "all your projects",
+            "qué proyectos tienes",
+            "que proyectos tienes",
+            "qué proyectos hiciste",
+            "que proyectos hiciste",
+            "what projects",
+            "what have you done",
+            "show me projects",
         }
 
         tech_tokens: set[str] = {
-            "python", "aws", "kafka", "spark", "rag", "openai", "llm",
-            "terraform", "kubernetes", "docker", "ml", "data", "cloud",
-            "fraud", "real-time", "fintech", "banco",
-            "react", "typescript", "node", "postgres", "redis",
-            "data-engineering", "data engineering", "devops", "mlops",
+            "python",
+            "aws",
+            "kafka",
+            "spark",
+            "rag",
+            "openai",
+            "llm",
+            "terraform",
+            "kubernetes",
+            "docker",
+            "ml",
+            "data",
+            "cloud",
+            "fraud",
+            "real-time",
+            "fintech",
+            "banco",
+            "react",
+            "typescript",
+            "node",
+            "postgres",
+            "redis",
+            "data-engineering",
+            "data engineering",
+            "devops",
+            "mlops",
         }
 
         best_pos: int | None = None

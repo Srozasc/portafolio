@@ -18,12 +18,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from backend.api.errors import register_exception_handlers
-from backend.api.routes.chat import _get_chat_service, router as chat_router
+from backend.api.routes.chat import _get_chat_service
+from backend.api.routes.chat import router as chat_router
 from backend.rag.retriever import Retriever
 from backend.rag.vector_store import VectorStore
 from backend.services.chat_service import ChatService
 from backend.services.projects_service import ProjectsService
-
 
 # ---------------------------------------------------------------------------
 # Fake LLM (scripted token sequence)
@@ -303,9 +303,7 @@ class TestGeneralRoute:
 
     def test_general_route_emits_top_projects(self, tmp_path: Path):
         """GENERAL route: LLM emits no JSON block; cards come from index hits."""
-        fake_llm = FakeLLM(
-            tokens=["Soy un ingeniero de datos y backend."]
-        )
+        fake_llm = FakeLLM(tokens=["Soy un ingeniero de datos y backend."])
         _app, client, _service = make_projects_chat_app(tmp_path, fake_llm)
 
         response = client.post(
@@ -604,9 +602,7 @@ class TestShortQueryExpansion:
     embedding, so the embedder has enough signal to match chunks.
     """
 
-    def test_short_keyword_query_rag_reaches_llm_and_ends_with_done(
-        self, tmp_path: Path
-    ):
+    def test_short_keyword_query_rag_reaches_llm_and_ends_with_done(self, tmp_path: Path):
         """A short query 'rag' must NOT short-circuit to the deflection path:
         the LLM is invoked and the SSE stream ends with a ``done`` event.
 
@@ -673,9 +669,7 @@ class TestProjectContextAwareness:
     via the SSE stream.
     """
 
-    def test_ambiguous_question_with_project_context_routes_to_detail(
-        self, tmp_path: Path
-    ):
+    def test_ambiguous_question_with_project_context_routes_to_detail(self, tmp_path: Path):
         """An ambiguous question + project_slug -> LLM called, SSE ends with done.
 
         The question ``¿qué decisiones técnicas tomaste?`` carries no slug,

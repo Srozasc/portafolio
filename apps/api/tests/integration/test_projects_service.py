@@ -16,7 +16,6 @@ from backend.config import Settings
 from backend.rag.vector_store import VectorStore
 from backend.services.projects_service import ProjectsService
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -39,8 +38,8 @@ def _make_sample_md(
         f"tags:\n"
         f"  - python\n"
         f"  - aws\n"
-        f"summary_es: \"Resumen {slug}\"\n"
-        f"summary_en: \"Summary {slug}\"\n"
+        f'summary_es: "Resumen {slug}"\n'
+        f'summary_en: "Summary {slug}"\n'
         f"---\n\n"
         f"{body}\n"
     )
@@ -97,8 +96,11 @@ def settings():
 def seed_projects_dir(tmp_path):
     """5 valid .md files with distinct slugs."""
     for slug in [
-        "proj-data-pipeline", "proj-rag-customer", "proj-cloud-migration",
-        "proj-ml-scoring", "proj-realtime-fraud",
+        "proj-data-pipeline",
+        "proj-rag-customer",
+        "proj-cloud-migration",
+        "proj-ml-scoring",
+        "proj-realtime-fraud",
     ]:
         _write_md(tmp_path, f"{slug}.md", _make_sample_md(slug=slug))
     return tmp_path
@@ -146,9 +148,7 @@ def test_ingest_5_projects_creates_index_and_details(
         assert count_for >= 1, f"{name} should have at least 1 chunk"
 
 
-def test_ingest_idempotent_with_force(
-    chroma_dir, store, embedder, settings, seed_projects_dir
-):
+def test_ingest_idempotent_with_force(chroma_dir, store, embedder, settings, seed_projects_dir):
     """Two consecutive runs with force=True produce the same collection layout."""
     service = ProjectsService(embedder=embedder, store=store, settings=settings)
 
@@ -180,9 +180,7 @@ def test_ingest_idempotent_with_force(
         assert detail_stats[0].chunk_count >= 1
 
 
-def test_ingest_skips_malformed_files(
-    chroma_dir, store, embedder, settings, tmp_path
-):
+def test_ingest_skips_malformed_files(chroma_dir, store, embedder, settings, tmp_path):
     """5 valid + 1 malformed → 5 indexed, errors list has 1 entry."""
     # 5 valid
     for slug in ["proj-a", "proj-b", "proj-c", "proj-d", "proj-e"]:
@@ -208,9 +206,7 @@ def test_ingest_skips_malformed_files(
     assert index_stats[0].chunk_count == 5
 
 
-def test_index_metadata_round_trip(
-    chroma_dir, store, embedder, settings, seed_projects_dir
-):
+def test_index_metadata_round_trip(chroma_dir, store, embedder, settings, seed_projects_dir):
     """Metadata fields (slug, year, tags-as-JSON) survive the round-trip."""
     service = ProjectsService(embedder=embedder, store=store, settings=settings)
     service.ingest_all(seed_projects_dir, force=True)
@@ -261,9 +257,7 @@ def test_detail_chunks_have_project_metadata(
         assert "chunk_index" in hit.metadata
 
 
-def test_ingest_against_real_seed_directory(
-    chroma_dir, store, embedder, settings
-):
+def test_ingest_against_real_seed_directory(chroma_dir, store, embedder, settings):
     """End-to-end against the seed projects in apps/api/data/projects/."""
     seed_dir = Path(__file__).parent.parent.parent / "data" / "projects"
     if not seed_dir.exists():

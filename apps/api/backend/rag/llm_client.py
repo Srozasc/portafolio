@@ -158,14 +158,12 @@ class LLMClient:
                 if attempt >= max_retries:
                     break
                 # Exponential backoff: 1s, 2s, 4s for attempts 0, 1, 2.
-                time.sleep(2 ** attempt)
+                time.sleep(2**attempt)
                 continue
             except Exception as exc:
                 # Non-transient → fail loud without retry.
                 # Sanitised message (class name only); full exception on __cause__.
-                raise StreamError(
-                    f"LLM error ({type(exc).__name__})"
-                ) from exc
+                raise StreamError(f"LLM error ({type(exc).__name__})") from exc
 
             # Success path: validate and return content.
             content = response.choices[0].message.content
@@ -176,6 +174,5 @@ class LLMClient:
         # Retries exhausted.
         assert last_exc is not None  # type-guard for mypy / type checkers
         raise StreamError(
-            f"LLM unavailable after {max_retries + 1} attempts "
-            f"({type(last_exc).__name__})"
+            f"LLM unavailable after {max_retries + 1} attempts ({type(last_exc).__name__})"
         ) from last_exc

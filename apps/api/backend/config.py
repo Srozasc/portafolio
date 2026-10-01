@@ -32,7 +32,6 @@ OpenAI embedding defaults (uncommented in .env.example):
   EMBEDDING_MODEL    = "text-embedding-3-small"
 """
 
-from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -47,8 +46,8 @@ class Settings(BaseSettings):
     CHAT_MODEL: str = "local-model"
 
     # Embedding settings (falls back to LLM values when not set)
-    EMBEDDING_BASE_URL: Optional[str] = None
-    EMBEDDING_API_KEY: Optional[str] = None
+    EMBEDDING_BASE_URL: str | None = None
+    EMBEDDING_API_KEY: str | None = None
     EMBEDDING_MODEL: str = "text-embedding-nomic-embed-text-v1.5"
 
     # Paths
@@ -69,7 +68,9 @@ class Settings(BaseSettings):
     # Server
     APP_HOST: str = "127.0.0.1"
     APP_PORT: int = 8000
-    CORS_ALLOW_ORIGINS: str = "http://localhost:8000,http://127.0.0.1:8000,http://localhost:4321,http://127.0.0.1:4321"
+    CORS_ALLOW_ORIGINS: str = (
+        "http://localhost:8000,http://127.0.0.1:8000,http://localhost:4321,http://127.0.0.1:4321"
+    )
     CORS_ALLOW_VERCEL_REGEX: bool = True
 
     # -------------------------------------------------------------------------
