@@ -143,3 +143,21 @@ jobs:
             --output text)
           aws ssm wait command-executed --command-id "$CMD"
           echo "Rollback command issued"
+
+      - name: Notify on failure
+        if: failure()
+        continue-on-error: true
+        # Sends a generic webhook payload to DEPLOY_WEBHOOK_URL (Slack-compatible
+        # {text: ...}, Teams, Mattermost). Silently skips if the secret is unset.
+        # continue-on-error + || true ensure notification failure doesn't cascade.
+        env:
+          DEPLOY_WEBHOOK_URL: ${{ secrets.DEPLOY_WEBHOOK_URL }}
+          ROLLBACK_STATUS: ${{ steps.deploy.outputs.prev_sha && 'Auto-rollback attempted to ' + steps.deploy.outputs.prev_sha || 'No rollback (deploy never started)' }}
+        run: |
+          if [ -z "$DEPLOY_WEBHOOK_URL" ]; then
+            echo "DEPLOY_WEBHOOK_URL not configured, skipping notification"
+            exit 0
+          fi
+          curl -sS --max-time 10 -X POST -H "Content-Type: application/json" \
+            -d "{\"text\": \":rotating_light: Deploy to production FAILED.\n\nCommit: ${{ github.sha }}\nAuthor: ${{ github.actor }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\nRollback: ${ROLLBACK_STATUS}\"}" \
+            "$DEPLOY_WEBHOOK_URL" || echo "Notification failed (non-blocking)"
