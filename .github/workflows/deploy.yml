@@ -9,10 +9,11 @@ on:
     branches: [main]
   workflow_dispatch: # allow manual trigger from GitHub UI
 
-# Required for aws-actions/configure-aws-credentials@v4 to assume role via OIDC
+# Required for aws-actions/configure-aws-credentials@v4 to assume role via OIDC.
+# contents: write is required by the Tag release step (gh release create).
 permissions:
   id-token: write
-  contents: read
+  contents: write
 
 # Cancel any in-progress run for the same branch when a new commit is pushed
 concurrency:
@@ -82,9 +83,9 @@ jobs:
       # ----- Backend deploy via SSM -----
       - name: Deploy backend (capture prev + pull + restart + health check)
         id: deploy
-        # Atomic: capture prev SHA -> porcelain guard -> pull --ff-only -> pip install ->
-        # restart -> sleep -> is-active -> health curl. set -euo pipefail aborts on any
-        # failure. prev_sha is exposed as step output for the rollback step below.
+        # Atomic: capture prev SHA, porcelain guard, pull --ff-only, pip install,
+        # restart, sleep, is-active, health curl. set -euo pipefail aborts on any
+        # failure. prev_sha is exposed as step output for the rollback step.
         run: |
           CMD=$(aws ssm send-command \
             --instance-ids i-04b4296febfda434a \
@@ -104,7 +105,7 @@ jobs:
               "echo \\"$HEALTH\\" | grep -q \\\\"status\\\\":\\\\"ok\\\\" || { echo \\\\"HEALTH FAILED: $HEALTH\\\\"; exit 1; }",
               "echo \\\\"DEPLOY OK\\\\""
             ]' \
-            --comment "GitHub Actions deploy: capture prev, pull main, restart, health check" \
+            --comment "Deploy: capture prev, pull, restart, health check" \
             --query 'Command.CommandId' \
             --output text)
           aws ssm wait command-executed --command-id "$CMD" || true
@@ -112,13 +113,15 @@ jobs:
             --command-id "$CMD" \
             --query 'StandardOutputContent' \
             --output text)
-          PREV_SHA=$(echo "$OUT" | grep -oP 'Previous commit: \K[0-9a-f]+' | head -1)
+          PREV_SHA=$(echo "$OUT" \
+            | grep -oP 'Previous commit: \K[0-9a-f]+' \
+            | head -1)
           echo "Captured previous commit SHA: $PREV_SHA"
           echo "prev_sha=$PREV_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Rollback on deploy failure
         if: failure() && steps.deploy.outputs.prev_sha
-        # Only runs if the deploy step failed AND we captured a prev_sha.
+        # Runs only if deploy failed AND we captured a prev_sha.
         # git reset --hard here is intentional: this is an explicit recovery
         # operation, not the normal pull path (which uses --ff-only).
         run: |
@@ -148,16 +151,56 @@ jobs:
         if: failure()
         continue-on-error: true
         # Sends a generic webhook payload to DEPLOY_WEBHOOK_URL (Slack-compatible
-        # {text: ...}, Teams, Mattermost). Silently skips if the secret is unset.
-        # continue-on-error + || true ensure notification failure doesn't cascade.
+        # {text: ...}). Silently skips if the secret is unset. continue-on-error
+        # + || true ensure notification failure doesn't cascade. ROLLBACK_STATUS
+        # is built in bash (GH Actions `+` is arithmetic-only, not string concat).
         env:
           DEPLOY_WEBHOOK_URL: ${{ secrets.DEPLOY_WEBHOOK_URL }}
-          ROLLBACK_STATUS: ${{ steps.deploy.outputs.prev_sha && 'Auto-rollback attempted to ' + steps.deploy.outputs.prev_sha || 'No rollback (deploy never started)' }}
+          PREV_SHA: ${{ steps.deploy.outputs.prev_sha }}
+          RUN_URL: >-
+            ${{ github.server_url
+            }}/${{ github.repository
+            }}/actions/runs/${{ github.run_id }}
+          COMMIT: ${{ github.sha }}
+          AUTHOR: ${{ github.actor }}
         run: |
           if [ -z "$DEPLOY_WEBHOOK_URL" ]; then
             echo "DEPLOY_WEBHOOK_URL not configured, skipping notification"
             exit 0
           fi
+          if [ -n "$PREV_SHA" ]; then
+            ROLLBACK_STATUS="Auto-rollback attempted to ${PREV_SHA}"
+          else
+            ROLLBACK_STATUS="No rollback (deploy never started)"
+          fi
+          jq -n \
+            --arg text ":rotating_light: Deploy to production FAILED." \
+            --arg commit "$COMMIT" \
+            --arg author "$AUTHOR" \
+            --arg run_url "$RUN_URL" \
+            --arg rollback "$ROLLBACK_STATUS" \
+            '{text: ($text
+                + "\n\nCommit: " + $commit
+                + "\nAuthor: " + $author
+                + "\nRun: " + $run_url
+                + "\nRollback: " + $rollback)}' \
+            > /tmp/deploy-notify.json
           curl -sS --max-time 10 -X POST -H "Content-Type: application/json" \
-            -d "{\"text\": \":rotating_light: Deploy to production FAILED.\n\nCommit: ${{ github.sha }}\nAuthor: ${{ github.actor }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\nRollback: ${ROLLBACK_STATUS}\"}" \
+            --data @/tmp/deploy-notify.json \
             "$DEPLOY_WEBHOOK_URL" || echo "Notification failed (non-blocking)"
+
+      - name: Tag release
+        if: success()
+        # Creates a timestamped git tag + GitHub release on every successful
+        # deploy. Uses gh release create (one API call, no git push needed).
+        # Tag format: deploy-YYYYMMDDTHHMMSSZ-<short-sha> — sortable + readable.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          TAG="$(date -u +%Y%m%dT%H%M%SZ)-${SHORT_SHA}"
+          MSG="Deploy $(date -u +%Y-%m-%dT%H:%M:%SZ) by ${{ github.actor }}."
+          gh release create "$TAG" \
+            --title "Deploy ${SHORT_SHA}" \
+            --notes "$MSG" \
+            --target "$GITHUB_SHA"
