@@ -84,8 +84,8 @@ jobs:
             --document-name AWS-RunShellScript \
             --parameters 'commands=[
               "cd /opt/portafolio",
-              "git fetch origin main",
-              "git reset --hard origin/main",
+              "[ -z \"$(git status --porcelain)\" ] || { echo \"ERROR: EC2 has uncommitted changes, aborting\"; git status --porcelain; exit 1; }",
+              "cd /opt/portafolio && git pull --ff-only origin main",
               "pip install -r apps/api/requirements.txt --quiet",
               "sudo systemctl restart portafolio.service",
               "sleep 3",
