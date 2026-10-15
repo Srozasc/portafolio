@@ -109,9 +109,12 @@ jobs:
             --comment "Deploy: capture prev, pull, restart, health check" \
             --query 'Command.CommandId' \
             --output text)
-          aws ssm wait command-executed --command-id "$CMD" || true
+          aws ssm wait command-executed \
+            --command-id "$CMD" \
+            --instance-id i-04b4296febfda434a || true
           OUT=$(aws ssm get-command-invocation \
             --command-id "$CMD" \
+            --instance-id i-04b4296febfda434a \
             --query 'StandardOutputContent' \
             --output text)
           PREV_SHA=$(echo "$OUT" \
@@ -145,7 +148,9 @@ jobs:
             --comment "GitHub Actions rollback: reset to $PREV and restart" \
             --query 'Command.CommandId' \
             --output text)
-          aws ssm wait command-executed --command-id "$CMD"
+          aws ssm wait command-executed \
+            --command-id "$CMD" \
+            --instance-id i-04b4296febfda434a
           echo "Rollback command issued"
 
       - name: Notify on failure
