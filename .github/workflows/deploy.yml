@@ -76,9 +76,10 @@ jobs:
             --metadata-directive REPLACE
 
       - name: Invalidate CloudFront cache
-        run: aws cloudfront create-invalidation \
-          --distribution-id EJ12TBQTYJ43D \
-          --paths "/*"
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id EJ12TBQTYJ43D \
+            --paths "/*"
 
       # ----- Backend deploy via SSM -----
       - name: Deploy backend (capture prev + pull + restart + health check)
