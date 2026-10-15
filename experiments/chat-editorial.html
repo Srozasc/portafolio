@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Portfolio Quarterly — A guided conversation</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap"
+    rel="stylesheet"
+  />
+
+  <style>
+    /* =====================================================================
+       The Portfolio Quarterly — experimental editorial chat
+       ---------------------------------------------------------------------
+       Design sources:
+         - Triple-stack Minimalist Monochrome Editorial (Playfair / Source Serif / JetBrains Mono)
+         - Exaggerated Minimalism (oversized type, extreme whitespace, single accent)
+         - Brutalism touches (hard borders, dense rule lines, no rounded corners)
+         - Editorial Grid / Magazine (asymmetric columns, drop caps, pull quotes)
+       Color palette:
+         --ink: #0A0A0A    (near-black for type)
+         --paper: #FAF8F3  (warm off-white background)
+         --paper-2: #F2EEE3 (slightly darker panel)
+         --rule: #1A1A1A   (hairline rules — heavy, brutalist)
+         --muted: #6B6B6B  (secondary text)
+         --accent: #E11D48 (single vibrant accent — rose 600)
+         --accent-ink: #FFFFFF (text on accent)
+       Typography rules (do not change casually):
+         - Display / hero / kicker titles → Playfair Display 900, italic for emphasis
+         - Body / article copy            → Source Serif 4 300–400
+         - Meta / tags / dates / kbd     → JetBrains Mono 500, UPPERCASE, tracked
+       ===================================================================== */
+
+    :root {
+      --ink: #0A0A0A;
+      --paper: #FAF8F3;
+      --paper-2: #F2EEE3;
+      --rule: #1A1A1A;
+      --muted: #6B6B6B;
+      --accent: #E11D48;
+      --accent-ink: #FFFFFF;
+
+      --display: 'Playfair Display', 'Times New Roman', serif;
+      --body: 'Source Serif 4', Georgia, serif;
+      --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+
+      --rule-w: 1.5px;
+      --rule-w-thick: 3px;
+      --gutter: clamp(1.25rem, 2.5vw, 2.5rem);
+      --col-max: 1320px;
+    }
+
+    /* -- Reset -------------------------------------------------------- */
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    html { background: var(--paper); color: var(--ink); }
+    body {
+      font-family: var(--body);
+      font-weight: 400;
+      font-size: 17px;
+      line-height: 1.55;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    button, input, textarea { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    a { color: inherit; }
+    ::selection { background: var(--accent); color: var(--accent-ink); }
+
+    /* -- Page wrapper -------------------------------------------------- */
+
+    .paper {
+      max-width: var(--col-max);
+      margin: 0 auto;
+      padding: clamp(1.5rem, 3vw, 3rem) var(--gutter) 6rem;
+      position: relative;
+    }
+
+    /* Subtle grain overlay so the page reads as paper, not screen. */
+    .paper::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.04;
+      mix-blend-mode: multiply;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+      z-index: 100;
+    }
+
+    /* -- Top utility bar ---------------------------------------------- */
+
+    .util {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      padding-bottom: 0.5rem;
+      border-bottom: var(--rule-w-thick) solid var(--rule);
+    }
+    .util__group { display: flex; gap: 1.25rem; }
+    .util__dot {
+      display: inline-block;
+      width: 0.5rem;
+      height: 0.5rem;
+      background: var(--accent);
+      border-radius: 50%;
+      vertical-align: middle;
+      margin-right: 0.5rem;
+      animation: pulse 1.8s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.35; transform: scale(0.8); }
+    }
+
+    /* -- Masthead ------------------------------------------------------ */
+
+    .masthead {
+      text-align: center;
+      padding: clamp(2rem, 5vw, 4rem) 0 clamp(1.5rem, 3vw, 2.5rem);
+      border-bottom: var(--rule-w-thick) solid var(--rule);
+      position: relative;
+    }
+    .masthead__kicker {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1.25rem;
+    }
+    .masthead__title {
+      font-family: var(--display);
+      font-weight: 900;
+      font-size: clamp(3rem, 10vw, 9rem);
+      line-height: 0.88;
+      letter-spacing: -0.04em;
+      margin: 0;
+      padding: 0;
+    }
+    .masthead__title em {
+      font-style: italic;
+      font-weight: 400;
+      color: var(--accent);
+    }
+    .masthead__deck {
+      font-family: var(--body);
+      font-style: italic;
+      font-weight: 300;
+      font-size: clamp(1rem, 1.6vw, 1.35rem);
+      color: var(--muted);
+      max-width: 36ch;
+      margin: 1.25rem auto 0;
+      line-height: 1.4;
+    }
+    .masthead__ornament {
+      margin: 1.5rem auto 0;
+      display: block;
+      width: 6rem;
+      height: 0.6rem;
+      background:
+        radial-gradient(circle at 1.5px 50%, var(--rule) 1.5px, transparent 2px) 0 0 / 12px 100% repeat-x;
+    }
+
+    /* -- Main 3-column grid ------------------------------------------- */
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 2.2fr) minmax(0, 1fr);
+      gap: clamp(1.25rem, 2.5vw, 2.5rem);
+      margin-top: clamp(2rem, 4vw, 3rem);
+      padding-top: clamp(2rem, 4vw, 3rem);
+      border-top: var(--rule-w-thick) double var(--rule);
+    }
+    @media (max-width: 960px) {
+      .grid { grid-template-columns: 1fr; gap: 2rem; }
+    }
+
+    /* -- Section heads (column titles) -------------------------------- */
+
+    .colhead {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      padding-bottom: 0.5rem;
+      border-bottom: var(--rule-w) solid var(--rule);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .colhead__num {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    /* -- TOC (left column) ------------------------------------------- */
+
+    .toc__list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      font-family: var(--body);
+    }
+    .toc__item {
+      display: grid;
+      grid-template-columns: 2.5rem 1fr;
+      gap: 0.5rem;
+      padding: 0.75rem 0;
+      border-bottom: 1px dotted var(--rule);
+      align-items: baseline;
+    }
+    .toc__item:last-child { border-bottom: 0; }
+    .toc__num {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--accent);
+      letter-spacing: 0.05em;
+    }
+    .toc__title {
+      font-family: var(--display);
+      font-weight: 700;
+      font-size: 1.05rem;
+      line-height: 1.2;
+      letter-spacing: -0.01em;
+    }
+    .toc__title em {
+      font-style: italic;
+      font-weight: 400;
+    }
+    .toc__dek {
+      display: block;
+      font-family: var(--body);
+      font-style: italic;
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 300;
+      margin-top: 0.15rem;
+    }
+
+    .pullquote {
+      margin: 1.5rem 0;
+      padding: 1rem 0;
+      border-top: var(--rule-w) solid var(--rule);
+      border-bottom: var(--rule-w) solid var(--rule);
+      font-family: var(--display);
+      font-style: italic;
+      font-weight: 400;
+      font-size: 1.4rem;
+      line-height: 1.25;
+      letter-spacing: -0.01em;
+      text-align: center;
+    }
+    .pullquote::before { content: '“'; color: var(--accent); font-size: 1.5em; line-height: 0; vertical-align: -0.2em; margin-right: 0.1em; }
+    .pullquote::after  { content: '”'; color: var(--accent); font-size: 1.5em; line-height: 0; vertical-align: -0.2em; margin-left: 0.05em; }
+
+    /* -- Feature (center column) -------------------------------------- */
+
+    .feature__lead {
+      font-family: var(--body);
+      font-weight: 300;
+      font-size: 1.05rem;
+      line-height: 1.6;
+      color: var(--ink);
+      margin-bottom: 1.5rem;
+    }
+    .feature__lead::first-letter {
+      font-family: var(--display);
+      font-weight: 900;
+      font-size: 4.5em;
+      line-height: 0.8;
+      float: left;
+      padding: 0.4rem 0.5rem 0 0;
+      color: var(--accent);
+    }
+
+    /* Thread (the chat itself) */
+
+    .thread {
+      border-top: var(--rule-w) solid var(--rule);
+      padding-top: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .msg {
+      display: grid;
+      grid-template-columns: 5.5rem 1fr;
+      gap: 1rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px dotted var(--rule);
+    }
+    .msg:last-of-type { border-bottom: 0; }
+    @media (max-width: 640px) {
+      .msg { grid-template-columns: 1fr; gap: 0.25rem; }
+    }
+
+    .msg__meta {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding-top: 0.4rem;
+      border-right: var(--rule-w) solid var(--rule);
+      padding-right: 0.75rem;
+    }
+    .msg__meta strong {
+      display: block;
+      color: var(--ink);
+      font-weight: 700;
+      margin-bottom: 0.2rem;
+    }
+    .msg__meta .msg__from {
+      color: var(--accent);
+      font-weight: 700;
+    }
+    @media (max-width: 640px) {
+      .msg__meta { border-right: 0; border-bottom: var(--rule-w) solid var(--rule); padding: 0 0 0.4rem; }
+    }
+
+    .msg__body { font-family: var(--body); }
+    .msg--user .msg__body {
+      font-style: italic;
+      font-weight: 300;
+    }
+    .msg__body p {
+      margin: 0 0 0.85em;
+    }
+    .msg__body p:last-child { margin-bottom: 0; }
+
+    .msg__head {
+      font-family: var(--display);
+      font-weight: 700;
+      font-size: 1.25rem;
+      letter-spacing: -0.01em;
+      line-height: 1.2;
+      margin: 0 0 0.5rem;
+    }
+    .msg__head em {
+      font-style: italic;
+      font-weight: 400;
+    }
+
+    /* Typing cursor */
+    .caret {
+      display: inline-block;
+      width: 0.5em;
+      height: 1em;
+      background: var(--accent);
+      vertical-align: -0.15em;
+      margin-left: 0.1em;
+      animation: blink 1s steps(2) infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* Inline project cards (the "reviews") */
+
+    .reviews {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0;
+      margin-top: 1rem;
+      border: var(--rule-w) solid var(--rule);
+    }
+    .review {
+      padding: 1rem;
+      border-right: var(--rule-w) solid var(--rule);
+      border-bottom: var(--rule-w) solid var(--rule);
+      background: var(--paper);
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      transition: background 120ms ease;
+    }
+    .review:last-child { border-right: 0; }
+    .review:hover {
+      background: var(--ink);
+      color: var(--paper);
+    }
+    .review:hover .review__tag,
+      color: var(--accent);
+    }
+    .review__tag {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .review__title {
+      font-family: var(--display);
+      font-weight: 700;
+      font-size: 1.1rem;
+      line-height: 1.2;
+      letter-spacing: -0.01em;
+      margin: 0;
+    }
+    .review__summary {
+      font-family: var(--body);
+      font-size: 0.88rem;
+      font-weight: 300;
+      line-height: 1.45;
+      margin: 0;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      line-clamp: 3;
+      overflow: hidden;
+    }
+    .review__cta {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin-top: 0.3rem;
+    }
+    .review__cta::after {
+      content: ' →';
+      color: var(--accent);
+    }
+    .review:hover .review__cta::after { color: var(--accent); }
+
+    /* Rubros (right column — tags as magazine sections) */
+
+    .rubros__list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .rubro {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 1rem;
+      padding: 0.6rem 0;
+      border-bottom: 1px dotted var(--rule);
+      cursor: pointer;
+      background: none;
+      border-left: 0;
+      border-right: 0;
+      border-top: 0;
+      width: 100%;
+      text-align: left;
+      transition: padding-left 120ms ease, color 120ms ease;
+    }
+    .rubro:last-child { border-bottom: 0; }
+    .rubro:hover {
+      padding-left: 0.5rem;
+      color: var(--accent);
+    }
+    .rubro__name {
+      font-family: var(--display);
+      font-weight: 700;
+      font-size: 1.1rem;
+      letter-spacing: -0.01em;
+    }
+    .rubro__count {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    .rubro__count::before { content: '· '; }
+
+    .colophon {
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: var(--rule-w) solid var(--rule);
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* -- Submit form (the input) ------------------------------------- */
+
+    .submit {
+      margin-top: 2.5rem;
+      padding: 1.5rem 0 0;
+      border-top: var(--rule-w-thick) solid var(--rule);
+    }
+    .submit__kicker {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+    .submit__row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0;
+      align-items: stretch;
+      border: var(--rule-w-thick) solid var(--rule);
+    }
+    .submit__input {
+      border: 0;
+      background: transparent;
+      padding: 1rem 1.25rem;
+      font-family: var(--body);
+      font-weight: 300;
+      font-size: 1.15rem;
+      line-height: 1.4;
+      color: var(--ink);
+      outline: none;
+      resize: none;
+      min-height: 4.5rem;
+      display: block;
+    }
+    .submit__input::placeholder {
+      color: var(--muted);
+      font-style: italic;
+    }
+    .submit__input:focus::placeholder { opacity: 0.4; }
+    .submit__btn {
+      border: 0;
+      border-left: var(--rule-w-thick) solid var(--rule);
+      background: var(--ink);
+      color: var(--paper);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      padding: 0 2rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: background 120ms ease, color 120ms ease;
+    }
+    .submit__btn:hover:not(:disabled) {
+      background: var(--accent);
+      color: var(--accent-ink);
+    }
+    .submit__btn:disabled {
+      background: var(--paper-2);
+      color: var(--muted);
+      cursor: not-allowed;
+    }
+    .submit__btn .arrow {
+      font-family: var(--display);
+      font-style: italic;
+      font-size: 1.5rem;
+      line-height: 1;
+    }
+    .submit__hint {
+      margin-top: 0.5rem;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+    }
+    .submit__hint kbd {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      background: var(--paper-2);
+      border: 1px solid var(--rule);
+      padding: 0.1rem 0.4rem;
+      margin: 0 0.2rem;
+    }
+
+    /* -- Entry animation --------------------------------------------- */
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .msg { animation: slideUp 320ms ease both; }
+
+    /* -- Print footer / colophon ------------------------------------- */
+
+    .footer {
+      margin-top: 4rem;
+      padding-top: 1.25rem;
+      border-top: var(--rule-w-thick) solid var(--rule);
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 1rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .footer em {
+      font-family: var(--display);
+      font-style: italic;
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 0.95rem;
+      color: var(--accent);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="paper">
+    <!-- ========== Top utility bar ========== -->
+    <div class="util" role="banner">
+      <div class="util__group">
+        <span><span class="util__dot" aria-hidden="true"></span>Live · Indexed for retrieval</span>
+      </div>
+      <div class="util__group">
+        <span>Vol. 01</span>
+        <span>MMXXVII</span>
+        <span>ES · EN</span>
+      </div>
+    </div>
+
+    <!-- ========== Masthead ========== -->
+    <header class="masthead">
+      <div class="masthead__kicker">A guided conversation · powered by retrieval</div>
+      <h1 class="masthead__title">The Portfolio <em>Quarterly</em></h1>
+      <p class="masthead__deck">
+        Una edición interactiva de proyectos profesionales, navegable por
+        conversación. Preguntá por stack, dominio o idea — la redacción responde.
+      </p>
+      <span class="masthead__ornament" aria-hidden="true"></span>
+    </header>
+
+    <!-- ========== Main 3-column grid ========== -->
+    <main class="grid">
+      <!-- ---------- TOC (left) ---------- -->
+      <aside class="toc" aria-label="Tabla de contenidos">
+        <div class="colhead"><span>En esta edición</span><span class="colhead__num">I</span></div>
+        <ol class="toc__list">
+          <li class="toc__item">
+            <span class="toc__num">01</span>
+            <div>
+              <span class="toc__title">El <em>manifiesto</em></span>
+              <span class="toc__dek">Por qué los portafolios se leen, no se scrollean.</span>
+            </div>
+          </li>
+          <li class="toc__item">
+            <span class="toc__num">02</span>
+            <div>
+              <span class="toc__title">Cómo <em>preguntar</em></span>
+              <span class="toc__dek">El arte de la consulta conversacional.</span>
+            </div>
+          </li>
+          <li class="toc__item">
+            <span class="toc__num">03</span>
+            <div>
+              <span class="toc__title">Reseñas de <em>proyectos</em></span>
+              <span class="toc__dek">Lo que el bot devuelve cuando encuentra match.</span>
+            </div>
+          </li>
+          <li class="toc__item">
+            <span class="toc__num">04</span>
+            <div>
+              <span class="toc__title">El <em>colofón</em></span>
+              <span class="toc__dek">Quién escribe, quién indexa, quién pregunta.</span>
+            </div>
+          </li>
+        </ol>
+
+        <blockquote class="pullquote">
+          Un portafolio no es una lista. Es una <em>conversación</em>.
+        </blockquote>
+      </aside>
+
+      <!-- ---------- Feature / Chat (center) ---------- -->
+      <section class="feature" aria-label="Artículo principal — conversación con el editor">
+        <div class="colhead">
+          <span>El editor responde</span>
+          <span class="colhead__num">II</span>
+        </div>
+
+        <p class="feature__lead">
+          Bienvenido. Soy el editor de esta edición — un asistente entrenado
+          sobre el archivo de proyectos que el autor guardó en ChromaDB.
+          Funciono en dos pasos: primero ubico el material relevante, después
+          lo devuelvo en prosa y, si hay match, en reseñas con enlace a la
+          página de detalle. Preguntá con la naturalidad que usarías con un
+          editor humano: por stack, por dominio, por idea.
+        </p>
+
+        <!-- The chat thread -->
+        <div class="thread" id="thread" aria-live="polite">
+          <!-- Messages will be rendered here by JS, but seed with one to set the visual tone. -->
+          <article class="msg msg--assistant" data-from="editor">
+            <div class="msg__meta">
+              <strong>Editor</strong>
+              <span>Lectura inicial</span>
+              <span>Hoy</span>
+            </div>
+            <div class="msg__body">
+              <h4 class="msg__head">Empezamos <em>por el índice</em></h4>
+              <p>
+                Probá algo como <em>"¿qué hiciste en Python?"</em>,
+                <em>"muéstrame cloud"</em> o <em>"data engineering"</em>.
+                También podés escribir una idea más amplia — "<em>algo que
+                escale</em>", "<em>un side project</em>" — y dejarme a mí
+                buscar el match.
+              </p>
+              <p>
+                Cada respuesta llega como un artículo corto con bajada. Si
+                encuentro proyectos coincidentes, los anexo como reseñas al
+                final, con su enlace a la página de detalle.
+              </p>
+            </div>
+          </article>
+        </div>
+
+        <!-- Submit form -->
+        <form class="submit" id="submitForm" autocomplete="off">
+          <div class="submit__kicker">Su pregunta, Sr. Lector</div>
+          <div class="submit__row">
+            <textarea
+              id="input"
+              class="submit__input"
+              rows="2"
+              placeholder='Probá: "muéstrame proyectos con AWS" o "side projects"...'
+              aria-label="Su pregunta para el editor"
+            ></textarea>
+            <button type="submit" class="submit__btn" id="sendBtn" disabled>
+              <span>Enviar</span>
+              <span class="arrow" aria-hidden="true">↗</span>
+            </button>
+          </div>
+          <div class="submit__hint">
+            <span><kbd>Enter</kbd> enviar · <kbd>Shift</kbd>+<kbd>Enter</kbd> nueva línea</span>
+            <span id="status">Listo para la primera consulta.</span>
+          </div>
+        </form>
+      </section>
+
+      <!-- ---------- Rubros (right) ---------- -->
+      <aside class="rubros" aria-label="Rubros / stacks">
+        <div class="colhead">
+          <span>Rubros</span>
+          <span class="colhead__num">III</span>
+        </div>
+
+        <div class="rubros__list" id="rubros">
+          <button type="button" class="rubro" data-tag="Python"><span class="rubro__name">Python</span><span class="rubro__count">7</span></button>
+          <button type="button" class="rubro" data-tag="AWS"><span class="rubro__name">AWS</span><span class="rubro__count">5</span></button>
+          <button type="button" class="rubro" data-tag="cloud"><span class="rubro__name">Cloud</span><span class="rubro__count">5</span></button>
+          <button type="button" class="rubro" data-tag="data"><span class="rubro__name">Data Engineering</span><span class="rubro__count">4</span></button>
+          <button type="button" class="rubro" data-tag="RAG"><span class="rubro__name">RAG / LLMs</span><span class="rubro__count">3</span></button>
+          <button type="button" class="rubro" data-tag="side-project"><span class="rubro__name">Side projects</span><span class="rubro__count">6</span></button>
+          <button type="button" class="rubro" data-tag="fastapi"><span class="rubro__name">FastAPI</span><span class="rubro__count">4</span></button>
+          <button type="button" class="rubro" data-tag="astro"><span class="rubro__name">Astro</span><span class="rubro__count">3</span></button>
+        </div>
+
+        <div class="colophon">
+          <p>Set in Playfair Display, Source Serif 4 y JetBrains Mono.<br/>
+          Editado a mano, indexado por embeddings.</p>
+          <p style="margin-top: 0.75rem;">Tipografía protagonista · papel cálido · un acento.</p>
+        </div>
+      </aside>
+    </main>
+
+    <!-- ========== Footer ========== -->
+    <footer class="footer">
+      <span><em>experiment · not for production</em></span>
+      <span>Concept: editorial chat · alt del widget flotante</span>
+    </footer>
+  </div>
+
+  <!-- ========== Simulated chat engine ========== -->
+  <script>
+    /* ------------------------------------------------------------------
+       The actual portafolio backend is not running here, so this is a
+       deterministic stand-in: it picks a canned response from a small
+       bank keyed on simple keyword matches, then types it out with a
+       blinking caret to mimic SSE streaming.
+
+       The shape of each response intentionally mirrors the real backend:
+         - prose paragraphs (markdown-ish)
+         - optional .reviews grid of project cards
+       so a future swap to the real /api/chat/stream-projects endpoint
+       is a one-function change.
+    ------------------------------------------------------------------- */
+
+    const thread = document.getElementById('thread');
+    const form = document.getElementById('submitForm');
+    const input = document.getElementById('input');
+    const sendBtn = document.getElementById('sendBtn');
+    const status = document.getElementById('status');
+
+    /** A canned response bank. Order matters: first match wins. */
+    const RESPONSES = [
+      {
+        match: /\b(python|django|fastapi|flask)\b/i,
+        title: 'Una <em>temporada</em> en Python',
+        paragraphs: [
+          'El autor pasó varios años escribiendo servicios en Python — primero en startups, después en equipos de plataforma. La mayoría corre sobre FastAPI o Django REST Framework, con un patrón estable: tipado estricto, migraciones automatizadas, y un ojo clínico sobre los timeouts.',
+          'Hay siete proyectos etiquetados con Python en el archivo. Los más representativos son un pipeline de migración cloud (proj-cloud-migration, 2024), un wrapper RAG open-source (HiRag15k, 2023), y un side project de budgeting personal (proj-finance-cli, 2022).',
+        ],
+        reviews: [
+          { tag: 'Python · AWS · Terraform', title: 'Cloud Migration Pipeline', summary: 'Migración de workloads legacy a AWS multi-cuenta, con Terraform y validación de drift.', cta: 'Leer reseña' },
+          { tag: 'Python · RAG · ChromaDB', title: 'HiRag15k — Hierarchical Retrieval', summary: 'Wrapper open-source sobre LangChain para retrieval jerárquico en colecciones grandes.', cta: 'Leer reseña' },
+          { tag: 'Python · CLI · Rich', title: 'Finance CLI', summary: 'Side project para trackear gastos en CSV con categorización por reglas.', cta: 'Leer reseña' },
+        ],
+      },
+      {
+        match: /\b(aws|cloud|terraform|ec2|lambda|s3)\b/i,
+        title: 'Infraestructura <em>en la nube</em>',
+        paragraphs: [
+          'Cinco proyectos tocan AWS — desde pipelines de migración hasta side projects serverless. La mayoría asume multi-cuenta y un patrón landing-zone con Control Tower.',
+          'La pregunta más habitual del archivo es por casos donde la nube fue el medio, no el fin: side projects que viven en Lambda para no pagar nunca, o migraciones que enseñaron qué partes del monolito no valía la pena levantar.',
+        ],
+        reviews: [
+          { tag: 'AWS · Terraform · Python', title: 'Cloud Migration Pipeline', summary: 'Migración de workloads legacy a AWS multi-cuenta, con Terraform y validación de drift.', cta: 'Leer reseña' },
+          { tag: 'AWS · Lambda · DynamoDB', title: 'Receipts OCR', summary: 'Side project serverless que extrae datos de tickets de supermercado con Textract.', cta: 'Leer reseña' },
+        ],
+      },
+      {
+        match: /\b(data|etl|spark|airflow|datalake)\b/i,
+        title: 'Tuberías para <em>datos</em>',
+        paragraphs: [
+          'El autor trabaja con data engineering desde hace casi una década. Los proyectos más sólidos son pipelines sobre Spark y Airflow, con un patrón estable: staging limpia, capa curated, y gold para servir.',
+          'Hay cuatro proyectos con tag "data" — la mitad son pipelines productivos en equipos grandes, la mitad son experimentos personales para entender mejor el tooling.',
+        ],
+        reviews: [
+          { tag: 'Python · Spark · Airflow', title: 'Latam FX Rates Pipeline', summary: 'Pipeline diario de tipos de cambio desde APIs públicas hacia a Snowflake.', cta: 'Leer reseña' },
+          { tag: 'Python · dbt · Postgres', title: 'SaaS Metrics dbt Project', summary: 'Side project — dbt project que calcula MRR, churn y expansion con tests exhaustivos.',
+        ],
+      },
+      {
+        match: /\b(rag|llm|embedding|chroma|langchain|openai)\b/i,
+        title: 'Trabajo con <em>modelos de lenguaje</em>',
+        paragraphs: [
+          'Tres proyectos tocan LLMs o retrieval-augmented generation directamente. El más serio es HiRag15k, un wrapper sobre LangChain para retrieval jerárquico — escrito antes de que el patrón RAG se volviera mainstream.',
+          'El actual portafolio (esta misma página) es el cuarto: indexa los proyectos en ChromaDB y los devuelve en prosa conversacional.',
+        ],
+        reviews: [
+          { tag: 'Python · RAG · ChromaDB', title: 'HiRag15k — Hierarchical Retrieval', summary: 'Wrapper open-source sobre LangChain para retrieval jerárquico en colecciones grandes.', cta: 'Leer reseña' },
+          { tag: 'Astro · FastAPI · ChromaDB', title: 'This Portfolio', summary: 'Portafolio navegable por conversación. Dos pasos: master index, después detail collection.', cta: 'Leer reseña' },
+        ],
+      },
+      {
+        match: /\b(side|personal|hobby|fin de semana)\b/i,
+        title: 'Side projects — <em>el laboratorio</em>',
+        paragraphs: [
+          'Hay seis side projects en el archivo. Algunos son juguete, otros son producto — todos comparten una característica: viven en AWS free tier o en una Raspberry Pi.',
+          'El editor recomienda empezar por los que mejor envejecen: Receipts OCR (Textract + Lambda, 2021) y Finance CLI (Python + Rich, 2022) son los que el autor todavía abre.',
+        ],
+        reviews: [
+          { tag: 'Python · CLI · Rich', title: 'Finance CLI', summary: 'Side project para trackear gastos en CSV con categorización por reglas.', cta: 'Leer reseña' },
+          { tag: 'AWS · Lambda · DynamoDB', title: 'Receipts OCR', summary: 'Side project serverless que extrae datos de tickets de supermercado con Textract.', cta: 'Leer reseña' },
+        ],
+      },
+      {
+        match: /\b(hola|buenos|buenas|hello|hi|empezar|comenzar)\b/i,
+        title: 'Un saludo, <em>un comienzo</em>',
+        paragraphs: [
+          'Hola. Le doy la bienvenida al archivo. Para empezar con buen pie, sugiero una de dos cosas: pedir un rubro concreto (Python, AWS, data, side projects), o hacer una pregunta amplia y dejarme a mí decidir qué proyectos tienen algo que decir.',
+          'Si quiere hojear, los rubros en la columna derecha son la sección "En esta edición" del archivo completo.',
+        ],
+        reviews: [],
+      },
+      // Fallback
+      {
+        match: /.*/,
+        title: 'No estoy seguro de <em>qué responder</em>',
+        paragraphs: [
+          'Su pregunta no matcheó con ninguno de los proyectos indexados. Eso no significa que no haya material — puede significar que la formulación es demasiado amplia, o que apunta a un dominio que todavía no está cargado en ChromaDB.',
+          'Sugiero reformular con un stack concreto (Python, AWS, RAG…) o pedirme un rubro entero: <em>"muéstrame todo lo de data engineering"</em>.',
+        ],
+        reviews: [],
+      },
+    ];
+
+    /** Pick the first matching response, or the fallback. */
+    function pickResponse(text) {
+      for (const r of RESPONSES) {
+        if (r.match.test(text)) return r;
+      }
+      return RESPONSES[RESPONSES.length - 1];
+    }
+
+    /** Build the message element. `role` is 'user' or 'assistant'. */
+    function buildMessage({ role, title, paragraphs, reviews }) {
+      const article = document.createElement('article');
+      article.className = `msg msg--${role}`;
+
+      const meta = document.createElement('div');
+      meta.className = 'msg__meta';
+      const today = new Date();
+      const time = today.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+      if (role === 'user') {
+        meta.innerHTML = '<strong>Visitante</strong><span>Consulta</span><span>' + time + '</span>';
+      } else {
+        meta.innerHTML = '<strong>Editor</strong><span>Respuesta</span><span>' + time + '</span>';
+      }
+      article.appendChild(meta);
+
+      const body = document.createElement('div');
+      body.className = 'msg__body';
+
+      if (title) {
+        const h = document.createElement('h4');
+        h.className = 'msg__head';
+        h.innerHTML = title;
+        body.appendChild(h);
+      }
+
+      const prose = document.createElement('div');
+      prose.className = 'msg__prose';
+      // Each paragraph is appended progressively during the typewriter.
+      body.appendChild(prose);
+
+      if (reviews && reviews.length) {
+        const grid = document.createElement('div');
+        grid.className = 'reviews';
+        for (const r of reviews) {
+          const a = document.createElement('a');
+          a.className = 'review';
+          a.href = '#';
+          a.onclick = (e) => { e.preventDefault(); };
+          a.innerHTML =
+            '<span class="review__tag">' + escapeHtml(r.tag) + '</span>' +
+            '<h5 class="review__title">' + escapeHtml(r.title) + '</h5>' +
+            '<p class="review__summary">' + escapeHtml(r.summary) + '</p>' +
+            '<span class="review__cta">' + escapeHtml(r.cta) + '</span>';
+          grid.appendChild(a);
+        }
+        body.appendChild(grid);
+      }
+
+      article.appendChild(body);
+      return article;
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, (c) => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+      ));
+    }
+
+    /** Type a string of HTML paragraph chunks into a container, char-by-char, with a blinking caret. */
+    async function typeHtml(container, htmlParagraphs, speed = 12) {
+      container.innerHTML = '';
+      for (const pHtml of htmlParagraphs) {
+        const p = document.createElement('p');
+        container.appendChild(p);
+        const caret = document.createElement('span');
+        caret.className = 'caret';
+        p.appendChild(caret);
+
+        // Strip outer <p>...</p> if present, so we can type inner text + em.
+        const inner = pHtml.replace(/^<p>|<\/p>$/g, '');
+
+        // Walk the HTML string as text + simple em tags.
+        let i = 0;
+        let openEm = false;
+        while (i < inner.length) {
+          if (inner.startsWith('<em>', i)) {
+            const em = document.createElement('em');
+            p.insertBefore(em, caret);
+            openEm = true;
+            i += 4;
+            continue;
+          }
+          if (inner.startsWith('</em>', i)) {
+            openEm = false;
+            i += 5;
+            continue;
+          }
+          // Read one "word" (up to next space or tag), type it char-by-char.
+          const nextSpace = inner.indexOf(' ', i);
+          const nextTag = Math.min(
+            inner.indexOf('<', i) < 0 ? Infinity : inner.indexOf('<', i),
+            Infinity,
+          );
+          const wordEnd = Math.min(
+            nextSpace < 0 ? Infinity : nextSpace + 1,
+            nextTag,
+            inner.length,
+          );
+          const word = inner.slice(i, wordEnd);
+          for (const ch of word) {
+            const target = openEm ? p.querySelector('em:last-child') || p : p;
+            // Insert char before caret.
+            caret.before(document.createTextNode(ch));
+            // Tiny jitter so it doesn't feel mechanical.
+            await sleep(speed + (Math.random() * 8 - 4));
+          }
+          i = wordEnd;
+        }
+        caret.remove();
+      }
+    }
+
+    function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+    /** Add a user message immediately, then the assistant message with typewriter. */
+    async function submitQuestion(text) {
+      if (!text.trim()) return;
+
+      // User message
+      const userMsg = buildMessage({ role: 'user' });
+      // Simpler: user has no title; just italic prose.
+      const userProse = userMsg.querySelector('.msg__prose');
+      userProse.innerHTML = '<p>' + escapeHtml(text) + '</p>';
+      thread.appendChild(userMsg);
+      thread.scrollTop = thread.scrollHeight;
+
+      // Lock the input while the bot "thinks".
+      input.disabled = true;
+      sendBtn.disabled = true;
+      status.textContent = 'El editor está leyendo el archivo…';
+
+      const resp = pickResponse(text);
+      await sleep(450 + Math.random() * 350);
+
+      const botMsg = buildMessage({
+        role: 'assistant',
+        title: resp.title,
+        paragraphs: resp.paragraphs,
+        reviews: resp.reviews,
+      });
+      thread.appendChild(botMsg);
+
+      // Typewriter the prose only (leave title and reviews as static markup).
+      const prose = botMsg.querySelector('.msg__prose');
+      await typeHtml(prose, resp.paragraphs);
+
+      status.textContent = 'Listo para la siguiente consulta.';
+      input.disabled = false;
+      sendBtn.disabled = input.value.trim() === '';
+      input.focus();
+      thread.scrollTop = thread.scrollHeight;
+    }
+
+    // -- Form submit -----------------------------------------------
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const v = input.value;
+      input.value = '';
+      sendBtn.disabled = true;
+      void submitQuestion(v);
+    });
+
+    // Enter submits, Shift+Enter inserts newline.
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        form.requestSubmit();
+      }
+    });
+
+    input.addEventListener('input', () => {
+      sendBtn.disabled = input.value.trim() === '';
+    });
+
+    // -- Rubros chips pre-fill the input ---------------------------
+    document.querySelectorAll('.rubro').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tag = btn.dataset.tag;
+        const prompt = tag.toLowerCase().includes('side')
+          ? 'muéstrame tus side projects'
+          : 'muéstrame proyectos con ' + tag;
+        input.value = prompt;
+        sendBtn.disabled = false;
+        input.focus();
+      });
+    });
+
+    // -- Boot -------------------------------------------------------
+    input.focus();
+  </script>
+</body>
+</html>

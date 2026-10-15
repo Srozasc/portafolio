@@ -1,0 +1,147 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import ProjectCard from '../components/ProjectCard.astro';
+import es from '../i18n/es.json';
+import en from '../i18n/en.json';
+
+const locale = Astro.currentLocale ?? 'es';
+const t = locale === 'en' ? en : es;
+
+// Top 3 projects for the featured section (sorted by year desc).
+const projects = (await getCollection('projects'))
+  .sort((a, b) => b.data.year - a.data.year)
+  .slice(0, 3);
+
+const projectsHref = locale === 'en' ? '/en/proyectos/index.html' : '/proyectos/index.html';
+const aboutHref = locale === 'en' ? '/en/sobre-mi/index.html' : '/sobre-mi/index.html';
+---
+
+<Base title={t.site.title} description={t.site.tagline}>
+  <section class="container hero">
+    <p class="hero-greeting">{t.home.greeting}</p>
+    <h1>{t.home.name}</h1>
+    <p class="hero-tagline">{t.home.tagline}</p>
+    <p class="hero-intro">{t.home.intro}</p>
+    <p class="ctas">
+      <a href="#chat" class="cta primary">{t.home.cta.chat}</a>
+      <a href={projectsHref} class="cta secondary">{t.home.cta.projects}</a>
+    </p>
+  </section>
+
+  {projects.length > 0 && (
+    <section class="container featured">
+      <header class="featured-header">
+        <h2>{t.home.featured}</h2>
+        <a href={projectsHref} class="featured-all">{t.home.cta.all_projects} →</a>
+      </header>
+      <div class="featured-grid">
+        {projects.map((project) => (
+          <ProjectCard project={project} locale={locale} />
+        ))}
+      </div>
+    </section>
+  )}
+
+  <section class="container about-hint">
+    <p>
+      <a href={aboutHref}>{t.home.about_hint}</a>
+    </p>
+  </section>
+</Base>
+
+<style>
+  .hero {
+    padding-block: 3rem 2rem;
+    text-align: center;
+  }
+  .hero-greeting {
+    margin: 0 0 0.5rem;
+    color: var(--fg-muted);
+    font-size: 0.95rem;
+  }
+  .hero h1 {
+    margin: 0 0 0.5rem;
+    font-size: 2.5rem;
+  }
+  .hero-tagline {
+    color: var(--fg-muted);
+    font-size: 1.125rem;
+    margin: 0 0 1.5rem;
+  }
+  .hero-intro {
+    max-width: 36rem;
+    margin: 0 auto 2rem;
+  }
+  .ctas {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .cta {
+    display: inline-block;
+    padding: 0.625rem 1.5rem;
+    border-radius: 0.375rem;
+    font-weight: 500;
+  }
+  .cta.primary {
+    background: var(--accent);
+    color: white;
+  }
+  .cta.primary:hover {
+    background: #1d4ed8;
+    text-decoration: none;
+  }
+  .cta.secondary {
+    border: 1px solid var(--border);
+    color: var(--fg);
+  }
+  .cta.secondary:hover {
+    background: #f9fafb;
+    text-decoration: none;
+  }
+
+  .featured {
+    padding-block: 2rem;
+  }
+  .featured-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+  .featured-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+  }
+  .featured-all {
+    color: var(--accent);
+    font-size: 0.95rem;
+  }
+  .featured-grid {
+    display: grid;
+    gap: 1.25rem;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 640px) {
+    .featured-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 960px) {
+    .featured-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  .about-hint {
+    padding-block: 1.5rem 2rem;
+    text-align: center;
+    color: var(--fg-muted);
+  }
+  .about-hint p {
+    margin: 0;
+  }
+</style>

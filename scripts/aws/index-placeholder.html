@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Portafolio — placeholder</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 640px;
+      margin: 4rem auto;
+      padding: 0 1.5rem;
+      color: #1a1a1a;
+      line-height: 1.6;
+    }
+    h1 { font-size: 2rem; margin-bottom: 0.25rem; }
+    .subtitle { color: #666; margin-top: 0; }
+    .tag {
+      display: inline-block;
+      background: #f3f4f6;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      padding: 0.15rem 0.5rem;
+      font-size: 0.85rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: #374151;
+    }
+    hr { border: none; border-top: 1px solid #e5e7eb; margin: 2rem 0; }
+    code {
+      background: #f3f4f6;
+      padding: 0.15rem 0.35rem;
+      border-radius: 3px;
+      font-size: 0.9em;
+    }
+  </style>
+</head>
+<body>
+  <h1>Portafolio</h1>
+  <p class="subtitle">Placeholder de infraestructura — T7 reemplazará con el build real de Astro.</p>
+
+  <p>
+    Si ves esta página en <code>https://portafolio.srozas.men</code> con HTTPS válido y
+    sin warnings del certificado, la cadena funciona end-to-end:
+  </p>
+  <ul>
+    <li>DNS Cloudflare <span class="tag">CNAME portafolio &rarr; d2tjrpncms9n6q.cloudfront.net</span></li>
+    <li>CloudFront <span class="tag">EJ12TBQTYJ43D</span> con OAC + ACM wildcard <span class="tag">*.srozas.men</span></li>
+    <li>S3 bucket <span class="tag">portafolio-web-prod</span> en <span class="tag">us-west-2</span> con Block Public Access</li>
+  </ul>
+
+  <hr>
+
+  <p><small>
+    Provisionado como parte de la feature <code>feat/aws-deploy</code>.
+    Reemplazado por <code>apps/web/dist/</code> en T7.
+  </small></p>
+</body>
+</html>
