@@ -1,0 +1,116 @@
+{
+  "site": {
+    "title": "Portafolio RAG",
+    "tagline": "Proyectos, skills y trayectoria — navegá con el bot o explorá el índice."
+  },
+  "nav": {
+    "home": "Inicio",
+    "projects": "Proyectos",
+    "about": "Sobre mí",
+    "language": "Idioma"
+  },
+  "home": {
+    "greeting": "Hola, soy",
+    "name": "Sebastián Rozas",
+    "tagline": "Ingeniero en Informática — Data Warehousing, ETL/ELT y desarrollo asistido por IA.",
+    "intro": "Acá vas a encontrar los proyectos que lideré o en los que participé como senior. Vienen de banca, retail, logística y educación superior, con foco en optimización de procesos de datos y plataformas modernas.",
+    "chat_hint": "Preguntale al bot qué te interesa (SQL, ETL/ELT, data warehousing, AI-assisted...) — o mirá la lista completa.",
+    "open_chat": "Abrir chat",
+    "view_projects": "Ver todos los proyectos",
+    "cta": {
+      "chat": "Preguntale al bot",
+      "projects": "Ver proyectos",
+      "all_projects": "Ver todos"
+    },
+    "chat": {
+      "input_placeholder": "Preguntale al bot sobre un stack, proyecto o rol...",
+      "send": "Enviar",
+      "thinking": "Pensando...",
+      "error_title": "Algo salió mal",
+      "error_retry": "Reintentar",
+      "card_view": "Ver proyecto",
+      "empty_message": "Hola, soy el bot de Sebastián. Preguntame sobre SQL, ETL/ELT, Data Warehousing, AI-assisted development o pedime un proyecto en particular.",
+      "assistant_title": "Asistente de navegación",
+      "open_chat": "Abrir chat de navegación",
+      "close_chat": "Cerrar",
+      "welcome_greeting": "Hola, soy el bot de Sebastián.",
+      "welcome_subtitle": "Elegí uno o más stacks para ver proyectos relacionados.",
+      "welcome_submit": "Ver proyectos",
+      "welcome_skip": "o escribí tu pregunta abajo",
+      "clear_selection": "Limpiar",
+      "back_to_tags": "Volver a los stacks",
+      "new_search": "Nueva búsqueda",
+      "new_search_aria": "Iniciar nueva búsqueda"
+    },
+    "featured": "Proyectos destacados",
+    "about_hint": "Más sobre mí y cómo contactarme →",
+    "tutorial": {
+      "badge": "Bienvenida",
+      "title": "Tu portafolio, en <em>conversación</em>.",
+      "sub": "El editor responde preguntas sobre los proyectos indexados — por stack, dominio o idea. Abrí el chat y probá.",
+      "step1_title": "Elegí tus áreas de interés",
+      "step1_desc": "Cuando abras el chat, elegí una o más etiquetas con stacks (<code>python</code>, <code>aws</code>, <code>data</code>…). El editor filtra el portafolio por lo que te interesa.",
+      "step2_title": "Mirá los proyectos filtrados",
+      "step2_desc": "El editor te muestra solo los proyectos que matchean con tus etiquetas. Hacé click en cualquiera para ver el detalle completo.",
+      "step3_title": "Preguntale al bot (opcional)",
+      "step3_desc": "Si querés más contexto sobre un proyecto puntual, escribí tu pregunta abajo en el chat.",
+      "no_show": "No mostrar de nuevo",
+      "start_chat": "Empezar a chatear"
+    }
+  },
+  "proyectos": {
+    "title": "Proyectos",
+    "subtitle": "Selección de proyectos en producción. Filtrá por stack o tag con el bot.",
+    "empty": "Todavía no hay proyectos publicados.",
+    "detail": {
+      "back": "Proyectos",
+      "year": "Año",
+      "role": "Rol",
+      "stack": "Stack",
+      "tags": "Tags",
+      "impact": "Impacto",
+      "links": {
+        "label": "Links",
+        "repo": "Repositorio",
+        "demo": "Demo",
+        "case_study": "Caso de estudio"
+      }
+    }
+  },
+  "sobre_mi": {
+    "title": "Sobre mí",
+    "subtitle": "Ingeniero en Informática con base en Santiago, Chile. Disponible para proyectos remotos (UTC-3/-4).",
+    "bio": {
+      "paragraph1": "Soy Sebastián Rozas, Ingeniero en Informática con más de 12 años de experiencia liderando la optimización y automatización de procesos de datos en industrias de alta exigencia como banca, retail y logística. Mi especialidad es transformar datos crudos en valor de negocio.",
+      "paragraph2": "Diseño y exploto soluciones de Data Warehouse (Teradata, SQL Server, Sybase) y construyo procesos ELT con SQL y Shell Unix. Un ejemplo concreto: re-diseñé un ETL crítico para una entidad bancaria que pasó de 17 horas a menos de 90 minutos. A lo largo de mi carrera lideré también proyectos para Correos de Chile (sistema de facturación internacional) y asesoré técnicamente a equipos del Banco BCI sobre arquitectura y optimización de bases de datos.",
+      "paragraph3": "Actualmente estoy enfocado en el futuro del desarrollo de software: aplico Spec-Driven Development para dirigir el ciclo de vida completo de proyectos con herramientas de Inteligencia Artificial. Mi rol es guiar a la IA para construir soluciones robustas, eficientes y de alta calidad. Si te interesa charlar sobre datos, IA aplicada al desarrollo, o nuevos desafíos, hablemos."
+    },
+    "skills": {
+      "title": "Skills",
+      "hard_title": "Hard skills",
+      "hard": [
+        "Optimización de procesos ETL/ELT",
+        "Data Warehousing (Teradata, SQL Server, Sybase)",
+        "SQL avanzado y modelado de datos",
+        "Scripting en Shell Unix (Bash/Ksh)",
+        "Arquitectura de datos (Data Warehouse, modelos dimensionales)",
+        "Procesamiento de datos a gran escala (decenas de millones de registros)",
+        "Python (FastAPI)",
+        "TypeScript (Fastify, Node.js)",
+        "AI-assisted development (Spec-Driven Development)",
+        "Documentación operativa y mentoría técnica"
+      ],
+      "soft_title": "Soft skills",
+      "soft": "Liderazgo técnico y mentoría de equipos. Trabajo directo con stakeholders de negocio, riesgo y producto para traducir constraints en decisiones técnicas. Gestión de transiciones (reclutamiento, capacitación de sucesores) y comunicación clara como parte del oficio."
+    },
+    "contact": {
+      "title": "Contacto",
+      "email_label": "Email",
+      "email": "sebastian.rozas@hotmail.cl",
+      "linkedin_label": "LinkedIn",
+      "linkedin": "linkedin.com/in/sebastian-rozas-0a5804a9",
+      "github_label": "GitHub",
+      "github": "github.com/Srozasc"
+    }
+  }
+}
