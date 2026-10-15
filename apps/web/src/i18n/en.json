@@ -12,9 +12,9 @@
   "home": {
     "greeting": "Hi, I'm",
     "name": "Sebastián Rozas",
-    "tagline": "Tech Lead / Senior Engineer — Python, AWS, data and ML in production.",
-    "intro": "Here's the work I've led or contributed to as a senior. Most of it is in banking and fintech, focused on real-time data, RAG and cloud platforms.",
-    "chat_hint": "Ask the bot about anything that interests you (Python, AWS, cloud, data...) — or browse the full list.",
+    "tagline": "Computer Engineer — Data Warehousing, ETL/ELT and AI-assisted development.",
+    "intro": "Here's the work I've led or contributed to as a senior. It spans banking, retail, logistics and higher education, focused on data process optimization and modern platforms.",
+    "chat_hint": "Ask the bot about anything that interests you (SQL, ETL/ELT, data warehousing, AI-assisted...) — or browse the full list.",
     "open_chat": "Open chat",
     "view_projects": "View all projects",
     "cta": {
@@ -29,7 +29,7 @@
       "error_title": "Something went wrong",
       "error_retry": "Retry",
       "card_view": "View project",
-      "empty_message": "Hi, I'm Sebastián's bot. Ask me about Python, AWS, cloud, real-time data or request a specific project.",
+      "empty_message": "Hi, I'm Sebastián's bot. Ask me about SQL, ETL/ELT, Data Warehousing, AI-assisted development or request a specific project.",
       "assistant_title": "Navigation assistant",
       "open_chat": "Open navigation chat",
       "close_chat": "Close",
@@ -79,36 +79,38 @@
   },
   "sobre_mi": {
     "title": "About me",
-    "subtitle": "Senior backend engineer based in Buenos Aires. Open to remote roles in UTC-3.",
+    "subtitle": "Computer Engineer based in Santiago, Chile. Open to remote projects (UTC-3/-4).",
     "bio": {
-      "paragraph1": "I'm Sebastián, a tech lead and senior backend engineer based in Buenos Aires. I've spent the last decade writing software that runs in production — mostly in banking, fintech and data platforms, where a bug isn't a 500 but a blocked transaction or a regulatory report that ships late.",
-      "paragraph2": "I'm comfortable across the full cycle: from technical decisions (which database, which consistency model, what SLA is realistic) to operations (runbooks, on-call rotation, post-mortems that actually help). I particularly enjoy projects where the complexity lives in the domain — fraud, scoring, event ingestion — rather than in the framework.",
-      "paragraph3": "I'm currently open to fully remote roles in the UTC-3 timezone and medium/long-term engagements. If you need someone to take ownership of an existing system and leave it better than they found it, let's talk."
+      "paragraph1": "I'm Sebastián Rozas, a Computer Engineer with 12+ years of experience leading data process optimization and automation in demanding industries like banking, retail and logistics. My specialty is turning raw data into business value.",
+      "paragraph2": "I design and operate Data Warehouse solutions (Teradata, SQL Server, Sybase) and build ELT pipelines with SQL and Unix Shell. A concrete example: I re-designed a critical ETL for a banking entity, cutting execution time from 17 hours to under 90 minutes. Over my career I've also led projects for Correos de Chile (international invoicing system) and provided technical advisory to Banco BCI teams on database architecture and optimization.",
+      "paragraph3": "I'm currently focused on the future of software development: I apply Spec-Driven Development to drive the full project lifecycle with AI tooling. My role is to guide the AI into building robust, efficient and high-quality solutions. If you'd like to talk about data, AI applied to development, or new challenges, let's chat."
     },
     "skills": {
       "title": "Skills",
       "hard_title": "Hard skills",
       "hard": [
-        "Python (FastAPI, Airflow, PyFlink)",
-        "AWS (EKS, Lambda, Kinesis, SageMaker, MSK)",
-        "Terraform + GitHub Actions + ArgoCD",
-        "Apache Kafka + Spark Structured Streaming",
-        "PostgreSQL + Redis + DynamoDB",
-        "Kubernetes + Docker + Helm",
-        "MLOps (MLflow, Feast, Evidently AI)",
-        "Observability (Datadog, Prometheus, Grafana, OpenTelemetry)"
+        "ETL/ELT process optimization",
+        "Data Warehousing (Teradata, SQL Server, Sybase)",
+        "Advanced SQL and data modeling",
+        "Unix Shell scripting (Bash/Ksh)",
+        "Data architecture (Data Warehouse, dimensional models)",
+        "Large-scale data processing (tens of millions of records)",
+        "Python (FastAPI)",
+        "TypeScript (Fastify, Node.js)",
+        "AI-assisted development (Spec-Driven Development)",
+        "Operational documentation and technical mentoring"
       ],
       "soft_title": "Soft skills",
-      "soft": "Tech leadership and mentoring of squads of 3-6 people. Heavy collaboration with risk, compliance and product teams to translate business constraints into technical decisions. Blameless post-mortems and operational documentation as part of the codebase."
+      "soft": "Technical leadership and team mentoring. Direct work with business, risk and product stakeholders to translate constraints into technical decisions. Transition management (hiring, training successors) and clear communication as part of the craft."
     },
     "contact": {
       "title": "Contact",
       "email_label": "Email",
-      "email": "sebastian@example.com",
+      "email": "sebastian.rozas@hotmail.cl",
       "linkedin_label": "LinkedIn",
-      "linkedin": "linkedin.com/in/sebastian-rozas",
+      "linkedin": "linkedin.com/in/sebastian-rozas-0a5804a9",
       "github_label": "GitHub",
-      "github": "github.com/sebastian-rozas"
+      "github": "github.com/Srozasc"
     }
   }
 }

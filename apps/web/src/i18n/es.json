@@ -12,9 +12,9 @@
   "home": {
     "greeting": "Hola, soy",
     "name": "Sebastián Rozas",
-    "tagline": "Tech Lead / Senior Engineer — Python, AWS, data y ML en producción.",
-    "intro": "Acá vas a encontrar los proyectos que lideré o en los que participé como senior. La mayoría son de banca y fintech, con foco en datos en tiempo real, RAG y plataformas cloud.",
-    "chat_hint": "Preguntale al bot qué te interesa (Python, AWS, cloud, data...) — o mirá la lista completa.",
+    "tagline": "Ingeniero en Informática — Data Warehousing, ETL/ELT y desarrollo asistido por IA.",
+    "intro": "Acá vas a encontrar los proyectos que lideré o en los que participé como senior. Vienen de banca, retail, logística y educación superior, con foco en optimización de procesos de datos y plataformas modernas.",
+    "chat_hint": "Preguntale al bot qué te interesa (SQL, ETL/ELT, data warehousing, AI-assisted...) — o mirá la lista completa.",
     "open_chat": "Abrir chat",
     "view_projects": "Ver todos los proyectos",
     "cta": {
@@ -29,7 +29,7 @@
       "error_title": "Algo salió mal",
       "error_retry": "Reintentar",
       "card_view": "Ver proyecto",
-      "empty_message": "Hola, soy el bot de Sebastián. Preguntame sobre Python, AWS, cloud, datos en tiempo real o pedime un proyecto en particular.",
+      "empty_message": "Hola, soy el bot de Sebastián. Preguntame sobre SQL, ETL/ELT, Data Warehousing, AI-assisted development o pedime un proyecto en particular.",
       "assistant_title": "Asistente de navegación",
       "open_chat": "Abrir chat de navegación",
       "close_chat": "Cerrar",
@@ -79,36 +79,38 @@
   },
   "sobre_mi": {
     "title": "Sobre mí",
-    "subtitle": "Backend senior con base en Buenos Aires. Disponible para roles remotos en UTC-3.",
+    "subtitle": "Ingeniero en Informática con base en Santiago, Chile. Disponible para proyectos remotos (UTC-3/-4).",
     "bio": {
-      "paragraph1": "Soy Sebastián, tech lead y senior backend engineer con base en Buenos Aires. Llevo una década escribiendo software que corre en producción: la mayoría en banca, fintech y plataformas de datos, donde un bug no es un 500 sino una transacción bloqueada o un reporte regulatorio que sale tarde.",
-      "paragraph2": "Trabajo cómodo en todo el ciclo: desde la decisión técnica (qué base de datos, qué modelo de consistencia, qué SLA es razonable) hasta la operación (runbooks, on-call rotation, post-mortems que sirven). Disfruto especialmente los proyectos donde la complejidad está en el dominio — fraude, scoring, ingestión de eventos — más que en el framework.",
-      "paragraph3": "Hoy estoy disponible para roles 100% remotos en zona horaria UTC-3 y proyectos de medio/largo plazo. Si necesitás a alguien que se haga cargo de un sistema existente y lo deje mejor de como lo encontró, hablamos."
+      "paragraph1": "Soy Sebastián Rozas, Ingeniero en Informática con más de 12 años de experiencia liderando la optimización y automatización de procesos de datos en industrias de alta exigencia como banca, retail y logística. Mi especialidad es transformar datos crudos en valor de negocio.",
+      "paragraph2": "Diseño y exploto soluciones de Data Warehouse (Teradata, SQL Server, Sybase) y construyo procesos ELT con SQL y Shell Unix. Un ejemplo concreto: re-diseñé un ETL crítico para una entidad bancaria que pasó de 17 horas a menos de 90 minutos. A lo largo de mi carrera lideré también proyectos para Correos de Chile (sistema de facturación internacional) y asesoré técnicamente a equipos del Banco BCI sobre arquitectura y optimización de bases de datos.",
+      "paragraph3": "Actualmente estoy enfocado en el futuro del desarrollo de software: aplico Spec-Driven Development para dirigir el ciclo de vida completo de proyectos con herramientas de Inteligencia Artificial. Mi rol es guiar a la IA para construir soluciones robustas, eficientes y de alta calidad. Si te interesa charlar sobre datos, IA aplicada al desarrollo, o nuevos desafíos, hablemos."
     },
     "skills": {
       "title": "Skills",
       "hard_title": "Hard skills",
       "hard": [
-        "Python (FastAPI, Airflow, PyFlink)",
-        "AWS (EKS, Lambda, Kinesis, SageMaker, MSK)",
-        "Terraform + GitHub Actions + ArgoCD",
-        "Apache Kafka + Spark Structured Streaming",
-        "PostgreSQL + Redis + DynamoDB",
-        "Kubernetes + Docker + Helm",
-        "MLOps (MLflow, Feast, Evidently AI)",
-        "Observabilidad (Datadog, Prometheus, Grafana, OpenTelemetry)"
+        "Optimización de procesos ETL/ELT",
+        "Data Warehousing (Teradata, SQL Server, Sybase)",
+        "SQL avanzado y modelado de datos",
+        "Scripting en Shell Unix (Bash/Ksh)",
+        "Arquitectura de datos (Data Warehouse, modelos dimensionales)",
+        "Procesamiento de datos a gran escala (decenas de millones de registros)",
+        "Python (FastAPI)",
+        "TypeScript (Fastify, Node.js)",
+        "AI-assisted development (Spec-Driven Development)",
+        "Documentación operativa y mentoría técnica"
       ],
       "soft_title": "Soft skills",
-      "soft": "Tech leadership y mentoring de squads de 3-6 personas. Mucho trabajo con equipos de riesgo, compliance y producto para traducir constraints de negocio en decisiones técnicas. Post-mortems sin culpa y documentación operativa como parte del código."
+      "soft": "Liderazgo técnico y mentoría de equipos. Trabajo directo con stakeholders de negocio, riesgo y producto para traducir constraints en decisiones técnicas. Gestión de transiciones (reclutamiento, capacitación de sucesores) y comunicación clara como parte del oficio."
     },
     "contact": {
       "title": "Contacto",
       "email_label": "Email",
-      "email": "sebastian@example.com",
+      "email": "sebastian.rozas@hotmail.cl",
       "linkedin_label": "LinkedIn",
-      "linkedin": "linkedin.com/in/sebastian-rozas",
+      "linkedin": "linkedin.com/in/sebastian-rozas-0a5804a9",
       "github_label": "GitHub",
-      "github": "github.com/sebastian-rozas"
+      "github": "github.com/Srozasc"
     }
   }
 }
