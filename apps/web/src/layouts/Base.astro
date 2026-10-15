@@ -1,0 +1,182 @@
+---
+import '../styles/global.css';
+import es from '../i18n/es.json';
+import en from '../i18n/en.json';
+import { getCollection } from 'astro:content';
+import { ViewTransitions } from 'astro:transitions';
+import Chatbot from '../components/Chatbot';
+
+export interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = 'Portafolio profesional navegable por chatbot con RAG.' } = Astro.props;
+const locale = (Astro.currentLocale ?? 'es') as 'es' | 'en';
+const t = locale === 'en' ? en : es;
+
+// Locale-aware URL helpers. ES has no prefix (`/proyectos/`), EN uses
+// `/en/proyectos/`. This matches the `prefixDefaultLocale: false` config.
+// Note: explicit `/index.html` suffix because CloudFront + S3 do not auto-serve
+// index.html for directory URLs (the Astro default trailing-slash URL style
+// would otherwise 403 on the bucket with Block Public Access + OAC).
+const homePath = locale === 'en' ? '/en/index.html' : '/index.html';
+const projectsPath = locale === 'en' ? '/en/proyectos/index.html' : '/proyectos/index.html';
+const aboutPath = locale === 'en' ? '/en/sobre-mi/index.html' : '/sobre-mi/index.html';
+
+// Lang switcher: navigate to the same page in the other locale by
+// swapping the leading /es/ or /en/ prefix in the current pathname.
+const pathname = Astro.url.pathname;
+const stripped = pathname.replace(/^\/(es|en)/, '') || '/';
+const otherLocale = locale === 'es' ? 'en' : 'es';
+const otherLocalePath = `/${otherLocale}${stripped}`;
+
+// Phase 5.5c: pre-compute the top tags + a slim project metadata subset
+// for the chat island. The same Content Collection feeds the backend
+// RAG index and the public project pages — we keep a small payload
+// (just the fields the ChatProjectCard renders) so the island stays light.
+const allProjects = await getCollection('projects');
+const tagCounts = new Map<string, number>();
+for (const project of allProjects) {
+  for (const tag of project.data.tags) {
+    tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
+  }
+}
+const topTags = Array.from(tagCounts.entries())
+  .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  .slice(0, 10)
+  .map(([tag, count]) => ({ tag, count }));
+const projectsForChat = allProjects.map((p) => ({
+  slug: p.data.slug,
+  title_es: p.data.title_es,
+  title_en: p.data.title_en,
+  summary_es: p.data.summary_es,
+  summary_en: p.data.summary_en,
+  year: p.data.year,
+  tags: p.data.tags,
+}));
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content={description} />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <ViewTransitions />
+  </head>
+  <body>
+    <header>
+      <nav class="container">
+        <a href={homePath} class="brand">{t.site.title}</a>
+        <ul class="nav-links">
+          <li><a href={homePath}>{t.nav.home}</a></li>
+          <li><a href={projectsPath}>{t.nav.projects}</a></li>
+          <li><a href={aboutPath}>{t.nav.about}</a></li>
+          <li class="lang-switcher">
+            <a href={otherLocalePath} hreflang={otherLocale} aria-label="Español" aria-current={locale === 'es' ? 'true' : undefined}>ES</a>
+            <span>/</span>
+            <a href={otherLocalePath} hreflang={otherLocale} aria-label="English" aria-current={locale === 'en' ? 'true' : undefined}>EN</a>
+          </li>
+        </ul>
+      </nav>
+    </header>
+    <main>
+      <slot />
+    </main>
+    <footer>
+      <div class="container">
+        <p>&copy; 2026 Sebastián Rozas</p>
+      </div>
+    </footer>
+    {/*
+      Floating navigation assistant. The `transition:persist` directive is
+      the magic that keeps the React island mounted across Astro View
+      Transitions navigations — its DOM nodes and React state survive
+      page-to-page transitions so the open/closed state, message history,
+      and current project context follow the visitor everywhere.
+    */}
+    <Chatbot
+      client:load
+      transition:persist
+      locale={locale}
+      availableTags={topTags}
+      projects={projectsForChat}
+      strings={{
+        inputPlaceholder: t.home.chat.input_placeholder,
+        send: t.home.chat.send,
+        thinking: t.home.chat.thinking,
+        errorTitle: t.home.chat.error_title,
+        errorRetry: t.home.chat.error_retry,
+        cardView: t.home.chat.card_view,
+        emptyMessage: t.home.chat.empty_message,
+        assistantTitle: t.home.chat.assistant_title,
+        openChatAria: t.home.chat.open_chat,
+        closeChatAria: t.home.chat.close_chat,
+        welcomeGreeting: t.home.chat.welcome_greeting,
+        welcomeSubtitle: t.home.chat.welcome_subtitle,
+        welcomeSubmit: t.home.chat.welcome_submit,
+        welcomeSkip: t.home.chat.welcome_skip,
+        clearSelection: t.home.chat.clear_selection,
+        backToTags: t.home.chat.back_to_tags,
+        // Onboarding tutorial modal — sourced from t.home.tutorial.* so the
+        // modal renders the locale-matched copy. Chatbot falls back to
+        // locale-aware defaults if any key is missing, but the layout is
+        // the canonical source for them.
+        tutorialBadge: t.home.tutorial.badge,
+        tutorialTitle: t.home.tutorial.title,
+        tutorialSub: t.home.tutorial.sub,
+        tutorialStep1Title: t.home.tutorial.step1_title,
+        tutorialStep1Desc: t.home.tutorial.step1_desc,
+        tutorialStep2Title: t.home.tutorial.step2_title,
+        tutorialStep2Desc: t.home.tutorial.step2_desc,
+        tutorialStep3Title: t.home.tutorial.step3_title,
+        tutorialStep3Desc: t.home.tutorial.step3_desc,
+        tutorialNoShow: t.home.tutorial.no_show,
+        tutorialStartChat: t.home.tutorial.start_chat,
+      }}
+    />
+  </body>
+</html>
+
+<style>
+  header {
+    border-bottom: 1px solid var(--border);
+  }
+  nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-block: 1rem;
+  }
+  .brand {
+    font-weight: 600;
+    color: var(--fg);
+  }
+  .nav-links {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+  }
+  .lang-switcher {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+    color: var(--fg-muted);
+  }
+  .lang-switcher a[aria-current='true'] {
+    color: var(--fg);
+    font-weight: 600;
+  }
+  footer {
+    border-top: 1px solid var(--border);
+    margin-top: 4rem;
+    padding-block: 2rem;
+    color: var(--fg-muted);
+    font-size: 0.875rem;
+  }
+</style>

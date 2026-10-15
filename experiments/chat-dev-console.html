@@ -1,0 +1,1507 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>portafolio.chat — Dev Console</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap"
+    rel="stylesheet"
+  />
+
+  <style>
+    /* =====================================================================
+       portafolio.chat — Dev Console
+       ---------------------------------------------------------------------
+       Design sources (all from ui-ux-pro-max-skill):
+         - Palette: "API Developer Portal" (slate-950 base + endpoint green)
+         - Typography: "Terminal CLI Monospace" (JetBrains Mono single-stack)
+         - Style: "Glassmorphism" with dark base (backdrop-blur panels)
+         - Layout: IDE metaphor (tab bar / sidebar / editor / status bar)
+       Color tokens:
+           --bg          slate-950    #020617  (page background)
+           --panel       slate-900    #0F172A  (sidebar, status bar)
+           --elevated    custom       #0E1223  (cards, message bubbles)
+           --elevated-2  slate-800    #1E293B  (hover, borders-soft)
+           --border      slate-700    #334155
+           --border-soft slate-800    #1E293B
+           --fg          slate-50     #F8FAFC
+           --fg-muted    slate-400    #94A3B8
+           --fg-dim      slate-500    #64748B
+           --accent      green-500    #22C55E  (endpoint green)
+           --accent-2    cyan-500     #06B6D4  (syntax cyan)
+           --accent-3    fuchsia-500  #D946EF  (accent magenta)
+           --warn        amber-500    #F59E0B
+           --danger      red-500      #EF4444
+       Type tokens:
+           --mono   JetBrains Mono (primary — code, UI, body)
+           --sans   Inter            (labels legibles, hints)
+       Strict sizes per Terminal CLI Monospace pairing: 12 / 14 / 16 only
+       except where display requires something bigger (logo, status numbers).
+       ===================================================================== */
+
+    :root {
+      --bg: #020617;
+      --panel: #0F172A;
+      --elevated: #0E1223;
+      --elevated-2: #1E293B;
+      --border: #334155;
+      --border-soft: #1E293B;
+      --fg: #F8FAFC;
+      --fg-muted: #94A3B8;
+      --fg-dim: #64748B;
+      --accent: #22C55E;
+      --accent-2: #06B6D4;
+      --accent-3: #D946EF;
+      --warn: #F59E0B;
+      --danger: #EF4444;
+
+      --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+      --sans: 'Inter', system-ui, sans-serif;
+
+      --t-12: 0.75rem;   /* 12 */
+      --t-14: 0.875rem;  /* 14 */
+      --t-16: 1rem;      /* 16 */
+    }
+
+    /* -- Reset ---------------------------------------------------- */
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    html { background: var(--bg); color: var(--fg); }
+    body {
+      font-family: var(--mono);
+      font-size: var(--t-14);
+      line-height: 1.5;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+    button, input, textarea { font: inherit; color: inherit; }
+    button { cursor: pointer; background: transparent; border: 0; color: inherit; padding: 0; }
+    a { color: inherit; text-decoration: none; }
+    ::selection { background: var(--accent); color: #020617; }
+
+    /* Subtle grid backdrop — references a code-editor background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background-image:
+        radial-gradient(ellipse at top, rgba(34, 197, 94, 0.08), transparent 60%),
+        radial-gradient(ellipse at bottom right, rgba(6, 182, 212, 0.06), transparent 60%);
+    }
+
+    /* -- App shell ------------------------------------------------- */
+
+    .app {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-rows: 36px 1fr 26px;
+      height: 100vh;
+      width: 100vw;
+      background:
+        linear-gradient(180deg, rgba(15, 23, 42, 0.5), rgba(2, 6, 23, 0.0)),
+        var(--bg);
+    }
+
+    /* -- Title bar / tabs ---------------------------------------- */
+
+    .titlebar {
+      display: flex;
+      align-items: stretch;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .titlebar__brand {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0 0.875rem;
+      border-right: 1px solid var(--border-soft);
+      font-family: var(--sans);
+      font-weight: 600;
+      font-size: var(--t-12);
+      color: var(--fg);
+      letter-spacing: 0.02em;
+    }
+    .titlebar__brand::before {
+      content: '';
+      display: inline-block;
+      width: 8px; height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent);
+      animation: pulse 1.8s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.4; transform: scale(0.85); }
+    }
+    .titlebar__tabs {
+      display: flex;
+      align-items: stretch;
+      flex: 1;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .titlebar__tabs::-webkit-scrollbar { display: none; }
+    .tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0 0.875rem;
+      border-right: 1px solid var(--border-soft);
+      font-size: var(--t-12);
+      color: var(--fg-muted);
+      white-space: nowrap;
+      transition: background 120ms ease, color 120ms ease;
+      position: relative;
+    }
+    .tab:hover { background: var(--elevated-2); color: var(--fg); }
+    .tab--active {
+      background: var(--bg);
+      color: var(--fg);
+    }
+    .tab--active::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--accent);
+    }
+    .tab__icon {
+      color: var(--accent);
+      font-family: var(--mono);
+      font-weight: 700;
+    }
+    .tab__close {
+      color: var(--fg-dim);
+      font-size: 14px;
+      padding: 0 0.125rem;
+    }
+    .tab__close:hover { color: var(--fg); }
+    .titlebar__actions {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0 0.5rem;
+      border-left: 1px solid var(--border-soft);
+    }
+    .titlebar__btn {
+      width: 26px; height: 26px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      color: var(--fg-muted);
+      font-size: var(--t-14);
+      font-family: var(--mono);
+    }
+    .titlebar__btn:hover { background: var(--elevated-2); color: var(--fg); }
+
+    /* -- Body (sidebar + main + inspector) ------------------------ */
+
+    .body {
+      display: grid;
+      grid-template-columns: 240px minmax(0, 1fr) 280px;
+      min-height: 0;
+    }
+    @media (max-width: 1100px) {
+      .body { grid-template-columns: 200px minmax(0, 1fr); }
+      .inspector { display: none; }
+    }
+    @media (max-width: 720px) {
+      .body { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+    }
+
+    /* -- Sidebar (file tree / stacks) ------------------------------ */
+
+    .sidebar {
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-right: 1px solid var(--border-soft);
+      overflow-y: auto;
+      font-size: var(--t-14);
+    }
+    .sidebar__head {
+      padding: 0.5rem 0.875rem;
+      color: var(--fg-dim);
+      font-family: var(--sans);
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border-soft);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .sidebar__head .chev {
+      color: var(--fg-dim);
+      font-family: var(--mono);
+    }
+    .tree { padding: 0.25rem 0; }
+    .tree__node {
+      padding: 0.3rem 0.875rem 0.3rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--fg-muted);
+      cursor: pointer;
+      position: relative;
+      transition: background 120ms ease, color 120ms ease;
+    }
+    .tree__node:hover { background: var(--elevated-2); color: var(--fg); }
+    .tree__node--active {
+      background: var(--elevated);
+      color: var(--fg);
+    }
+    .tree__node--active::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 2px;
+      background: var(--accent);
+    }
+    .tree__icon {
+      width: 1rem;
+      color: var(--fg-dim);
+      font-family: var(--mono);
+    }
+    .tree__node--dir > .tree__icon { color: var(--accent-2); }
+    .tree__node--file > .tree__icon { color: var(--accent); }
+    .tree__node--dir > .tree__icon { font-weight: 700; }
+    .tree__name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tree__count {
+      color: var(--fg-dim);
+      font-size: var(--t-12);
+      font-variant-numeric: tabular-nums;
+    }
+    .tree__section {
+      padding: 0.5rem 1.5rem 0.25rem 1.5rem;
+      color: var(--fg-dim);
+      font-size: 0.65rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-family: var(--sans);
+      font-weight: 600;
+      border-top: 1px solid var(--border-soft);
+      margin-top: 0.5rem;
+    }
+    .tree__section:first-of-type { border-top: 0; margin-top: 0; }
+
+    /* -- Main column ----------------------------------------------- */
+
+    .main {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      background: var(--bg);
+      position: relative;
+    }
+
+    /* The "editor" area — the chat thread. Gutter on the left shows line
+       numbers, like a code editor. Each message is a "block" of output. */
+    .editor {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 4rem minmax(0, 1fr);
+      min-height: 0;
+      overflow-y: auto;
+      scrollbar-color: var(--border-soft) transparent;
+    }
+    .editor__gutter {
+      background: rgba(15, 23, 42, 0.4);
+      border-right: 1px solid var(--border-soft);
+      padding: 1rem 0.5rem 1rem 0;
+      color: var(--fg-dim);
+      font-size: var(--t-12);
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+      user-select: none;
+      line-height: 1.7;
+    }
+    .editor__body {
+      padding: 1rem 1.5rem 2rem;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* Block / message -------------------------------------------------- */
+
+    .block {
+      border: 1px solid var(--border-soft);
+      background: var(--elevated);
+      border-radius: 6px;
+      overflow: hidden;
+      animation: slideUp 240ms ease both;
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .block__head {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.875rem;
+      background: rgba(30, 41, 59, 0.5);
+      border-bottom: 1px solid var(--border-soft);
+      font-size: var(--t-12);
+      color: var(--fg-muted);
+      font-family: var(--sans);
+      font-weight: 600;
+    }
+    .block__head .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 6px var(--accent);
+    }
+    .block--user .block__head .dot { background: var(--accent-3); box-shadow: 0 0 6px var(--accent-3); }
+    .block--system .block__head .dot { background: var(--accent-2); box-shadow: 0 0 6px var(--accent-2); }
+    .block__head .tag {
+      color: var(--accent);
+      font-family: var(--mono);
+      font-weight: 500;
+    }
+    .block--user .block__head .tag { color: var(--accent-3); }
+    .block--system .block__head .tag { color: var(--accent-2); }
+    .block__head .time {
+      margin-left: auto;
+      color: var(--fg-dim);
+      font-family: var(--mono);
+      font-weight: 400;
+    }
+    .block__body {
+      padding: 0.875rem 1rem 1rem;
+      font-size: var(--t-14);
+      line-height: 1.65;
+    }
+    .block__body p { margin: 0 0 0.75em; }
+    .block__body p:last-child { margin-bottom: 0; }
+    .block__body code {
+      font-family: var(--mono);
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border-soft);
+      border-radius: 4px;
+      padding: 0.05em 0.4em;
+      font-size: 0.92em;
+      color: var(--accent-2);
+    }
+
+    /* Syntax-like color hints in prose */
+    .tk-keyword   { color: var(--accent-3); }
+    .tk-string    { color: var(--accent); }
+    .tk-comment   { color: var(--fg-dim); font-style: italic; }
+    .tk-fn        { color: var(--accent-2); }
+    .tk-num       { color: var(--warn); }
+
+    /* "Result rows" — the project cards rendered as a table-like grid */
+
+    .results {
+      margin-top: 0.875rem;
+      border: 1px solid var(--border-soft);
+      border-radius: 6px;
+      overflow: hidden;
+      background: var(--bg);
+    }
+    .results__head {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.5rem;
+      padding: 0.4rem 0.875rem;
+      background: rgba(15, 23, 42, 0.7);
+      border-bottom: 1px solid var(--border-soft);
+      color: var(--fg-muted);
+      font-size: var(--t-12);
+      font-family: var(--sans);
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+    .results__head .status {
+      color: var(--accent);
+      font-family: var(--mono);
+      font-weight: 500;
+    }
+    .result {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.75rem;
+      padding: 0.75rem 0.875rem;
+      border-bottom: 1px solid var(--border-soft);
+      transition: background 120ms ease;
+      cursor: pointer;
+      color: inherit;
+    }
+    .result:last-child { border-bottom: 0; }
+    .result:hover { background: var(--elevated-2); }
+    .result__main { min-width: 0; }
+    .result__title {
+      font-family: var(--mono);
+      font-weight: 600;
+      font-size: var(--t-14);
+      color: var(--fg);
+      margin: 0 0 0.25rem;
+    }
+    .result__title::before {
+      content: '› ';
+      color: var(--accent);
+    }
+    .result__desc {
+      font-size: var(--t-12);
+      color: var(--fg-muted);
+      margin: 0 0 0.4rem;
+      line-height: 1.5;
+    }
+    .result__tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+    }
+    .pill {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      padding: 0.1rem 0.45rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--fg-muted);
+      background: rgba(15, 23, 42, 0.4);
+    }
+    .pill--kw { color: var(--accent-3); border-color: rgba(217, 70, 239, 0.4); }
+    .pill--fn { color: var(--accent-2); border-color: rgba(6, 182, 212, 0.4); }
+    .pill--ok { color: var(--accent); border-color: rgba(34, 197, 94, 0.4); }
+    .result__score {
+      font-family: var(--mono);
+      font-size: var(--t-12);
+      color: var(--accent);
+      align-self: center;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    /* Input area (the "REPL") */
+
+    .repl {
+      border-top: 1px solid var(--border-soft);
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      padding: 0.75rem 1.5rem 0.875rem;
+    }
+    .repl__head {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+      font-size: var(--t-12);
+      color: var(--fg-muted);
+      font-family: var(--sans);
+    }
+    .repl__head .badge {
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(34, 197, 94, 0.4);
+      padding: 0.05rem 0.4rem;
+      border-radius: 3px;
+      font-family: var(--mono);
+      font-weight: 500;
+    }
+    .repl__row {
+      display: grid;
+      grid-template-columns: 1.5rem 1fr auto;
+      align-items: end;
+      gap: 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.5rem 0.625rem;
+      background: var(--bg);
+      transition: border-color 120ms ease, box-shadow 120ms ease;
+    }
+    .repl__row:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12);
+    }
+    .repl__prompt {
+      color: var(--accent);
+      font-weight: 700;
+      font-family: var(--mono);
+      padding-bottom: 0.3rem;
+      user-select: none;
+    }
+    .repl__input {
+      border: 0;
+      background: transparent;
+      outline: 0;
+      resize: none;
+      font-family: var(--mono);
+      font-size: var(--t-14);
+      color: var(--fg);
+      line-height: 1.5;
+      padding: 0;
+      min-height: 1.5rem;
+      max-height: 12rem;
+    }
+    .repl__input::placeholder {
+      color: var(--fg-dim);
+      font-style: italic;
+    }
+    .repl__send {
+      font-family: var(--mono);
+      font-size: var(--t-12);
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      padding: 0.4rem 0.875rem;
+      background: var(--accent);
+      color: #020617;
+      border-radius: 4px;
+      transition: background 120ms ease, transform 80ms ease, opacity 120ms ease;
+      align-self: end;
+      margin-bottom: 0.05rem;
+    }
+    .repl__send:hover:not(:disabled) { background: #16A34A; }
+    .repl__send:active:not(:disabled) { transform: translateY(1px); }
+    .repl__send:disabled { opacity: 0.4; cursor: not-allowed; }
+    .repl__hint {
+      margin-top: 0.4rem;
+      font-size: 0.7rem;
+      color: var(--fg-dim);
+      font-family: var(--mono);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .repl__hint kbd {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      background: var(--elevated-2);
+      border: 1px solid var(--border-soft);
+      border-bottom-width: 2px;
+      border-radius: 3px;
+      padding: 0 0.3rem;
+      color: var(--fg);
+      margin: 0 0.15rem;
+    }
+
+    /* -- Inspector (right column) ---------------------------------- */
+
+    .inspector {
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-left: 1px solid var(--border-soft);
+      overflow-y: auto;
+      padding: 0.875rem 1rem;
+      font-size: var(--t-12);
+      line-height: 1.6;
+    }
+    .inspector__section {
+      margin-bottom: 1.25rem;
+    }
+    .inspector__head {
+      color: var(--fg-dim);
+      font-family: var(--sans);
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      padding-bottom: 0.35rem;
+      margin-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border-soft);
+      display: flex;
+      justify-content: space-between;
+    }
+    .inspector__head .badge {
+      color: var(--accent);
+      font-family: var(--mono);
+      font-weight: 500;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    .kv { display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 0.5rem; }
+    .kv__k { color: var(--fg-dim); }
+    .kv__v { color: var(--fg); font-family: var(--mono); }
+    .kv__v--ok { color: var(--accent); }
+    .kv__v--muted { color: var(--fg-muted); }
+
+    .meter {
+      margin-top: 0.5rem;
+    }
+    .meter__row {
+      display: grid;
+      grid-template-columns: 5rem 1fr 2.5rem;
+      gap: 0.5rem;
+      align-items: center;
+      padding: 0.15rem 0;
+    }
+    .meter__label { color: var(--fg-muted); }
+    .meter__bar {
+      height: 6px;
+      background: var(--elevated-2);
+      border-radius: 3px;
+      overflow: hidden;
+      position: relative;
+    }
+    .meter__fill {
+      position: absolute;
+      inset: 0 auto 0 0;
+      background: var(--accent);
+      border-radius: 3px;
+    }
+    .meter__fill--2 { background: var(--accent-2); }
+    .meter__fill--3 { background: var(--accent-3); }
+    .meter__fill--w { background: var(--warn); }
+    .meter__val {
+      color: var(--fg);
+      font-family: var(--mono);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Activity log */
+    .log { font-family: var(--mono); font-size: 0.7rem; line-height: 1.6; }
+    .log__line { display: grid; grid-template-columns: 4.5rem 1fr; gap: 0.5rem; padding: 0.1rem 0; }
+    .log__t { color: var(--fg-dim); }
+    .log__m { color: var(--fg-muted); }
+    .log__m--ok { color: var(--accent); }
+    .log__m--info { color: var(--accent-2); }
+    .log__m--warn { color: var(--warn); }
+
+    /* -- Status bar (bottom) -------------------------------------- */
+
+    .statusbar {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0 0.5rem;
+      background: var(--accent);
+      color: #020617;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      border-top: 1px solid rgba(0, 0, 0, 0.3);
+    }
+    .statusbar__group {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0 0.6rem;
+      height: 100%;
+    }
+    .statusbar__group + .statusbar__group {
+      border-left: 1px solid rgba(2, 6, 23, 0.25);
+    }
+    .statusbar__group--right { margin-left: auto; }
+    .statusbar__group:hover { background: rgba(2, 6, 23, 0.12); }
+    .statusbar__sep { color: rgba(2, 6, 23, 0.45); }
+    .statusbar__led {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #020617;
+      box-shadow: 0 0 4px #020617;
+    }
+    .statusbar__btn {
+      padding: 0 0.3rem;
+      height: 100%;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    /* -- Typing indicator ----------------------------------------- */
+
+    .typing {
+      display: inline-flex;
+      gap: 0.25rem;
+      padding: 0.25rem 0;
+    }
+    .typing__bar {
+      display: inline-block;
+      width: 0.4rem;
+      height: 1rem;
+      background: var(--accent);
+      animation: typing 1.1s steps(2) infinite;
+    }
+    .typing__bar:nth-child(2) { background: var(--accent-2); animation-delay: 0.2s; }
+    .typing__bar:nth-child(3) { background: var(--accent-3); animation-delay: 0.4s; }
+    @keyframes typing {
+      0%, 60%, 100% { opacity: 0.25; transform: scaleY(0.5); }
+      30%           { opacity: 1; transform: scaleY(1); }
+    }
+
+    /* -- Mobile tweaks -------------------------------------------- */
+
+    @media (max-width: 720px) {
+      .titlebar__brand span:last-child { display: none; }
+      .editor { grid-template-columns: 2.5rem minmax(0, 1fr); }
+      .editor__gutter { font-size: 0.65rem; }
+      .editor__body { padding: 1rem; }
+      .repl { padding: 0.75rem 1rem 0.875rem; }
+    }
+
+    /* Print-friendly: not really needed but keeps the design from blowing
+       up if someone tries to print it. */
+    @media print {
+      body { overflow: visible; }
+      .app { display: block; height: auto; }
+      .titlebar, .statusbar, .sidebar, .inspector, .repl { display: none; }
+      .main { background: white; color: black; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <!-- ========== Title bar / tabs ========== -->
+    <header class="titlebar" role="banner">
+      <div class="titlebar__brand">
+        <span>portafolio.chat</span>
+      </div>
+      <div class="titlebar__tabs" role="tablist">
+        <button type="button" class="tab tab--active" role="tab" aria-selected="true">
+          <span class="tab__icon">●</span>
+          <span>untitled.chat</span>
+          <span class="tab__close" aria-label="Close tab">×</span>
+        </button>
+        <button type="button" class="tab" role="tab" aria-selected="false">
+          <span class="tab__icon">○</span>
+          <span>README.md</span>
+        </button>
+        <button type="button" class="tab" role="tab" aria-selected="false">
+          <span class="tab__icon">○</span>
+          <span>projects.toml</span>
+        </button>
+        <button type="button" class="tab" role="tab" aria-selected="false">
+          <span class="tab__icon">○</span>
+          <span>stack.yaml</span>
+        </button>
+      </div>
+      <div class="titlebar__actions">
+        <button type="button" class="titlebar__btn" title="Minimize">─</button>
+        <button type="button" class="titlebar__btn" title="Maximize">▢</button>
+        <button type="button" class="titlebar__btn" title="Close" style="color: var(--danger);">×</button>
+      </div>
+    </header>
+
+    <!-- ========== Body: sidebar + main + inspector ========== -->
+    <div class="body">
+      <!-- Sidebar (file tree) -->
+      <aside class="sidebar" aria-label="File tree">
+        <div class="sidebar__head">
+          <span>explorer</span>
+          <span class="chev">⋯</span>
+        </div>
+
+        <nav class="tree" aria-label="Project tree">
+          <div class="tree__section">stacks/</div>
+
+          <button type="button" class="tree__node tree__node--dir">
+            <span class="tree__icon">▾</span>
+            <span class="tree__name">python</span>
+            <span class="tree__count">7</span>
+          </button>
+          <button type="button" class="tree__node tree__node--file" data-tag="Python">
+            <span class="tree__icon">●</span>
+            <span class="tree__name">fastapi</span>
+            <span class="tree__count">4</span>
+          </button>
+          <button type="button" class="tree__node tree__node--file" data-tag="Python">
+            <span class="tree__icon">●</span>
+            <span class="tree__name">django</span>
+            <span class="tree__count">2</span>
+          </button>
+
+          <button type="button" class="tree__node tree__node--dir">
+            <span class="tree__icon">▸</span>
+            <span class="tree__name">cloud</span>
+            <span class="tree__count">5</span>
+          </button>
+          <button type="button" class="tree__node tree__node--file" data-tag="AWS">
+            <span class="tree__icon">●</span>
+            <span class="tree__name">aws</span>
+            <span class="tree__count">5</span>
+          </button>
+          <button type="button" class="tree__node tree__node--file" data-tag="Terraform">
+            <span class="tree__icon">●</span>
+            <span class="tree__name">terraform</span>
+            <span class="tree__count">3</span>
+          </button>
+          <button type="button" class="tree__node tree__node--file" data-tag="Lambda">
+            <span class="tree__icon">●</span>
+            <span class="tree__name">lambda</span>
+            <span class="tree__count">2</span>
+          </button>
+
+          <div class="tree__section">domains/</div>
+          <button type="button" class="tree__node tree__node--file" data-tag="RAG">
+            <span class="tree__icon">●</span>
+            <span class="tree__name">rag</span>
+            <span class="tree__count">3</span>
+          </button>
+          <button type="button" class="tree__node tree__node--file" data-tag="data">
+            <span class="tree__icon">●</span>
+            <span class="tree__name">data-eng</span>
+            <span class="tree__count">4</span>
+          </button>
+
+          <div class="tree__section">experiments/</div>
+          <button type="button" class="tree__node tree__node--file" data-tag="side-project">
+            <span class="tree__icon">●</span>
+            <span class="tree__name">side-projects</span>
+            <span class="tree__count">6</span>
+          </button>
+          <button type="button" class="tree__node tree__node--file" data-tag="Astro">
+            <span class="tree__icon">●</span>
+            <span class="tree__name">astro</span>
+            <span class="tree__count">3</span>
+          </button>
+
+          <div class="tree__section">meta/</div>
+          <button type="button" class="tree__node tree__node--file">
+            <span class="tree__icon">●</span>
+            <span class="tree__name">about.md</span>
+          </button>
+          <button type="button" class="tree__node tree__node--file">
+            <span class="tree__icon">●</span>
+            <span class="tree__name">contact.toml</span>
+          </button>
+        </nav>
+      </aside>
+
+      <!-- Main column -->
+      <main class="main">
+        <div class="editor" id="editor">
+          <!-- Gutter with line numbers (rendered by JS) -->
+          <div class="editor__gutter" id="gutter" aria-hidden="true">1</div>
+
+          <!-- Editor body: chat thread -->
+          <div class="editor__body" id="thread" aria-live="polite">
+            <!-- Seed: system boot line -->
+            <div class="block block--system" data-from="system">
+              <div class="block__head">
+                <span class="dot"></span>
+                <span class="tag">system</span>
+                <span>portafolio.chat — ready</span>
+                <span class="time" id="bootTime"></span>
+              </div>
+              <div class="block__body">
+                <p>
+                  <span class="tk-comment">// session:</span> <span class="tk-string">"portafolio.dev"</span> ·
+                  <span class="tk-comment">backend:</span> <span class="tk-fn">chromadb</span> ·
+                  <span class="tk-comment">embedding:</span> <span class="tk-string">"text-embedding-3-small"</span> ·
+                  <span class="tk-comment">docs:</span> <span class="tk-num">22</span>
+                </p>
+                <p>
+                  Preguntá lo que quieras — por stack (<code>python</code>, <code>aws</code>, <code>rag</code>),
+                  por dominio (<code>data engineering</code>), o por idea (<code>side project</code>). El bot
+                  hace retrieval sobre el archivo y devuelve prosa más reseñas con score.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- REPL input -->
+        <form class="repl" id="repl" autocomplete="off">
+          <div class="repl__head">
+            <span class="badge">RAG</span>
+            <span>› Ask the editor</span>
+            <span style="margin-left:auto; color: var(--fg-dim);" id="latency">~120ms</span>
+          </div>
+          <div class="repl__row">
+            <span class="repl__prompt" aria-hidden="true">$</span>
+            <textarea
+              id="input"
+              class="repl__input"
+              rows="1"
+              placeholder='query> ej. "muéstrame proyectos con python" o "side projects"'
+              aria-label="Su pregunta para el editor"
+            ></textarea>
+            <button type="submit" class="repl__send" id="sendBtn" disabled>RUN</button>
+          </div>
+          <div class="repl__hint">
+            <span><kbd>Enter</kbd> submit · <kbd>Shift</kbd>+<kbd>Enter</kbd> newline · <kbd>↑</kbd> history</span>
+            <span id="status">ready</span>
+          </div>
+        </form>
+      </main>
+
+      <!-- Inspector (right) -->
+      <aside class="inspector" aria-label="Session inspector">
+        <div class="inspector__section">
+          <div class="inspector__head"><span>Session</span><span class="badge">OK</span></div>
+          <div class="kv">
+            <div class="kv__k">id</div><div class="kv__v kv__v--muted" id="kvSession">sess_…</div>
+            <div class="kv__k">lang</div><div class="kv__v">es-AR</div>
+            <div class="kv__k">uptime</div><div class="kv__v" id="kvUptime">00:00:00</div>
+            <div class="kv__k">turns</div><div class="kv__v" id="kvTurns">0</div>
+            <div class="kv__k">tokens</div><div class="kv__v kv__v--ok" id="kvTokens">0</div>
+          </div>
+        </div>
+
+        <div class="inspector__section">
+          <div class="inspector__head"><span>Retrieval</span><span class="badge">v1</span></div>
+          <div class="meter">
+            <div class="meter__row">
+              <div class="meter__label">precision</div>
+              <div class="meter__bar"><div class="meter__fill" style="width: 92%;"></div></div>
+              <div class="meter__val">0.92</div>
+            </div>
+            <div class="meter__row">
+              <div class="meter__label">recall@10</div>
+              <div class="meter__bar"><div class="meter__fill meter__fill--2" style="width: 81%;"></div></div>
+              <div class="meter__val">0.81</div>
+            </div>
+            <div class="meter__row">
+              <div class="meter__label">rerank</div>
+              <div class="meter__bar"><div class="meter__fill meter__fill--3" style="width: 67%;"></div></div>
+              <div class="meter__val">0.67</div>
+            </div>
+            <div class="meter__row">
+              <div class="meter__label">latency p95</div>
+              <div class="meter__bar"><div class="meter__fill meter__fill--w" style="width: 24%;"></div></div>
+              <div class="meter__val">230ms</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="inspector__section">
+          <div class="inspector__head"><span>Activity</span><span class="badge" id="logCount">0</span></div>
+          <div class="log" id="log">
+            <div class="log__line"><div class="log__t" id="logT0">--:--:--</div><div class="log__m log__m--info">session opened</div></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- ========== Status bar (bottom) ========== -->
+    <footer class="statusbar" role="contentinfo">
+      <div class="statusbar__group"><span class="statusbar__led"></span><span>main</span></div>
+      <div class="statusbar__group"><span>●</span><span>0</span><span class="statusbar__sep">↓</span><span>0</span></div>
+      <div class="statusbar__group"><span>UTF-8</span></div>
+      <div class="statusbar__group"><span>LF</span></div>
+      <div class="statusbar__group"><span>markdown</span></div>
+      <div class="statusbar__group statusbar__group--right" id="clock">--:--:--</div>
+      <div class="statusbar__group"><span>portafolio.chat</span></div>
+    </footer>
+  </div>
+
+  <script>
+    /* =====================================================================
+       The actual portafolio backend is offline here. This is a deterministic
+       stand-in that mirrors the real /api/chat/stream-projects response
+       shape so swapping to the live endpoint is a one-function change.
+    ===================================================================== */
+
+    // -- DOM handles ------------------------------------------------
+    const editor   = document.getElementById('editor');
+    const gutter   = document.getElementById('gutter');
+    const thread   = document.getElementById('thread');
+    const repl     = document.getElementById('repl');
+    const input    = document.getElementById('input');
+    const sendBtn  = document.getElementById('sendBtn');
+    const status   = document.getElementById('status');
+    const latency  = document.getElementById('latency');
+    const log      = document.getElementById('log');
+    const logCount = document.getElementById('logCount');
+    const bootTime = document.getElementById('bootTime');
+    const clock    = document.getElementById('clock');
+    const kvUptime = document.getElementById('kvUptime');
+    const kvTurns  = document.getElementById('kvTurns');
+    const kvTokens = document.getElementById('kvTokens');
+    const kvSession= document.getElementById('kvSession');
+
+    // -- Utilities --------------------------------------------------
+
+    const pad = (n) => String(n).padStart(2, '0');
+    const nowTime = () => {
+      const d = new Date();
+      return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+    };
+    const nowClock = () => pad(d.getHours()) + ':' + pad(d.getMinutes());
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
+      { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]
+    ));
+    const shortSessionId = 'sess_' + Math.random().toString(16).slice(2, 10);
+    kvSession.textContent = shortSessionId;
+    bootTime.textContent = nowTime();
+
+    // -- Activity log ----------------------------------------------
+
+    let logLines = 0;
+    function addLog(kind, msg) {
+      logLines += 1;
+      logCount.textContent = String(logLines).padStart(2, '0');
+      const line = document.createElement('div');
+      line.className = 'log__line';
+
+      const t = document.createElement('div');
+      t.className = 'log__t';
+      t.textContent = nowTime();
+
+      const m = document.createElement('div');
+      m.className = 'log__m log__m--' + kind;
+      m.textContent = String(msg);
+
+      line.appendChild(t);
+      line.appendChild(m);
+      log.appendChild(line);
+
+      // Keep the last ~20 lines.
+      while (log.children.length > 20) log.removeChild(log.firstChild);
+    }
+
+    // -- Uptime ticker ---------------------------------------------
+
+    const bootMs = Date.now();
+    setInterval(() => {
+      const dt = Math.floor((Date.now() - bootMs) / 1000);
+      const h = pad(Math.floor(dt / 3600));
+      const m = pad(Math.floor((dt % 3600) / 60));
+      const s = pad(dt % 60);
+      kvUptime.textContent = h + ':' + m + ':' + s;
+      clock.textContent = nowClock();
+    }, 1000);
+    clock.textContent = nowClock();
+
+    // -- Gutter (line numbers) -------------------------------------
+    // Builds "<n><br><n+1><br>…" via DOM nodes (no innerHTML).
+
+    function rebuildGutter() {
+      // 1 line per logical block. Quick approximation.
+      const blocks = thread.querySelectorAll('.block');
+      let total = 1;
+      blocks.forEach((b) => { total += 3 + 1; }); // head + body padded ~4
+      total += 4;
+
+      const frag = document.createDocumentFragment();
+      for (let i = 1; i <= total; i++) {
+        if (i > 1) frag.appendChild(document.createElement('br'));
+        frag.appendChild(document.createTextNode(String(i)));
+      }
+      gutter.replaceChildren(frag);
+    }
+    rebuildGutter();
+
+    // -- Response bank ---------------------------------------------
+
+    const RESPONSES = [
+      {
+        match: /\b(python|django|fastapi|flask)\b/i,
+        title: 'python — match 7',
+        paragraphs: [
+          'Indexé 7 proyectos en <span class="tk-keyword">python</span>. El autor pasó varios años escribiendo servicios — primero en startups, después en equipos de plataforma. La mayoría corre sobre <span class="tk-fn">FastAPI</span> o <span class="tk-fn">Django REST</span>, con un patrón estable: tipado estricto, migraciones automatizadas, y un ojo clínico sobre los timeouts.',
+          'Los tres más representativos: un pipeline de migración cloud (<span class="tk-string">proj-cloud-migration</span>, 2024), un wrapper RAG open-source (<span class="tk-string">HiRag15k</span>, 2023), y un side project de budgeting personal (<span class="tk-string">proj-finance-cli</span>, 2022).',
+        ],
+        reviews: [
+          { score: 0.94, tags: [['kw','python'], ['fn','aws'], ['fn','terraform']], title: 'proj-cloud-migration', desc: 'Migración de workloads legacy a AWS multi-cuenta, con Terraform y validación de drift.' },
+          { score: 0.88, tags: [['kw','python'], ['kw','rag'], ['fn','chromadb']], title: 'HiRag15k', desc: 'Wrapper open-source sobre LangChain para retrieval jerárquico en colecciones grandes.' },
+          { score: 0.71, tags: [['kw','python'], ['fn','cli'], ['fn','rich']], title: 'proj-finance-cli', desc: 'Side project para trackear gastos en CSV con categorización por reglas.' },
+        ],
+      },
+      {
+        match: /\b(aws|cloud|terraform|ec2|lambda|s3)\b/i,
+        title: 'cloud — match 5',
+        paragraphs: [
+          'Cinco proyectos tocan <span class="tk-keyword">aws</span> — desde pipelines de migración hasta side projects serverless. La mayoría asume multi-cuenta y un patrón landing-zone con <span class="tk-fn">Control Tower</span>.',
+          'La pregunta más habitual del archivo es por casos donde la nube fue el medio, no el fin: side projects que viven en <span class="tk-fn">Lambda</span> para no pagar nunca, o migraciones que enseñaron qué partes del monolito no valía la pena levantar.',
+        ],
+        reviews: [
+          { score: 0.92, tags: [['kw','aws'], ['fn','terraform'], ['fn','python']], title: 'proj-cloud-migration', desc: 'Migración de workloads legacy a AWS multi-cuenta.' },
+          { score: 0.79, tags: [['kw','aws'], ['fn','lambda'], ['fn','dynamodb']], title: 'proj-receipts-ocr', desc: 'Side project serverless con Textract para tickets de supermercado.' },
+        ],
+      },
+      {
+        match: /\b(data|etl|spark|airflow|datalake)\b/i,
+        title: 'data-eng — match 4',
+        paragraphs: [
+          'El autor trabaja con data engineering desde hace casi una década. Los proyectos más sólidos son pipelines sobre <span class="tk-fn">Spark</span> y <span class="tk-fn">Airflow</span>, con un patrón estable: staging limpia, capa curated, y gold para servir.',
+          'Hay <span class="tk-num">4</span> proyectos con tag <span class="tk-string">data</span> — la mitad son pipelines productivos en equipos grandes, la mitad son experimentos personales para entender mejor el tooling.',
+        ],
+        reviews: [
+          { score: 0.85, tags: [['kw','python'], ['fn','spark'], ['fn','airflow']], title: 'proj-fx-pipeline', desc: 'Pipeline diario de tipos de cambio desde APIs públicas hacia Snowflake.' },
+          { score: 0.66, tags: [['kw','python'], ['fn','dbt'], ['fn','postgres']], title: 'proj-saas-metrics', desc: 'Side project — dbt project que calcula MRR, churn y expansion con tests exhaustivos.' },
+        ],
+      },
+      {
+        match: /\b(rag|llm|embedding|chroma|langchain|openai)\b/i,
+        title: 'rag/llm — match 3',
+        paragraphs: [
+          'Tres proyectos tocan <span class="tk-keyword">llms</span> o retrieval-augmented generation directamente. El más serio es <span class="tk-string">HiRag15k</span>, un wrapper sobre <span class="tk-fn">LangChain</span> para retrieval jerárquico — escrito antes de que el patrón <span class="tk-keyword">rag</span> se volviera mainstream.',
+          'El actual portafolio (esta misma página) es el cuarto: indexa los proyectos en <span class="tk-fn">ChromaDB</span> y los devuelve en prosa conversacional.',
+        ],
+        reviews: [
+          { score: 0.97, tags: [['kw','python'], ['kw','rag'], ['fn','chromadb']], title: 'HiRag15k', desc: 'Wrapper open-source sobre LangChain para retrieval jerárquico.' },
+          { score: 0.99, tags: [['fn','astro'], ['fn','fastapi'], ['fn','chromadb']], title: 'this-portfolio', desc: 'Portafolio navegable por conversación. Dos pasos: master index, después detail collection.' },
+        ],
+      },
+      {
+        match: /\b(side|personal|hobby)\b/i,
+        title: 'side-projects — match 6',
+        paragraphs: [
+          'Hay <span class="tk-num">6</span> side projects en el archivo. Algunos son juguete, otros son producto — todos comparten una característica: viven en <span class="tk-fn">AWS free tier</span> o en una <span class="tk-fn">Raspberry Pi</span>.',
+          'Los que mejor envejecen: <span class="tk-string">proj-receipts-ocr</span> (Textract + Lambda, 2021) y <span class="tk-string">proj-finance-cli</span> (Python + Rich, 2022). El autor todavía los abre.',
+        ],
+        reviews: [
+          { score: 0.83, tags: [['kw','python'], ['fn','cli'], ['fn','rich']], title: 'proj-finance-cli', desc: 'Side project para trackear gastos en CSV con categorización por reglas.' },
+          { score: 0.78, tags: [['kw','aws'], ['fn','lambda'], ['fn','dynamodb']], title: 'proj-receipts-ocr', desc: 'Side project serverless con Textract para tickets de supermercado.' },
+        ],
+      },
+      {
+        match: /\b(hola|buenos|buenas|hello|hi)\b/i,
+        title: 'greeting — match 1',
+        paragraphs: [
+          'Hola. Le doy la bienvenida al archivo. Para empezar con buen pie, sugerí una de dos cosas: pedir un rubro concreto (<code>python</code>, <code>aws</code>, <code>data</code>, <code>side projects</code>), o hacer una pregunta amplia y dejarme a mí decidir qué proyectos tienen algo que decir.',
+          'Si querés hojear, los archivos en la columna izquierda son el árbol completo del archivo indexado.',
+        ],
+        reviews: [],
+      },
+      {
+        match: /.*/,
+        title: 'no-match',
+        paragraphs: [
+          'Su consulta <span class="tk-string">"' + '<QUERY>' + '"</span> no matcheó con ninguno de los proyectos indexados. Eso no significa que no haya material — puede significar que la formulación es demasiado amplia, o que apunta a un dominio que todavía no está cargado en ChromaDB.',
+          'Sugiero reformular con un stack concreto (<code>python</code>, <code>aws</code>, <code>rag</code>…) o pedirme un rubro entero: <code>"muéstrame todo lo de data engineering"</code>.',
+        ],
+        reviews: [],
+      },
+    ];
+
+    function pickResponse(text) {
+      for (const r of RESPONSES) {
+        if (r.match.test(text)) return r;
+      }
+      return RESPONSES[RESPONSES.length - 1];
+    }
+
+    // -- Block rendering -------------------------------------------
+    // All builders use createElement + textContent to avoid XSS — no
+    // innerHTML writes anywhere in this script.
+
+    function makeDot() {
+      const s = document.createElement('span');
+      s.className = 'dot';
+      return s;
+    }
+    function makeTag(text) {
+      const s = document.createElement('span');
+      s.className = 'tag';
+      s.textContent = text;
+      return s;
+    }
+    function makeTime() {
+      const s = document.createElement('span');
+      s.className = 'time';
+      s.textContent = nowTime();
+      return s;
+    }
+    function makeHead(kind, tagText, spanText) {
+      const head = document.createElement('div');
+      head.className = 'block__head';
+      head.appendChild(makeDot());
+      head.appendChild(makeTag(tagText));
+      const mid = document.createElement('span');
+      mid.textContent = spanText;
+      head.appendChild(mid);
+      head.appendChild(makeTime());
+      return head;
+    }
+
+    function buildUserBlock(text) {
+      const block = document.createElement('div');
+      block.className = 'block block--user';
+
+      block.appendChild(makeHead('user', 'user', 'stdin'));
+
+      const body = document.createElement('div');
+      body.className = 'block__body';
+      const p = document.createElement('p');
+      p.textContent = text;
+      body.appendChild(p);
+
+      block.appendChild(body);
+      return block;
+    }
+
+    function buildBotBlock(resp, queryText) {
+      const block = document.createElement('div');
+      block.className = 'block block--assistant';
+
+      // Head — uses the shared makeHead() helper.
+      block.appendChild(makeHead('assistant', 'bot', 'stdout'));
+
+      // Body
+      const body = document.createElement('div');
+      body.className = 'block__body';
+
+      // Title (a "command" echo line) — spans with tk-* classes, built
+      // via createElement so we never write user data into innerHTML.
+      const title = document.createElement('p');
+      const comment = document.createElement('span');
+      comment.className = 'tk-comment';
+      comment.textContent = '// retrieval: ';
+      const keyword = document.createElement('span');
+      keyword.className = 'tk-keyword';
+      keyword.textContent = resp.title;
+      title.appendChild(comment);
+      title.appendChild(keyword);
+      body.appendChild(title);
+
+      // Paragraphs container — typewriter fills this.
+      const prose = document.createElement('div');
+      prose.className = 'prose';
+      body.appendChild(prose);
+
+      // Results table (only if reviews present)
+      if (resp.reviews && resp.reviews.length) {
+        const results = document.createElement('div');
+        results.className = 'results';
+
+        const head = document.createElement('div');
+        head.className = 'results__head';
+        const left = document.createElement('span');
+        left.textContent = 'matched ' + resp.reviews.length + ' · reranked';
+        const status = document.createElement('span');
+        status.className = 'status';
+        status.textContent = '\u25CF OK ' + (180 + Math.floor(Math.random() * 60)) + 'ms';
+        head.appendChild(left);
+        head.appendChild(status);
+        results.appendChild(head);
+
+        for (const r of resp.reviews) {
+          const a = document.createElement('a');
+          a.className = 'result';
+          a.href = '#';
+          a.addEventListener('click', (e) => e.preventDefault());
+
+          const main = document.createElement('div');
+          main.className = 'result__main';
+          const h4 = document.createElement('h4');
+          h4.className = 'result__title';
+          h4.textContent = r.title;
+          const desc = document.createElement('p');
+          desc.className = 'result__desc';
+          desc.textContent = r.desc;
+          const tagsWrap = document.createElement('div');
+          tagsWrap.className = 'result__tags';
+          for (const [cls, label] of r.tags) {
+            const pill = document.createElement('span');
+            pill.className = 'pill pill--' + cls;
+            pill.textContent = label;
+            tagsWrap.appendChild(pill);
+          }
+          main.appendChild(h4);
+          main.appendChild(desc);
+          main.appendChild(tagsWrap);
+
+          const score = document.createElement('div');
+          score.className = 'result__score';
+          score.textContent = r.score.toFixed(2);
+
+          a.appendChild(main);
+          a.appendChild(score);
+          results.appendChild(a);
+        }
+        body.appendChild(results);
+      }
+
+      block.appendChild(body);
+      return { block, prose };
+    }
+
+    // Typewriter: types each <p> char-by-char into the prose container.
+    // Supports simple <span class="tk-*"> ... </span> nesting (no full HTML).
+    async function typeProse(container, htmlParagraphs) {
+      container.innerHTML = '';
+      for (const pHtml of htmlParagraphs) {
+        const p = document.createElement('p');
+        container.appendChild(p);
+        // The current "open" element where text is appended (starts at p).
+        let cursor = p;
+        let i = 0;
+        while (i < pHtml.length) {
+          if (pHtml.startsWith('<span class="tk-', i)) {
+            const clsEnd = pHtml.indexOf('">', i);
+            const cls = pHtml.slice(i + 13, clsEnd);
+            const closeIdx = pHtml.indexOf('</span>', clsEnd);
+            const inner = pHtml.slice(clsEnd + 2, closeIdx);
+            const span = document.createElement('span');
+            span.className = 'tk-' + cls;
+            cursor.appendChild(span);
+            cursor = span;
+            // Type the inner content character by character.
+            for (const ch of inner) {
+              cursor.appendChild(document.createTextNode(ch));
+              await sleep(9 + Math.random() * 6);
+              // Randomly scroll a bit so the experience feels alive.
+              if (Math.random() < 0.005) editor.scrollTop = editor.scrollHeight;
+            }
+            cursor = p;
+            i = closeIdx + 7;
+            continue;
+          }
+          // Plain character — type into the current cursor.
+          cursor.appendChild(document.createTextNode(pHtml[i]));
+          await sleep(9 + Math.random() * 6);
+          i += 1;
+        }
+      }
+    }
+
+    // -- Submit handler --------------------------------------------
+
+    let turn = 0;
+    let totalTokens = 0;
+
+    async function submitQuestion(text) {
+      const v = text.trim();
+      if (!v) return;
+      turn += 1;
+      kvTurns.textContent = String(turn);
+
+      // Disable input
+      input.disabled = true;
+      sendBtn.disabled = true;
+      status.textContent = 'thinking…';
+      status.style.color = 'var(--accent-2)';
+
+      addLog('info', '> ' + v.slice(0, 64) + (v.length > 64 ? '…' : ''));
+      addLog('info', 'POST /api/chat/stream-projects');
+
+      // Append user block
+      const userBlock = buildUserBlock(v);
+      thread.appendChild(userBlock);
+
+      // Append typing indicator briefly (then replace with bot block).
+      const typing = document.createElement('div');
+      typing.className = 'block block--assistant';
+      typing.appendChild(makeHead('assistant', 'bot', 'compiling\u2026'));
+      const tbBody = document.createElement('div');
+      tbBody.className = 'block__body';
+      const typingBars = document.createElement('div');
+      typingBars.className = 'typing';
+      typingBars.setAttribute('aria-label', 'typing');
+      for (let i = 0; i < 3; i++) {
+        const bar = document.createElement('span');
+        bar.className = 'typing__bar';
+        typingBars.appendChild(bar);
+      }
+      tbBody.appendChild(typingBars);
+      typing.appendChild(tbBody);
+      thread.appendChild(typing);
+      editor.scrollTop = editor.scrollHeight;
+      rebuildGutter();
+
+      // Pick response + simulate latency
+      const resp = pickResponse(v);
+      const ms = 280 + Math.floor(Math.random() * 320);
+      latency.textContent = '~' + ms + 'ms';
+      await sleep(ms);
+
+      // Replace typing with the actual bot block
+      typing.remove();
+      const { block, prose } = buildBotBlock(resp, v);
+      thread.appendChild(block);
+      editor.scrollTop = editor.scrollHeight;
+      rebuildGutter();
+
+      // Typewriter the prose
+      const paragraphs = resp.paragraphs.map((p) =>
+        p.replace('<QUERY>', escapeHtml(v).slice(0, 60))
+      );
+      await typeProse(prose, paragraphs);
+
+      totalTokens += v.length + paragraphs.join('').length;
+      kvTokens.textContent = totalTokens.toLocaleString('es-AR');
+      addLog('ok', 'response streamed · ' + paragraphs.length + ' paras · ' + (resp.reviews ? resp.reviews.length : 0) + ' reviews');
+
+      // Re-enable
+      status.textContent = 'ready';
+      status.style.color = 'var(--fg-dim)';
+      input.disabled = false;
+      sendBtn.disabled = input.value.trim() === '';
+      input.focus();
+      editor.scrollTop = editor.scrollHeight;
+    }
+
+    repl.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const v = input.value;
+      input.value = '';
+      sendBtn.disabled = true;
+      void submitQuestion(v);
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        repl.requestSubmit();
+      }
+    });
+
+    input.addEventListener('input', () => {
+      sendBtn.disabled = input.value.trim() === '';
+      autoSize();
+    });
+
+    // Auto-resize the textarea so it grows with content (capped in CSS).
+    function autoSize() {
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 192) + 'px';
+    }
+
+    // Sidebar tree items pre-fill the input on click.
+    document.querySelectorAll('.tree__node[data-tag]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tag = btn.dataset.tag;
+        const q = tag.toLowerCase().includes('side')
+          ? 'muéstrame tus side projects'
+          : 'muéstrame proyectos con ' + tag;
+        input.value = q;
+        sendBtn.disabled = false;
+        input.focus();
+        autoSize();
+        // Visual: briefly highlight the active node
+        document.querySelectorAll('.tree__node--active').forEach((n) => n.classList.remove('tree__node--active'));
+        btn.classList.add('tree__node--active');
+      });
+    });
+
+    // Tabs: visual only — clicking a tab "selects" it.
+    document.querySelectorAll('.tab').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach((t) => {
+          t.classList.remove('tab--active');
+          t.setAttribute('aria-selected', 'false');
+        });
+        tab.classList.add('tab--active');
+        tab.setAttribute('aria-selected', 'true');
+      });
+    });
+
+    input.focus();
+  </script>
+</body>
+</html>

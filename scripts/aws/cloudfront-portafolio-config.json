@@ -1,0 +1,45 @@
+{
+  "CallerReference": "portafolio-web-prod-2026-09-29-001",
+  "Comment": "portafolio.srozas.men - static Astro frontend",
+  "DefaultRootObject": "index.html",
+  "Enabled": true,
+  "PriceClass": "PriceClass_100",
+  "HttpVersion": "http2",
+  "Origins": {
+    "Quantity": 1,
+    "Items": [
+      {
+        "Id": "portafolio-s3-origin",
+        "DomainName": "portafolio-web-prod.s3.us-west-2.amazonaws.com",
+        "OriginAccessControlId": "EN5LKIP1DFMJ3",
+        "S3OriginConfig": {
+          "OriginAccessIdentity": ""
+        }
+      }
+    ]
+  },
+  "DefaultCacheBehavior": {
+    "TargetOriginId": "portafolio-s3-origin",
+    "ViewerProtocolPolicy": "redirect-to-https",
+    "AllowedMethods": {
+      "Quantity": 3,
+      "Items": ["GET", "HEAD", "OPTIONS"],
+      "CachedMethods": {
+        "Quantity": 2,
+        "Items": ["GET", "HEAD"]
+      }
+    },
+    "Compress": true,
+    "CachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6",
+    "ResponseHeadersPolicyId": "67f7725c-6f97-4210-82d7-5512b31e9d03"
+  },
+  "Aliases": {
+    "Quantity": 1,
+    "Items": ["portafolio.srozas.men"]
+  },
+  "ViewerCertificate": {
+    "ACMCertificateArn": "arn:aws:acm:us-east-1:467640459757:certificate/6636d82b-5839-4603-9fe5-c6bb9513c0c2",
+    "SSLSupportMethod": "sni-only",
+    "MinimumProtocolVersion": "TLSv1.2_2021"
+  }
+}

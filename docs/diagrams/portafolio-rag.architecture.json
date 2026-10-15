@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Portafolio RAG — arquitectura",
+    "quality_profile": "showcase",
+    "viewBox": [1380, 600],
+    "legend": { "mode": "hidden" },
+    "views": [
+      {
+        "id": "request-path",
+        "label": "Camino principal de la consulta",
+        "focus": ["visitante", "astro", "chatbot", "tunnel", "api", "router", "chromadb"],
+        "note": "Recorre la consulta del visitante desde el navegador hasta ChromaDB."
+      },
+      {
+        "id": "llm-stack",
+        "label": "Stack IA externo",
+        "focus": ["api", "embedder", "llm", "chromadb"],
+        "note": "Embedder y LLM son servicios externos consumidos por el backend."
+      },
+      {
+        "id": "routing",
+        "label": "ProjectRouter en el backend",
+        "focus": ["api", "router", "chromadb"],
+        "note": "Lista → detalle: el router decide qué colección consultar."
+      }
+    ]
+  },
+  "components": [
+    { "id": "visitante", "type": "external", "label": "Visitante",      "sublabel": "Navegador · ES/EN",  "pos": [40,   300], "size": [110, 80] },
+    { "id": "astro",     "type": "frontend", "label": "Astro 4",        "sublabel": "SSG + islas",        "pos": [190,  300], "size": [140, 80] },
+    { "id": "chatbot",   "type": "frontend", "label": "Chatbot (isla)", "sublabel": "React · FAB",        "pos": [370,  300], "size": [140, 80] },
+    { "id": "tunnel",    "type": "security", "label": "Cloudflare Tunnel","sublabel": "quic · 0 puertos",  "pos": [550,  300], "size": [140, 80] },
+    { "id": "api",       "type": "backend",  "label": "FastAPI",        "sublabel": "VPS Ubuntu",         "pos": [730,  300], "size": [160, 80] },
+    { "id": "router",    "type": "backend",  "label": "ProjectRouter",  "sublabel": "LIST · DETAIL · GENERAL","pos": [930, 300], "size": [160, 80] },
+    { "id": "chromadb",  "type": "database", "label": "ChromaDB",       "sublabel": "PersistentClient",    "pos": [1130, 300], "size": [120, 80] },
+    { "id": "embedder",  "type": "external", "label": "Embedder API",   "sublabel": "Proveedor externo",   "pos": [730,  450], "size": [160, 70] },
+    { "id": "llm",       "type": "external", "label": "LLM Chat API",   "sublabel": "Proveedor externo",   "pos": [930,  450], "size": [160, 70] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Vercel",      "wraps": ["astro", "chatbot"] },
+    { "kind": "region", "label": "VPS Backend", "wraps": ["api", "router", "chromadb"] }
+  ],
+  "connections": [
+    { "id": "visitante-astro",  "from": "visitante", "to": "astro",    "label": "HTTPS",            "variant": "emphasis", "labelDy": -80 },
+    { "id": "astro-chatbot",    "from": "astro",     "to": "chatbot",  "label": "isla React",       "labelDy": -80 },
+    { "id": "chatbot-tunnel",   "from": "chatbot",   "to": "tunnel",   "label": "fetch SSE",        "variant": "emphasis", "labelDy": -80 },
+    { "id": "tunnel-api",       "from": "tunnel",    "to": "api",      "label": "HTTPS",            "labelDy": -80 },
+    { "id": "api-router",       "from": "api",       "to": "router",   "label": "clasifica",        "labelDy": -80 },
+    { "id": "router-chroma",    "from": "router",    "to": "chromadb", "label": "query + chunks",   "labelDy": -80 },
+    { "id": "api-embedder",     "from": "api",       "to": "embedder", "label": "embed pregunta",   "variant": "dashed", "labelDy": 18 },
+    { "id": "api-llm",          "from": "api",       "to": "llm",      "label": "prompt + stream",  "variant": "dashed", "labelDy": 18 }
+  ],
+  "cards": [
+    { "dot": "cyan",    "title": "Edge en Vercel", "items": ["Astro 4 SSG con islas React", "Páginas de proyecto pre-renderizadas ES/EN"] },
+    { "dot": "emerald", "title": "Backend RAG",    "items": ["FastAPI en VPS Ubuntu tras Cloudflare Tunnel", "RAG dos pasos: master index → projects_<slug>"] },
+    { "dot": "amber",   "title": "Stack IA",       "items": ["Embedder y LLM como servicios externos", "Markdown YAML como fuente única de proyectos"] }
+  ]
+}

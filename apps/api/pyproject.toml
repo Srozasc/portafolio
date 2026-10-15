@@ -1,0 +1,19 @@
+# Ruff baseline for apps/api/ — established 2026-10-01 during ci/cd hardening.
+# Rationale for the `ignore` list:
+#   - BLE001 (blind-except): the codebase intentionally catches broad exceptions in
+#     service-layer error boundaries; narrowing each one is a separate refactor.
+#   - B008 (function-call-in-default-argument): FastAPI Depends() and Pydantic default
+#     factories are idiomatic patterns that ruff misclassifies.
+#   - UP028 (yield-in-for-loop): one place in tests that uses a pattern ruff wants to
+#     rewrite as `yield from`; PEP 380 semantics differ, not a mechanical fix.
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+# Apply only the safe-fix categories by default; unsafe fixes are gated by --unsafe-fixes.
+ignore = [
+    "BLE001",  # blind-except
+    "B008",    # function-call-in-default-argument (FastAPI Depends, Pydantic defaults)
+    "UP028",   # yield-in-for-loop (PEP 380 semantic difference)
+]
