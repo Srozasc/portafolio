@@ -1,0 +1,25 @@
+# Dependabot keeps the pinned GitHub Action SHAs current.
+# When a new action version is released, Dependabot opens a single grouped
+# PR with the new commit SHAs. Review the PR's changelog, verify the new
+# SHA on the upstream release, and merge to update.
+#
+# Refs:
+#   https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#   https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "chore(ci)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "ci"
