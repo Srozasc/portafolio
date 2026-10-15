@@ -57,13 +57,6 @@ jobs:
           role-to-assume: arn:aws:iam::467640459757:role/github-actions-deploy
           aws-region: us-west-2
 
-      - name: Verify EC2 instance is reachable (sanity)
-        run: |
-          aws ec2 describe-instances \
-            --instance-ids i-04b4296febfda434a \
-            --query 'Reservations[].Instances[].[State.Name,PublicIpAddress]' \
-            --output table
-
       - name: Deploy frontend to S3
         # --delete drops old placeholder/assets not in dist/.
         # Then re-upload index.html with Cache-Control: max-age=300 so deploys
@@ -83,8 +76,9 @@ jobs:
       # ----- Backend deploy via SSM -----
       - name: Deploy backend (capture prev + pull + restart + health check)
         id: deploy
-        # Atomic: capture prev SHA, porcelain guard, pull --ff-only, pip install,
-        # restart, sleep, is-active, health curl. set -euo pipefail aborts on any
+        # Atomic: capture prev SHA, porcelain guard, pull --ff-only,
+        # pip install, restart, sleep, is-active, health curl.
+        # set -euo pipefail aborts on any
         # failure. prev_sha is exposed as step output for the rollback step.
         run: |
           CMD=$(aws ssm send-command \
@@ -150,10 +144,11 @@ jobs:
       - name: Notify on failure
         if: failure()
         continue-on-error: true
-        # Sends a generic webhook payload to DEPLOY_WEBHOOK_URL (Slack-compatible
-        # {text: ...}). Silently skips if the secret is unset. continue-on-error
-        # + || true ensure notification failure doesn't cascade. ROLLBACK_STATUS
-        # is built in bash (GH Actions `+` is arithmetic-only, not string concat).
+        # Sends a generic webhook payload to DEPLOY_WEBHOOK_URL
+        # (Slack-compatible {text: ...}). Skips silently if the secret
+        # is unset. continue-on-error + || true ensure notification
+        # failure doesn't cascade. ROLLBACK_STATUS is built in bash
+        # (GH Actions `+` is arithmetic-only, not string concat).
         env:
           DEPLOY_WEBHOOK_URL: ${{ secrets.DEPLOY_WEBHOOK_URL }}
           PREV_SHA: ${{ steps.deploy.outputs.prev_sha }}
