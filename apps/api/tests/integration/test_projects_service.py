@@ -266,17 +266,20 @@ def test_ingest_against_real_seed_directory(chroma_dir, store, embedder, setting
     service = ProjectsService(embedder=embedder, store=store, settings=settings)
     result = service.ingest_all(seed_dir, force=True)
 
-    assert result.indexed_projects == 5
+    # Updated 2026-10-15: data dir holds 2 real projects (portafolio-rag +
+    # safegateway) after content ingests (PRs #2 and #3 in this repo) replaced
+    # the 5 original placeholders. The previous hardcoded assertion (== 5 and
+    # the 5 placeholder slugs) drifted from the data dir; CI caught it on the
+    # first push of ci.yml. The hardening-ci-cd ODD task's local T3/T6
+    # verifications used `pytest --co` (collect-only) and missed the break.
+    assert result.indexed_projects == 2
     assert result.errors == []
     assert sorted(result.project_slugs) == [
-        "proj-cloud-migration",
-        "proj-data-pipeline",
-        "proj-ml-scoring",
-        "proj-rag-customer",
-        "proj-realtime-fraud",
+        "proj-portafolio-rag",
+        "proj-safegateway",
     ]
 
     stats = store.stats()
-    assert any(s.name == ProjectsService.INDEX_COLLECTION and s.chunk_count == 5 for s in stats)
-    assert any(s.name == "projects_proj-data-pipeline" for s in stats)
-    assert any(s.name == "projects_proj-realtime-fraud" for s in stats)
+    assert any(s.name == ProjectsService.INDEX_COLLECTION and s.chunk_count == 2 for s in stats)
+    assert any(s.name == "projects_proj-portafolio-rag" for s in stats)
+    assert any(s.name == "projects_proj-safegateway" for s in stats)
