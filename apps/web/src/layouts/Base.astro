@@ -24,18 +24,10 @@ const homePath = locale === 'en' ? '/en/index.html' : '/index.html';
 const projectsPath = locale === 'en' ? '/en/proyectos/index.html' : '/proyectos/index.html';
 const aboutPath = locale === 'en' ? '/en/sobre-mi/index.html' : '/sobre-mi/index.html';
 
-// Lang switcher: navigate to the same page in the other locale by
-// swapping the leading /es/ or /en/ prefix in the current pathname.
-const pathname = Astro.url.pathname;
-const stripped = pathname.replace(/^\/(es|en)/, '') || '/';
-const otherLocale = locale === 'es' ? 'en' : 'es';
-let otherLocalePath = `/${otherLocale}${stripped}`;
-// Trailing-slash targets (e.g. /en/) hit S3 as directory URLs, which return
-// Access Denied because Block Public Access + OAC don't auto-serve
-// index.html. Append the explicit suffix to match the static helpers above.
-if (otherLocalePath.endsWith('/')) {
-  otherLocalePath += 'index.html';
-}
+// Lang switcher intentionally removed: the EN pages are generated as
+// redirect stubs by Astro's i18n `fallback: { en: 'es' }` config, so
+// switching to EN just bounces the visitor back to the ES equivalent.
+// Re-add the switcher when EN pages carry real translated content.
 
 // Phase 5.5c: pre-compute the top tags + a slim project metadata subset
 // for the chat island. The same Content Collection feeds the backend
@@ -80,11 +72,6 @@ const projectsForChat = allProjects.map((p) => ({
           <li><a href={homePath}>{t.nav.home}</a></li>
           <li><a href={projectsPath}>{t.nav.projects}</a></li>
           <li><a href={aboutPath}>{t.nav.about}</a></li>
-          <li class="lang-switcher">
-            <a href={otherLocalePath} hreflang={otherLocale} aria-label="Español" aria-current={locale === 'es' ? 'true' : undefined}>ES</a>
-            <span>/</span>
-            <a href={otherLocalePath} hreflang={otherLocale} aria-label="English" aria-current={locale === 'en' ? 'true' : undefined}>EN</a>
-          </li>
         </ul>
       </nav>
     </header>
@@ -168,16 +155,7 @@ const projectsForChat = allProjects.map((p) => ({
     gap: 1.5rem;
     align-items: center;
   }
-  .lang-switcher {
-    display: flex;
-    gap: 0.25rem;
-    align-items: center;
-    color: var(--fg-muted);
-  }
-  .lang-switcher a[aria-current='true'] {
-    color: var(--fg);
-    font-weight: 600;
-  }
+
   footer {
     border-top: 1px solid var(--border);
     margin-top: 4rem;
