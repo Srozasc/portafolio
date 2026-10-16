@@ -29,7 +29,13 @@ const aboutPath = locale === 'en' ? '/en/sobre-mi/index.html' : '/sobre-mi/index
 const pathname = Astro.url.pathname;
 const stripped = pathname.replace(/^\/(es|en)/, '') || '/';
 const otherLocale = locale === 'es' ? 'en' : 'es';
-const otherLocalePath = `/${otherLocale}${stripped}`;
+let otherLocalePath = `/${otherLocale}${stripped}`;
+// Trailing-slash targets (e.g. /en/) hit S3 as directory URLs, which return
+// Access Denied because Block Public Access + OAC don't auto-serve
+// index.html. Append the explicit suffix to match the static helpers above.
+if (otherLocalePath.endsWith('/')) {
+  otherLocalePath += 'index.html';
+}
 
 // Phase 5.5c: pre-compute the top tags + a slim project metadata subset
 // for the chat island. The same Content Collection feeds the backend
