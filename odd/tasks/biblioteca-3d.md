@@ -92,3 +92,25 @@ Evidence observed during planning (this session):
 - Read of `apps/web/src/content/config.ts` lines 13–14 confirms single source-of-truth: `../api/data/projects/` glob loader matches `apps/api/data/projects/` — same source the FastAPI RAG index consumes (S8).
 - Read of `apps/web/astro.config.mjs` confirms `fallback: { en: 'es' }` is active → S2 requires an explicit EN page.
 - Read of `experiments/chat-3d-library.html` line 1070 (PROJECTS_CATALOG literal) and total length 2958 lines confirms prototype is a fully self-contained reference doc; no code from it is meant to be lifted directly. Per S13, prototype strings stay Spanish.
+
+L9: Implementation closed. 4 work-unit commits landed on `feat/biblioteca-3d`:
+
+  - `506e744` i18n(web): add 'Modo Biblioteca 3D' labels — covers T3 (S1, S10, S13). 16 lines.
+  - `f9f036c` feat(web/nav): add Biblioteca 3D link to global nav — covers T4 (S1, S4). 2 lines.
+  - `b85ea58` feat(web/home): add Biblioteca 3D tertiary CTA in hero — covers T5 (S1, S5, S7, S9). 13 lines.
+  - `5dbf330` feat(web): add /biblioteca-3d route with isolated Three.js scene — covers T6, T7, T8, T9, T10, T11 (S2, S3, S6, S7, S8, S11, S14). 531 authored lines (lock file excluded).
+
+Total feature authored lines: 562 across 4 commits. Past the ~400-line threshold for a single feature → the feature is closed at HEAD `5dbf330`; further work would land as a follow-up branch.
+
+L10: Verification snapshot (this session):
+  - `pnpm run check` (cwd apps/web): exit 0, 14 files, 0 errors / 0 warnings / 0 hints.
+  - `pnpm run test` (cwd apps/web): exit 0, 1 file, 2 tests passed.
+  - `pnpm run build` (worker session, evidence re-verified locally): exit 0, 7 pages built. Bundle isolation via `grep 'Three.js Authors' apps/web/dist/_astro/*.js` returned exactly one chunk (`Scene3D.*.js`), and `grep -l 'Scene3D' dist/*/index.html` returned only `dist/biblioteca-3d/index.html` and `dist/en/biblioteca-3d/index.html`. `/`, `/proyectos/`, `/sobre-mi/` are clean.
+
+L11: Hard-constraints check:
+  - ✅ No `localStorage` / `sessionStorage` / `cookie` / `IndexedDB` access in new files.
+  - ✅ `apps/api/` untouched.
+  - ✅ `apps/web/src/components/Chatbot.tsx` untouched (`git diff HEAD~4 -- apps/web/src/components/Chatbot.tsx` is empty).
+  - ✅ Empty-state branch for `getCollection('projects').length === 0` lives in two places (page-level for graceful render fallback, Scene3D-level for defensive rendering).
+
+L12: Push and PR pending user OK per git-mentor skill. Branch `feat/biblioteca-3d` ahead of `origin/main` by 4 commits.
