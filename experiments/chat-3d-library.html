@@ -1,0 +1,2958 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Biblioteca 3D — Archivo de Proyectos</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    /* =====================================================================
+       3D Interactive Library Portfolio - Design Tokens & Styles
+       ===================================================================== */
+    :root {
+      --font-serif: 'Cinzel', serif;
+      --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      /* Day Theme */
+      --theme-day-bg: #ece6da;
+      --theme-day-glass: rgba(255, 255, 255, 0.72);
+      --theme-day-glass-border: rgba(200, 190, 175, 0.5);
+      --theme-day-text: #26221c;
+      --theme-day-text-muted: #6e675b;
+      --theme-day-accent: #934a26;
+      --theme-day-accent-light: #f7e9df;
+      --theme-day-card-bg: rgba(255, 252, 246, 0.92);
+
+      /* Night Theme */
+      --theme-night-bg: #090a0f;
+      --theme-night-glass: rgba(14, 17, 26, 0.76);
+      --theme-night-glass-border: rgba(85, 95, 125, 0.28);
+      --theme-night-text: #edeaf4;
+      --theme-night-text-muted: #959bb0;
+      --theme-night-accent: #e28d44;
+      --theme-night-accent-light: rgba(226, 141, 68, 0.16);
+      --theme-night-card-bg: rgba(18, 22, 33, 0.94);
+
+      /* Active Dynamic Variables */
+      --bg-canvas: var(--theme-day-bg);
+      --panel-glass: var(--theme-day-glass);
+      --panel-border: var(--theme-day-glass-border);
+      --text-main: var(--theme-day-text);
+      --text-muted: var(--theme-day-text-muted);
+      --accent: var(--theme-day-accent);
+      --accent-soft: var(--theme-day-accent-light);
+      --card-bg: var(--theme-day-card-bg);
+
+      --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+      --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    body.night-mode {
+      --bg-canvas: var(--theme-night-bg);
+      --panel-glass: var(--theme-night-glass);
+      --panel-border: var(--theme-night-glass-border);
+      --text-main: var(--theme-night-text);
+      --text-muted: var(--theme-night-text-muted);
+      --accent: var(--theme-night-accent);
+      --accent-soft: var(--theme-night-accent-light);
+      --card-bg: var(--theme-night-card-bg);
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: var(--font-sans);
+      background-color: var(--bg-canvas);
+      color: var(--text-main);
+      transition: background-color 1.2s ease, color 0.8s ease;
+      user-select: none;
+    }
+
+    /* 3D Canvas WebGL Container */
+    #webgl-viewport {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      display: block;
+      outline: none;
+    }
+
+    /* Ambient Vignette & Mood Overlay */
+    .viewport-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+      background: radial-gradient(circle at center, transparent 45%, rgba(0,0,0,0.3) 100%);
+      transition: opacity 1s ease;
+    }
+
+    /* Top Navigation & Status Bar */
+    .top-bar {
+      position: absolute;
+      top: 24px;
+      left: 28px;
+      right: 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .top-bar > * {
+      pointer-events: auto;
+    }
+
+    .library-brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: var(--panel-glass);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--panel-border);
+      padding: 10px 18px;
+      border-radius: 999px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      transition: all 0.5s var(--ease-smooth);
+    }
+
+    .library-emblem {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 50%;
+      font-family: var(--font-serif);
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .library-title {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .library-title h1 {
+      font-family: var(--font-serif);
+      font-size: 14px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .library-title span {
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+    }
+
+    .top-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .control-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 999px;
+      background: var(--panel-glass);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--panel-border);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+      transition: transform 0.2s ease, background 0.3s ease, border-color 0.3s ease;
+    }
+
+    .control-btn:hover {
+      transform: translateY(-2px);
+      border-color: var(--accent);
+    }
+
+    .control-btn:active {
+      transform: translateY(0);
+    }
+
+    .theme-icon {
+      font-size: 16px;
+      display: inline-block;
+      transition: transform 0.5s var(--ease-out-back);
+    }
+
+    /* Instruction Hint */
+    .interaction-hint {
+      position: absolute;
+      top: 86px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--panel-glass);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--panel-border);
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      color: var(--text-muted);
+      z-index: 5;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      opacity: 0.85;
+      transition: opacity 0.4s ease;
+    }
+
+    .hint-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse-dot 2s infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 0.4; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.3); }
+    }
+
+    /* Floating Chat Interface */
+    .chat-dock {
+      position: absolute;
+      bottom: 26px;
+      left: 28px;
+      width: 420px;
+      max-width: calc(100vw - 56px);
+      background: var(--panel-glass);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid var(--panel-border);
+      border-radius: 24px;
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.16);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: transform 0.4s var(--ease-smooth), opacity 0.3s ease;
+    }
+
+    .chat-header {
+      padding: 14px 20px 10px;
+      border-bottom: 1px solid var(--panel-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .chat-header-title {
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      letter-spacing: 0.02em;
+    }
+
+    .status-badge {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+
+    .chat-messages {
+      padding: 16px 20px;
+      max-height: 220px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      scroll-behavior: smooth;
+    }
+
+    .chat-messages::-webkit-scrollbar {
+      width: 4px;
+    }
+    .chat-messages::-webkit-scrollbar-thumb {
+      background: var(--panel-border);
+      border-radius: 4px;
+    }
+
+    .msg {
+      max-width: 90%;
+      font-size: 13.5px;
+      line-height: 1.5;
+      padding: 10px 14px;
+      border-radius: 16px;
+      word-break: break-word;
+      animation: msg-appear 0.3s var(--ease-smooth);
+    }
+
+    @keyframes msg-appear {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .msg.bot {
+      align-self: flex-start;
+      background: rgba(255, 255, 255, 0.45);
+      border: 1px solid var(--panel-border);
+      color: var(--text-main);
+      border-bottom-left-radius: 4px;
+    }
+
+    body.night-mode .msg.bot {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .msg.user {
+      align-self: flex-end;
+      background: var(--accent);
+      color: #ffffff;
+      border-bottom-right-radius: 4px;
+      font-weight: 500;
+    }
+
+    /* Interactive Multi-Project Selection Options in Chat */
+    .chat-project-options {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      margin-top: 10px;
+      width: 100%;
+    }
+
+    .chat-project-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      background: rgba(255, 255, 255, 0.65);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      cursor: pointer;
+      text-align: left;
+      font-family: var(--font-sans);
+      color: var(--text-main);
+      transition: all 0.22s var(--ease-smooth);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+    }
+
+    body.night-mode .chat-project-btn {
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .chat-project-btn:hover {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: var(--accent);
+      transform: translateX(4px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .chat-project-btn:hover .btn-spine-dot {
+      box-shadow: 0 0 8px #ffffff;
+      border-color: #ffffff;
+    }
+
+    .chat-project-btn:hover .btn-desc {
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    .chat-project-btn:hover .btn-arrow {
+      color: #ffffff;
+      transform: translateX(3px);
+    }
+
+    .btn-spine-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      border: 1px solid rgba(0, 0, 0, 0.2);
+    }
+
+    .btn-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .btn-title {
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .btn-desc {
+      font-size: 10.5px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .btn-arrow {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: bold;
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .msg-typing {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 10px 14px;
+    }
+
+    .msg-typing span {
+      width: 5px;
+      height: 5px;
+      background: var(--text-muted);
+      border-radius: 50%;
+      animation: typing-dots 1.4s infinite ease-in-out both;
+    }
+
+    .msg-typing span:nth-child(1) { animation-delay: -0.32s; }
+    .msg-typing span:nth-child(2) { animation-delay: -0.16s; }
+
+    @keyframes typing-dots {
+      0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
+      40% { transform: scale(1); opacity: 1; }
+    }
+
+    /* Project Quick Selection Chips */
+    .quick-chips {
+      display: flex;
+      gap: 6px;
+      padding: 0 18px 12px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .quick-chips::-webkit-scrollbar { display: none; }
+
+    .chip-btn {
+      flex-shrink: 0;
+      background: var(--accent-soft);
+      border: 1px solid var(--panel-border);
+      color: var(--text-main);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .chip-btn:hover {
+      background: var(--accent);
+      color: #fff;
+      transform: translateY(-1px);
+    }
+
+    /* Chat Input Form */
+    .chat-input-area {
+      padding: 12px 18px;
+      border-top: 1px solid var(--panel-border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .chat-input {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.4);
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      padding: 10px 14px;
+      font-family: var(--font-sans);
+      font-size: 13.5px;
+      color: var(--text-main);
+      outline: none;
+      transition: border-color 0.2s ease, background 0.2s ease;
+    }
+
+    body.night-mode .chat-input {
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .chat-input:focus {
+      border-color: var(--accent);
+      background: rgba(255, 255, 255, 0.85);
+    }
+
+    body.night-mode .chat-input:focus {
+      background: rgba(0, 0, 0, 0.4);
+    }
+
+    .send-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      transition: transform 0.2s var(--ease-out-back), background 0.2s ease;
+    }
+
+    .send-btn:hover {
+      transform: scale(1.08);
+    }
+
+    .send-btn:active {
+      transform: scale(0.96);
+    }
+
+    /* Project Inspection Modal / Card Display (when book reaches camera) */
+    .project-inspection-sheet {
+      position: absolute;
+      top: 50%;
+      right: 54px;
+      transform: translateY(-50%) translateX(40px);
+      width: 440px;
+      max-width: calc(100vw - 40px);
+      background: var(--card-bg);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid var(--panel-border);
+      border-radius: 28px;
+      padding: 32px;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+      z-index: 20;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s var(--ease-smooth), transform 0.5s var(--ease-out-back);
+    }
+
+    .project-inspection-sheet.active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(-50%) translateX(0);
+    }
+
+    .sheet-badge {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    .sheet-title {
+      font-family: var(--font-serif);
+      font-size: 26px;
+      font-weight: 700;
+      line-height: 1.2;
+      color: var(--text-main);
+      margin-bottom: 8px;
+    }
+
+    .sheet-subtitle {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      margin-bottom: 18px;
+      line-height: 1.4;
+    }
+
+    .sheet-description {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text-main);
+      margin-bottom: 22px;
+    }
+
+    .sheet-stack {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 24px;
+    }
+
+    .stack-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 8px;
+      background: rgba(120, 120, 120, 0.12);
+      color: var(--text-main);
+      border: 1px solid var(--panel-border);
+    }
+
+    .sheet-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid var(--panel-border);
+      padding-top: 18px;
+    }
+
+    .return-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: transparent;
+      border: 1px solid var(--panel-border);
+      color: var(--text-muted);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 9px 18px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .return-btn:hover {
+      color: var(--text-main);
+      border-color: var(--text-main);
+      background: rgba(120, 120, 120, 0.08);
+    }
+
+    .action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 9px 20px;
+      border-radius: 999px;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+      transition: transform 0.2s ease;
+    }
+
+    .action-btn:hover {
+      transform: translateY(-2px);
+    }
+
+    .mobile-bottom-tabs {
+      display: none;
+    }
+
+    /* =====================================================================
+       Mobile Responsive Architecture: Bottom Sheet Pattern (screens <= 860px)
+       ===================================================================== */
+    @media (max-width: 860px) {
+      .top-bar {
+        left: 12px;
+        right: 12px;
+        top: 10px;
+        padding: 8px 14px;
+        border-radius: 18px;
+        height: auto;
+      }
+      
+      .library-emblem {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+      }
+      
+      .library-title h1 {
+        font-size: 14px;
+      }
+      
+      .library-title span {
+        display: none;
+      }
+
+      .control-btn {
+        padding: 7px 12px;
+        font-size: 12px;
+      }
+
+      .control-btn span:not(.theme-icon) {
+        display: none;
+      }
+
+      .interaction-hint {
+        display: none;
+      }
+
+      /* Mobile Segmented Drawer Header Tabs */
+      .mobile-bottom-tabs {
+        display: flex;
+        position: fixed;
+        bottom: 49vh;
+        left: 12px;
+        right: 12px;
+        background: var(--panel-bg);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid var(--panel-border);
+        border-radius: 18px 18px 0 0;
+        border-bottom: none;
+        padding: 5px;
+        gap: 6px;
+        z-index: 25;
+        box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.15);
+      }
+
+      .mobile-tab-btn {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 8px 12px;
+        border-radius: 12px;
+        border: none;
+        background: transparent;
+        color: var(--text-muted);
+        font-family: var(--font-sans);
+        font-size: 12.5px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .mobile-tab-btn.active {
+        background: var(--card-bg);
+        color: var(--accent);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      }
+
+      .tab-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--accent);
+        display: none;
+      }
+
+      .tab-dot.active {
+        display: inline-block;
+      }
+
+      /* Mobile Chat Dock Bottom Sheet */
+      .chat-dock {
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        bottom: 0;
+        width: auto;
+        height: 49vh;
+        max-height: 49vh;
+        border-radius: 0 0 22px 22px;
+        border-top: none;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+        z-index: 20;
+        display: flex;
+        flex-direction: column;
+        transition: opacity 0.25s ease, transform 0.3s var(--ease-smooth);
+      }
+
+      body.mobile-tab-sheet .chat-dock {
+        transform: translateY(16px);
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .chat-header {
+        padding: 8px 14px;
+      }
+
+      .chat-messages {
+        flex: 1;
+        padding: 10px 14px;
+        max-height: none;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .quick-chips {
+        padding: 0 14px 8px;
+      }
+
+      .chat-input-area {
+        padding: 8px 14px;
+        padding-bottom: max(10px, env(safe-area-inset-bottom, 10px));
+      }
+
+      /* Mobile Project Inspection Sheet Bottom Sheet */
+      .project-inspection-sheet {
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        bottom: 0;
+        top: auto;
+        width: auto;
+        max-width: none;
+        height: 49vh;
+        max-height: 49vh;
+        border-radius: 0 0 22px 22px;
+        border-top: none;
+        padding: 18px 18px max(18px, env(safe-area-inset-bottom, 18px));
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+        z-index: 22;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        transform: translateY(20px);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.25s ease, transform 0.3s var(--ease-smooth);
+      }
+
+      .project-inspection-sheet.active {
+        /* Handled conditionally on mobile via body.mobile-tab-sheet */
+      }
+
+      body.mobile-tab-sheet .project-inspection-sheet.active {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
+      }
+
+      .sheet-badge {
+        font-size: 10px;
+        padding: 3px 8px;
+        margin-bottom: 8px;
+      }
+
+      .sheet-title {
+        font-size: 19px;
+        margin-bottom: 6px;
+      }
+
+      .sheet-subtitle {
+        font-size: 12px;
+        margin-bottom: 10px;
+      }
+
+      .sheet-description {
+        font-size: 12.5px;
+        line-height: 1.5;
+        margin-bottom: 14px;
+      }
+
+      .sheet-stack {
+        gap: 5px;
+        margin-bottom: 14px;
+      }
+
+      .stack-tag {
+        font-size: 10px;
+        padding: 3px 8px;
+      }
+
+      .sheet-footer {
+        padding-top: 12px;
+      }
+
+      .return-btn, .action-btn {
+        padding: 8px 14px;
+        font-size: 12px;
+      }
+    }
+  </style>
+
+  <!-- External libraries: Three.js r128, OrbitControls, Tween.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+</head>
+
+<body>
+  <!-- 3D Canvas -->
+  <canvas id="webgl-viewport"></canvas>
+  <div class="viewport-overlay"></div>
+
+  <!-- Top Navigation -->
+  <header class="top-bar">
+    <div class="library-brand">
+      <div class="library-emblem">B</div>
+      <div class="library-title">
+        <h1>Biblioteca de Proyectos</h1>
+        <span>Archivo Arquitectónico &bull; 3D</span>
+      </div>
+    </div>
+
+    <div class="top-controls">
+      <button class="control-btn" id="theme-toggle" title="Alternar entre luz diurna y lámparas nocturnas">
+        <span class="theme-icon" id="theme-icon">&#9788;</span>
+        <span id="theme-label">Modo Noche</span>
+      </button>
+
+      <button class="control-btn" id="reset-cam-btn" title="Restablecer ángulo de la cámara">
+        <span>&#8635;</span>
+        <span>Reencuadrar</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Interaction Hint -->
+  <div class="interaction-hint" id="interaction-hint">
+    <div class="hint-dot"></div>
+    <span>Arrastrá con el mouse para rotar la sala &bull; Clickeá cualquier libro para extraerlo</span>
+  </div>
+
+  <!-- Mobile Bottom Sheet Tabs -->
+  <div class="mobile-bottom-tabs" id="mobile-bottom-tabs">
+    <button class="mobile-tab-btn active" id="tab-chat" onclick="setMobileSheetTab('chat')">
+      <span>💬 Chat</span>
+    </button>
+    <button class="mobile-tab-btn" id="tab-sheet" onclick="setMobileSheetTab('sheet')">
+      <span>📖 Ficha <span class="tab-dot" id="tab-dot"></span></span>
+    </button>
+  </div>
+
+  <!-- Floating Chat Assistant -->
+  <section class="chat-dock" aria-label="Asistente de la biblioteca">
+    <div class="chat-header">
+      <div class="chat-header-title">
+        <span>Bibliotecario Virtual</span>
+        <span class="status-badge">ONLINE</span>
+      </div>
+    </div>
+
+    <div class="chat-messages" id="chat-messages">
+      <div class="msg bot">
+        ¡Hola! Te doy la bienvenida al archivo central. Cada libro en las estanterías representa un proyecto de ingeniería. Podés preguntarme por temas como <strong>AWS</strong>, <strong>Python</strong>, <strong>IA</strong>, o clickear cualquier tomo directamente.
+      </div>
+    </div>
+
+    <!-- Quick Filter Chips -->
+    <div class="quick-chips" id="quick-chips">
+      <button class="chip-btn" data-query="AWS Serverless">AWS Serverless</button>
+      <button class="chip-btn" data-query="Python Data">Python Data</button>
+      <button class="chip-btn" data-query="Agentes IA">Agentes IA</button>
+      <button class="chip-btn" data-query="IoT & Edge">IoT & Edge</button>
+      <button class="chip-btn" data-query="Microservicios">Microservicios</button>
+    </div>
+
+    <form class="chat-input-area" id="chat-form">
+      <input type="text" id="chat-input" class="chat-input" placeholder="Preguntá por un proyecto o tecnología..." autocomplete="off" />
+      <button type="submit" class="send-btn" title="Enviar consulta">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
+    </form>
+  </section>
+
+  <!-- Project Inspection Sheet (Detail Overlay) -->
+  <article class="project-inspection-sheet" id="project-sheet">
+    <span class="sheet-badge" id="sheet-category">CLOUD ARCHITECTURE</span>
+    <h2 class="sheet-title" id="sheet-title">Serverless Cloud Data Hub</h2>
+    <p class="sheet-subtitle" id="sheet-subtitle">Pipeline distribuido de procesamiento de eventos en tiempo real</p>
+    <p class="sheet-description" id="sheet-description">
+      Migración y modernización de infraestructura heredada a un esquema 100% serverless multicuenta en AWS. Se orquestaron lambdas desacopladas con EventBridge y SQS, logrando latencias submilenarias y costo cero en reposo.
+    </p>
+
+    <div class="sheet-stack" id="sheet-stack">
+      <span class="stack-tag">AWS Lambda</span>
+      <span class="stack-tag">Terraform</span>
+      <span class="stack-tag">Python</span>
+      <span class="stack-tag">EventBridge</span>
+    </div>
+
+    <div class="sheet-footer">
+      <button class="return-btn" id="sheet-return-btn">
+        <span>&larr;</span> Devolver al estante
+      </button>
+      <a href="#" class="action-btn" id="sheet-action-link" target="_blank">
+        Ver Proyecto <span>&nearr;</span>
+      </a>
+    </div>
+  </article>
+
+  <script>
+    /* =====================================================================
+       Application Logic & Three.js 3D Library Implementation
+       ===================================================================== */
+
+    // Sound Synthesizer via Web Audio API (procedural audio without assets)
+    const AudioFX = {
+      ctx: null,
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) this.ctx = new AudioContext();
+        }
+      },
+      playWhoosh() {
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          const filter = this.ctx.createBiquadFilter();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(140, this.ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(320, this.ctx.currentTime + 0.35);
+
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(400, this.ctx.currentTime);
+          filter.frequency.exponentialRampToValueAtTime(1200, this.ctx.currentTime + 0.35);
+
+          gain.gain.setValueAtTime(0.001, this.ctx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.12, this.ctx.currentTime + 0.1);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.45);
+
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.45);
+        } catch (e) {}
+      },
+      playSlide() {
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(260, this.ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(180, this.ctx.currentTime + 0.25);
+          gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.25);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.25);
+        } catch (e) {}
+      }
+    };
+
+    // Projects Dataset
+    const PROJECTS_CATALOG = [
+      {
+        id: 'proj-aws',
+        title: 'Serverless Event Mesh',
+        category: 'CLOUD & ARCHITECTURE',
+        spineTitle: 'AWS SERVERLESS',
+        subtitle: 'Procesamiento de eventos en tiempo real con cero costo en reposo',
+        description: 'Arquitectura multicuenta con AWS Control Tower, EventBridge y SQS. Procesa picos de 25,000 eventos/segundo con aislamiento de fallas y autoescalado transparente.',
+        stack: ['AWS Lambda', 'Terraform', 'EventBridge', 'Python', 'DynamoDB'],
+        color: 0x8c2d19, // Deep terracotta / leather
+        goldAccent: true,
+        shelfIndex: 0,
+        slotIndex: 2,
+        link: 'https://github.com'
+      },
+      {
+        id: 'proj-python',
+        title: 'Pipeline ETL & Vector Lakehouse',
+        category: 'DATA ENGINEERING',
+        spineTitle: 'PYTHON DATA LAKE',
+        subtitle: 'Motor de ingesta y enriquecimiento distribuido para análisis semántico',
+        description: 'Diseño hexagonal de ingesta por batches con PySpark y DuckDB. Indexación de vectores en Qdrant con pipelines idempotentes y monitoreo continuo de data drift.',
+        stack: ['Python', 'DuckDB', 'PySpark', 'FastAPI', 'Qdrant'],
+        color: 0x1b3b36, // Deep forest green
+        goldAccent: true,
+        shelfIndex: 0,
+        slotIndex: 4,
+        link: 'https://github.com'
+      },
+      {
+        id: 'proj-ai',
+        title: 'Gentle AI Multi-Agent Platform',
+        category: 'ARTIFICIAL INTELLIGENCE',
+        spineTitle: 'AI AGENTS CORE',
+        subtitle: 'Orquestador autónomo de agentes con streaming y verificación estricta',
+        description: 'Plataforma para coordinar agentes especializados con memorias episódicas. Implementa verificación estricta de código, reducción de contexto y contratos formales.',
+        stack: ['TypeScript', 'Node.js', 'LLMs', 'Clean Architecture', 'Vitest'],
+        color: 0x222a45, // Midnight navy
+        goldAccent: true,
+        shelfIndex: 0,
+        slotIndex: 6,
+        link: 'https://github.com'
+      },
+      {
+        id: 'proj-iot',
+        title: 'Edge Gateway & Telemetry',
+        category: 'IOT & EMBEDDED SYSTEMS',
+        spineTitle: 'EDGE TELEMETRY',
+        subtitle: 'Nodo perimetral industrial sobre Raspberry Pi y protocolo MQTT',
+        description: 'Software de telemetría de ultra baja latencia escrito en Rust. Captura sensores industriales en tiempo real con buffer local en SQLite y sincronización tolerante a desconexión.',
+        stack: ['Rust', 'MQTT', 'Raspberry Pi', 'TimescaleDB', 'Docker'],
+        color: 0x4a3424, // Warm Walnut
+        goldAccent: false,
+        shelfIndex: 1,
+        slotIndex: 3,
+        link: 'https://github.com'
+      },
+      {
+        id: 'proj-k8s',
+        title: 'Kubernetes Microservices Mesh',
+        category: 'DEVOPS & PLATFORM',
+        spineTitle: 'K8S PLATFORM',
+        subtitle: 'Malla de servicios zero-trust con observabilidad OpenTelemetry',
+        description: 'Cluster EKS de alta disponibilidad con Istio Service Mesh, mTLS automático, despliegues Canary con Argo Rollouts y métricas centralizadas en Grafana.',
+        stack: ['Kubernetes', 'Istio', 'ArgoCD', 'Go', 'OpenTelemetry'],
+        color: 0x1e272e, // Obsidian Slate
+        goldAccent: true,
+        shelfIndex: 1,
+        slotIndex: 5,
+        link: 'https://github.com'
+      },
+      {
+        id: 'proj-finance',
+        title: 'High-Throughput Ledger',
+        category: 'FINTECH & DISTRIBUTED',
+        spineTitle: 'CORE LEDGER',
+        subtitle: 'Libro mayor contable inmutable con consistencia ACID estricta',
+        description: 'Motor transaccional con arquitectura orientada a eventos. Procesamiento con doble partida, idempotencia garantizada mediante Kafka y persistencia particionada.',
+        stack: ['Java 21', 'Spring Boot', 'PostgreSQL', 'Apache Kafka', 'Docker'],
+        color: 0x5a1827, // Burgundy Crimson
+        goldAccent: true,
+        shelfIndex: 1,
+        slotIndex: 7,
+        link: 'https://github.com'
+      },
+      {
+        id: 'proj-aws-lake',
+        title: 'AWS Serverless Data Lakehouse',
+        category: 'CLOUD & ARCHITECTURE',
+        spineTitle: 'AWS FINOPS LAKE',
+        subtitle: 'Plataforma analítica serverless con AWS Athena, Glue y S3',
+        description: 'Arquitectura de lago de datos sobre Amazon S3 con compresión Parquet e indexación Glue. Implementó políticas inteligentes de ciclo de vida e instancias Spot, reduciendo el gasto cloud en un 42%.',
+        stack: ['AWS Athena', 'AWS Glue', 'Serverless', 'Python', 'Terraform'],
+        color: 0x6e2c16, // Dark Mahogany Leather
+        goldAccent: true,
+        shelfIndex: 2,
+        slotIndex: 4,
+        link: 'https://github.com'
+      }
+    ];
+
+    /* =====================================================================
+       3D Environment Setup (Three.js)
+       ===================================================================== */
+    const canvas = document.getElementById('webgl-viewport');
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0xece6da, 0.012);
+
+    const camera = new THREE.PerspectiveCamera(46, window.innerWidth / window.innerHeight, 0.1, 100);
+    const initialCameraPos = new THREE.Vector3(0, 2.1, 6.2);
+    const initialLookAt = new THREE.Vector3(0, 1.8, 0);
+    camera.position.copy(initialCameraPos);
+
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      alpha: false,
+      powerPreference: 'high-performance'
+    });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.enablePan = false; // Strictly prevent panning camera through walls
+    controls.minDistance = 2.2;
+    controls.maxDistance = 5.8; // Prevent zooming out into walls or void
+    controls.minPolarAngle = Math.PI / 3.6; // Keep comfortable eye level (don't clip into ceiling)
+    controls.maxPolarAngle = Math.PI / 2 - 0.08; // Don't penetrate parquet floor
+    controls.minAzimuthAngle = -Math.PI / 2.4; // Bound rotation so camera stays facing the library
+    controls.maxAzimuthAngle = Math.PI / 2.4;
+    controls.target.copy(initialLookAt);
+
+    /* =====================================================================
+       Lighting Rig (Day & Night State Management + GTA City Neon)
+       ===================================================================== */
+    const LightingState = {
+      isNight: false,
+      // Lights references
+      hemiLight: null,
+      sunLight: null,
+      moonLight: null,
+      deskLampLight: null,
+      deskLampLightLeft: null,
+      lampBulbMaterials: [],
+      lampShadeMaterials: [],
+      candleLight1: null,
+      candleLight2: null,
+      candleLight3: null,
+      cityNeonPinkLight: null,
+      cityNeonCyanLight: null,
+      cityNeonMaterials: [],
+      cityWindowMaterials: [],
+      cityBeacons: [],
+      skyMeshDay: null,
+      skyMeshNight: null,
+      
+      init() {
+        // Hemisphere ambient fill
+        this.hemiLight = new THREE.HemisphereLight(0xfff6e8, 0xd4c2a5, 0.85);
+        this.hemiLight.position.set(0, 10, 0);
+        scene.add(this.hemiLight);
+
+        // Day Sun Beam (Directional)
+        this.sunLight = new THREE.DirectionalLight(0xfffaed, 1.55);
+        this.sunLight.position.set(-6, 8, 4);
+        this.sunLight.castShadow = true;
+        this.sunLight.shadow.mapSize.width = 2048;
+        this.sunLight.shadow.mapSize.height = 2048;
+        this.sunLight.shadow.camera.near = 0.5;
+        this.sunLight.shadow.camera.far = 25;
+        this.sunLight.shadow.camera.left = -6;
+        this.sunLight.shadow.camera.right = 6;
+        this.sunLight.shadow.camera.top = 6;
+        this.sunLight.shadow.camera.bottom = -4;
+        this.sunLight.shadow.bias = -0.0005;
+        scene.add(this.sunLight);
+
+        // Night Moonlight (Directional)
+        this.moonLight = new THREE.DirectionalLight(0x6080b0, 0.0);
+        this.moonLight.position.set(5, 7, 3);
+        this.moonLight.castShadow = true;
+        this.moonLight.shadow.bias = -0.0005;
+        scene.add(this.moonLight);
+
+        // Right Banker's Desk Lamp Warm Light
+        this.deskLampLight = new THREE.PointLight(0xffa24c, 0.35, 5.5, 2);
+        this.deskLampLight.position.set(1.35, 1.48, 1.66);
+        this.deskLampLight.castShadow = true;
+        this.deskLampLight.shadow.mapSize.width = 512;
+        this.deskLampLight.shadow.mapSize.height = 512;
+        this.deskLampLight.shadow.bias = -0.002;
+        scene.add(this.deskLampLight);
+
+        // Left Banker's Desk Lamp Warm Light (Previously missing mesh lamp)
+        this.deskLampLightLeft = new THREE.PointLight(0xffa24c, 0.35, 5.5, 2);
+        this.deskLampLightLeft.position.set(-1.35, 1.48, 1.66);
+        this.deskLampLightLeft.castShadow = true;
+        this.deskLampLightLeft.shadow.mapSize.width = 512;
+        this.deskLampLightLeft.shadow.mapSize.height = 512;
+        this.deskLampLightLeft.shadow.bias = -0.002;
+        scene.add(this.deskLampLightLeft);
+
+        // Keep candleLight3 reference synced to left lamp for compatibility
+        this.candleLight3 = this.deskLampLightLeft;
+
+        // Candles (Wall sconces)
+        this.candleLight1 = new THREE.PointLight(0xff8833, 0.1, 4.5, 2);
+        this.candleLight1.position.set(-2.8, 2.5, -0.4);
+        scene.add(this.candleLight1);
+
+        this.candleLight2 = new THREE.PointLight(0xff8833, 0.1, 4.5, 2);
+        this.candleLight2.position.set(2.8, 2.5, -0.4);
+        scene.add(this.candleLight2);
+
+        // GTA Style City Neon Spill Lights (Cast colored glow into room through window)
+        this.cityNeonPinkLight = new THREE.PointLight(0xff007f, 0.0, 16, 1.8);
+        this.cityNeonPinkLight.position.set(-8.4, 4.2, 2.6);
+        scene.add(this.cityNeonPinkLight);
+
+        this.cityNeonCyanLight = new THREE.PointLight(0x00f0ff, 0.0, 14, 1.8);
+        this.cityNeonCyanLight.position.set(-8.4, 5.4, 0.4);
+        scene.add(this.cityNeonCyanLight);
+
+        this.applyTheme(false, 0);
+      },
+
+      applyTheme(toNight, duration = 1200) {
+        this.isNight = toNight;
+        const targetExposure = toNight ? 1.3 : 1.05;
+        const fogColor = toNight ? new THREE.Color(0x0a0c14) : new THREE.Color(0xece6da);
+        const fogDensity = toNight ? 0.032 : 0.026;
+
+        // Animate Fog & Scene background
+        new TWEEN.Tween(scene.fog.color)
+          .to(fogColor, duration)
+          .easing(TWEEN.Easing.Quadratic.Out)
+          .start();
+
+        new TWEEN.Tween(scene.fog)
+          .to({ density: fogDensity }, duration)
+          .easing(TWEEN.Easing.Quadratic.Out)
+          .start();
+
+        // Animate Renderer Tone Mapping
+        new TWEEN.Tween(renderer)
+          .to({ toneMappingExposure: targetExposure }, duration)
+          .easing(TWEEN.Easing.Quadratic.Out)
+          .start();
+
+        // Animate Daylight
+        new TWEEN.Tween(this.sunLight)
+          .to({ intensity: toNight ? 0.02 : 1.55 }, duration)
+          .start();
+
+        new TWEEN.Tween(this.hemiLight)
+          .to({ intensity: toNight ? 0.15 : 0.85 }, duration)
+          .start();
+
+        // Animate Night Lamps
+        new TWEEN.Tween(this.moonLight)
+          .to({ intensity: toNight ? 0.45 : 0.0 }, duration)
+          .start();
+
+        new TWEEN.Tween(this.deskLampLight)
+          .to({ intensity: toNight ? 2.5 : 0.35 }, duration)
+          .start();
+
+        new TWEEN.Tween(this.deskLampLightLeft)
+          .to({ intensity: toNight ? 2.5 : 0.35 }, duration)
+          .start();
+
+        // Animate Banker's Lamps Glass & Bulb Glow
+        this.lampBulbMaterials.forEach(bMat => {
+          new TWEEN.Tween(bMat)
+            .to({ emissiveIntensity: toNight ? 2.2 : 0.6 }, duration)
+            .start();
+        });
+
+        this.lampShadeMaterials.forEach(sMat => {
+          new TWEEN.Tween(sMat)
+            .to({ emissiveIntensity: toNight ? 0.75 : 0.08 }, duration)
+            .start();
+        });
+
+        new TWEEN.Tween(this.candleLight1)
+          .to({ intensity: toNight ? 1.6 : 0.15 }, duration)
+          .start();
+
+        new TWEEN.Tween(this.candleLight2)
+          .to({ intensity: toNight ? 1.6 : 0.15 }, duration)
+          .start();
+
+        // Animate GTA City Neon Illumination
+        if (this.cityNeonPinkLight) {
+          new TWEEN.Tween(this.cityNeonPinkLight)
+            .to({ intensity: toNight ? 2.2 : 0.0 }, duration)
+            .start();
+        }
+
+        if (this.cityNeonCyanLight) {
+          new TWEEN.Tween(this.cityNeonCyanLight)
+            .to({ intensity: toNight ? 1.8 : 0.0 }, duration)
+            .start();
+        }
+
+        this.cityNeonMaterials.forEach(mat => {
+          new TWEEN.Tween(mat)
+            .to({ emissiveIntensity: toNight ? 3.2 : 0.05 }, duration)
+            .start();
+        });
+
+        this.cityWindowMaterials.forEach(mat => {
+          new TWEEN.Tween(mat)
+            .to({ emissiveIntensity: toNight ? 2.0 : 0.02 }, duration)
+            .start();
+        });
+
+        if (this.skyMeshDay && this.skyMeshNight) {
+          new TWEEN.Tween(this.skyMeshDay.material)
+            .to({ opacity: toNight ? 0.0 : 1.0 }, duration)
+            .start();
+          new TWEEN.Tween(this.skyMeshNight.material)
+            .to({ opacity: toNight ? 1.0 : 0.0 }, duration)
+            .start();
+        }
+      },
+
+      updateFlicker(time) {
+        if (!this.isNight) return;
+        // Natural candle & lamp filaments subtle oscillation
+        const flicker1 = Math.sin(time * 11) * 0.14 + Math.sin(time * 23) * 0.08;
+        const flicker2 = Math.cos(time * 13) * 0.12 + Math.sin(time * 19) * 0.07;
+        this.candleLight1.intensity = 1.6 + flicker1;
+        this.candleLight2.intensity = 1.6 + flicker2;
+
+        const lampFlickerR = Math.sin(time * 14) * 0.06;
+        const lampFlickerL = Math.cos(time * 16) * 0.06;
+        this.deskLampLight.intensity = 2.5 + lampFlickerR;
+        this.deskLampLightLeft.intensity = 2.5 + lampFlickerL;
+
+        // Skyscraper aircraft warning beacons rhythm
+        const beaconBlink = Math.sin(time * 5.0) > 0.15 ? 3.0 : 0.05;
+        this.cityBeacons.forEach(b => {
+          b.material.emissiveIntensity = beaconBlink;
+        });
+
+        // Subtle electric neon buzz variation
+        if (this.cityNeonPinkLight) {
+          this.cityNeonPinkLight.intensity = 2.2 + (Math.sin(time * 16) * 0.12);
+        }
+      }
+    };
+
+    LightingState.init();
+
+    /* =====================================================================
+       Procedural Textures Generation (Canvas based, zero external assets)
+       ===================================================================== */
+    function createWoodTexture(isDark = false) {
+      const c = document.createElement('canvas');
+      c.width = 512;
+      c.height = 512;
+      const ctx = c.getContext('2d');
+
+      const baseColor = isDark ? '#2e1d13' : '#73482d';
+      const stripeColor = isDark ? '#22140c' : '#5a3721';
+
+      ctx.fillStyle = baseColor;
+      ctx.fillRect(0, 0, 512, 512);
+
+      // Draw subtle grain
+      for (let i = 0; i < 500; i++) {
+        ctx.fillStyle = stripeColor;
+        ctx.globalAlpha = 0.08 + Math.random() * 0.12;
+        const y = Math.random() * 512;
+        const h = 1 + Math.random() * 4;
+        ctx.fillRect(0, y, 512, h);
+      }
+      ctx.globalAlpha = 1.0;
+
+      const texture = new THREE.CanvasTexture(c);
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      return texture;
+    }
+
+    function createFloorParquetTexture() {
+      const c = document.createElement('canvas');
+      c.width = 1024;
+      c.height = 1024;
+      const ctx = c.getContext('2d');
+
+      ctx.fillStyle = '#41291b';
+      ctx.fillRect(0, 0, 1024, 1024);
+
+      // Herringbone pattern
+      const tileSize = 64;
+      for (let x = 0; x < 1024; x += tileSize) {
+        for (let y = 0; y < 1024; y += tileSize) {
+          const shade = ((x + y) % (tileSize * 2) === 0) ? '#4a3020' : '#392316';
+          ctx.fillStyle = shade;
+          ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
+
+          // Wood lines inside plank
+          ctx.fillStyle = '#2b190f';
+          ctx.globalAlpha = 0.18;
+          ctx.fillRect(x + 4, y + 10, tileSize - 8, 3);
+          ctx.fillRect(x + 4, y + 32, tileSize - 8, 3);
+          ctx.globalAlpha = 1.0;
+        }
+      }
+
+      const texture = new THREE.CanvasTexture(c);
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(4, 4);
+      return texture;
+    }
+
+    /* GTA City Skyline & Neon Procedural Texture Generators */
+    function createSkyTexture(isNight = false) {
+      const c = document.createElement('canvas');
+      c.width = 1024;
+      c.height = 1024;
+      const ctx = c.getContext('2d');
+
+      const grad = ctx.createLinearGradient(0, 0, 0, 1024);
+      if (!isNight) {
+        // Crisp modern daylight sky with soft horizon haze
+        grad.addColorStop(0, '#2269a8');
+        grad.addColorStop(0.35, '#569ed3');
+        grad.addColorStop(0.72, '#9eccf0');
+        grad.addColorStop(1, '#deecf7');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 1024, 1024);
+
+        // Sun disc and atmospheric dispersion
+        const sunGlow = ctx.createRadialGradient(280, 220, 10, 280, 220, 360);
+        sunGlow.addColorStop(0, 'rgba(255, 255, 245, 0.75)');
+        sunGlow.addColorStop(0.4, 'rgba(255, 245, 210, 0.25)');
+        sunGlow.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = sunGlow;
+        ctx.fillRect(0, 0, 1024, 600);
+      } else {
+        // GTA Vice City / Cyberpunk Sunset & Midnight Neon Sky
+        grad.addColorStop(0, '#090214');
+        grad.addColorStop(0.28, '#1e0533');
+        grad.addColorStop(0.6, '#560e4f');
+        grad.addColorStop(0.82, '#991557');
+        grad.addColorStop(0.95, '#e03a45');
+        grad.addColorStop(1, '#ff6e26');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 1024, 1024);
+
+        // Glowing city horizon ambient neon wash
+        const neonHaze = ctx.createLinearGradient(0, 700, 0, 1024);
+        neonHaze.addColorStop(0, 'rgba(255, 0, 128, 0)');
+        neonHaze.addColorStop(0.5, 'rgba(255, 0, 128, 0.45)');
+        neonHaze.addColorStop(1, 'rgba(0, 240, 255, 0.35)');
+        ctx.fillStyle = neonHaze;
+        ctx.fillRect(0, 700, 1024, 324);
+
+        // Upper atmosphere starry dots
+        ctx.fillStyle = '#ffffff';
+        for (let i = 0; i < 110; i++) {
+          const sx = Math.random() * 1024;
+          const sy = Math.random() * 480;
+          const sr = 0.5 + Math.random() * 1.5;
+          ctx.globalAlpha = 0.25 + Math.random() * 0.75;
+          ctx.beginPath();
+          ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1.0;
+      }
+
+      return new THREE.CanvasTexture(c);
+    }
+
+    function createSkyscraperWindowTexture() {
+      const c = document.createElement('canvas');
+      c.width = 256;
+      c.height = 512;
+      const ctx = c.getContext('2d');
+
+      // Modern dark facade background
+      ctx.fillStyle = '#11151f';
+      ctx.fillRect(0, 0, 256, 512);
+
+      const cols = 8;
+      const rows = 32;
+      const cellW = 256 / cols;
+      const cellH = 512 / rows;
+
+      for (let x = 0; x < cols; x++) {
+        for (let y = 0; y < rows; y++) {
+          const rand = Math.random();
+          if (rand > 0.45) {
+            ctx.fillStyle = rand > 0.75 ? '#2d3b4d' : '#1e2836';
+          } else {
+            ctx.fillStyle = '#131922';
+          }
+          ctx.fillRect(x * cellW + 2, y * cellH + 2, cellW - 4, cellH - 4);
+        }
+      }
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      return tex;
+    }
+
+    function createSkyscraperEmissiveTexture() {
+      const c = document.createElement('canvas');
+      c.width = 256;
+      c.height = 512;
+      const ctx = c.getContext('2d');
+
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, 256, 512);
+
+      const cols = 8;
+      const rows = 32;
+      const cellW = 256 / cols;
+      const cellH = 512 / rows;
+
+      // GTA Vibrant lit office window palette
+      const colors = ['#ffe875', '#fff6c7', '#00f0ff', '#ff007f', '#ffffff'];
+
+      for (let x = 0; x < cols; x++) {
+        for (let y = 0; y < rows; y++) {
+          if (Math.random() < 0.65) {
+            ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+            ctx.fillRect(x * cellW + 2, y * cellH + 2, cellW - 4, cellH - 4);
+          }
+        }
+      }
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      return tex;
+    }
+
+    function createNeonBillboardCanvas(text, mainHex, accentHex) {
+      const c = document.createElement('canvas');
+      c.width = 512;
+      c.height = 128;
+      const ctx = c.getContext('2d');
+
+      ctx.fillStyle = '#0a0c14';
+      ctx.fillRect(0, 0, 512, 128);
+
+      // Neon outline frame
+      ctx.strokeStyle = mainHex;
+      ctx.lineWidth = 6;
+      ctx.strokeRect(10, 10, 492, 108);
+
+      // Neon glowing typography
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = '900 48px "Cinzel", "Arial Black", sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = mainHex;
+      ctx.shadowBlur = 18;
+      ctx.fillText(text, 256, 62);
+
+      // Accent underline
+      ctx.fillStyle = accentHex;
+      ctx.fillRect(80, 98, 352, 6);
+
+      return new THREE.CanvasTexture(c);
+    }
+
+    // Spine Label Generator for Interactive Books
+    function createBookSpineCanvas(title, spineColorHex, goldEmboss = true) {
+      const c = document.createElement('canvas');
+      c.width = 128;
+      c.height = 512;
+      const ctx = c.getContext('2d');
+
+      // Leather background
+      ctx.fillStyle = spineColorHex;
+      ctx.fillRect(0, 0, 128, 512);
+
+      // Spine edge shading
+      const grad = ctx.createLinearGradient(0, 0, 128, 0);
+      grad.addColorStop(0, 'rgba(0,0,0,0.5)');
+      grad.addColorStop(0.2, 'rgba(0,0,0,0.05)');
+      grad.addColorStop(0.8, 'rgba(255,255,255,0.08)');
+      grad.addColorStop(1, 'rgba(0,0,0,0.55)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 128, 512);
+
+      // Gold ribs / borders
+      const accent = goldEmboss ? '#e8c374' : '#d2d2d2';
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 4;
+
+      // Decorative top and bottom stamps
+      ctx.strokeRect(14, 20, 100, 24);
+      ctx.strokeRect(14, 468, 100, 24);
+
+      // Raised binding ribs
+      [100, 200, 320, 420].forEach(y => {
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.fillRect(10, y, 108, 6);
+        ctx.fillStyle = accent;
+        ctx.fillRect(10, y - 2, 108, 3);
+      });
+
+      // Spine Title (Rotated vertical text)
+      ctx.save();
+      ctx.translate(64, 260);
+      ctx.rotate(-Math.PI / 2);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = 'bold 22px "Cinzel", serif';
+      ctx.fillStyle = accent;
+      ctx.shadowColor = 'rgba(0,0,0,0.6)';
+      ctx.shadowBlur = 4;
+      ctx.fillText(title, 0, 0);
+      ctx.restore();
+
+      return new THREE.CanvasTexture(c);
+    }
+
+    /* =====================================================================
+       3D Architectural Mesh Builders
+       ===================================================================== */
+    const woodTexture = createWoodTexture();
+    const darkWoodTexture = createWoodTexture(true);
+    const floorTexture = createFloorParquetTexture();
+
+    // Material definitions
+    const woodMat = new THREE.MeshStandardMaterial({
+      map: woodTexture,
+      roughness: 0.65,
+      metalness: 0.08
+    });
+
+    const darkWoodMat = new THREE.MeshStandardMaterial({
+      map: darkWoodTexture,
+      roughness: 0.55,
+      metalness: 0.1
+    });
+
+    const floorMat = new THREE.MeshStandardMaterial({
+      map: floorTexture,
+      roughness: 0.38,
+      metalness: 0.12
+    });
+
+    const brassMat = new THREE.MeshStandardMaterial({
+      color: 0xd4af37,
+      roughness: 0.3,
+      metalness: 0.85
+    });
+
+    const greenGlassMat = new THREE.MeshStandardMaterial({
+      color: 0x145a32,
+      roughness: 0.15,
+      metalness: 0.2,
+      transparent: true,
+      opacity: 0.88
+    });
+
+    const paperPagesMat = new THREE.MeshStandardMaterial({
+      color: 0xf5eedb,
+      roughness: 0.9,
+      metalness: 0.02
+    });
+
+    // 1. Grand Enclosed Room Construction
+    const roomGroup = new THREE.Group();
+
+    // Floor (Spanning the room footprint: x: -8 to 8, z: -3.4 to 7)
+    const floorGeo = new THREE.PlaneGeometry(16, 10.8);
+    const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+    floorMesh.position.set(0, 0, 1.8);
+    floorMesh.rotation.x = -Math.PI / 2;
+    floorMesh.receiveShadow = true;
+    roomGroup.add(floorMesh);
+
+    // Wall Material
+    const wallMat = new THREE.MeshStandardMaterial({
+      color: 0xd9cebe,
+      roughness: 0.85,
+      metalness: 0.05
+    });
+
+    // Ceiling (Plaster paneling)
+    const ceilingMat = new THREE.MeshStandardMaterial({
+      color: 0xede4d8,
+      roughness: 0.9,
+      metalness: 0.02
+    });
+    const ceilingMesh = new THREE.Mesh(new THREE.PlaneGeometry(16, 10.8), ceilingMat);
+    ceilingMesh.position.set(0, 8.5, 1.8);
+    ceilingMesh.rotation.x = Math.PI / 2;
+    roomGroup.add(ceilingMesh);
+
+    // Back Wall (z = -3.2)
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(16, 9, 0.6), wallMat);
+    backWall.position.set(0, 4.25, -3.2);
+    backWall.receiveShadow = true;
+    roomGroup.add(backWall);
+
+    // Front Wall (z = 6.8) - Encloses room so camera cannot see void behind it
+    const frontWall = new THREE.Mesh(new THREE.BoxGeometry(16, 9, 0.6), wallMat);
+    frontWall.position.set(0, 4.25, 6.8);
+    frontWall.receiveShadow = true;
+    roomGroup.add(frontWall);
+
+    // Front Classical Archway / Double Door Molding
+    const archFrame = new THREE.Mesh(new THREE.BoxGeometry(3.6, 5.2, 0.7), darkWoodMat);
+    archFrame.position.set(0, 2.6, 6.6);
+    roomGroup.add(archFrame);
+
+    // Left Wall - Architectural Wall with Grand Panoramic Window Aperture
+    // Back pillar (z: -3.2 to -0.8)
+    const leftWallBack = new THREE.Mesh(new THREE.BoxGeometry(0.6, 9, 2.4), wallMat);
+    leftWallBack.position.set(-7.8, 4.25, -2.0);
+    leftWallBack.receiveShadow = true;
+    roomGroup.add(leftWallBack);
+
+    // Front pillar (z: 4.4 to 6.8)
+    const leftWallFront = new THREE.Mesh(new THREE.BoxGeometry(0.6, 9, 2.4), wallMat);
+    leftWallFront.position.set(-7.8, 4.25, 5.6);
+    leftWallFront.receiveShadow = true;
+    roomGroup.add(leftWallFront);
+
+    // Bottom windowsill (y: 0 to 1.2, z: -0.8 to 4.4)
+    const leftWallSill = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.2, 5.2), wallMat);
+    leftWallSill.position.set(-7.8, 0.6, 1.8);
+    leftWallSill.receiveShadow = true;
+    roomGroup.add(leftWallSill);
+
+    // Top arch header (y: 6.6 to 8.8, z: -0.8 to 4.4)
+    const leftWallHeader = new THREE.Mesh(new THREE.BoxGeometry(0.6, 2.2, 5.2), wallMat);
+    leftWallHeader.position.set(-7.8, 7.4, 1.8);
+    leftWallHeader.receiveShadow = true;
+    roomGroup.add(leftWallHeader);
+
+    // Right Wall (x = 7.8, z: -3.2 to 6.8)
+    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.6, 9, 10.6), wallMat);
+    rightWall.position.set(7.8, 4.25, 1.8);
+    rightWall.receiveShadow = true;
+    roomGroup.add(rightWall);
+
+    // Wainscoting / Boiserie Baseboards (Rich wood trim around all walls)
+    const boiserieBack = new THREE.Mesh(new THREE.BoxGeometry(16, 1.2, 0.15), darkWoodMat);
+    boiserieBack.position.set(0, 0.6, -2.85);
+    roomGroup.add(boiserieBack);
+
+    const boiserieLeftBack = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.2, 2.4), darkWoodMat);
+    boiserieLeftBack.position.set(-7.45, 0.6, -2.0);
+    roomGroup.add(boiserieLeftBack);
+
+    const boiserieLeftFront = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.2, 2.4), darkWoodMat);
+    boiserieLeftFront.position.set(-7.45, 0.6, 5.6);
+    roomGroup.add(boiserieLeftFront);
+
+    const boiserieLeftSill = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.1, 5.2), darkWoodMat);
+    boiserieLeftSill.position.set(-7.45, 1.2, 1.8);
+    roomGroup.add(boiserieLeftSill);
+
+    const boiserieRight = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.2, 10.4), darkWoodMat);
+    boiserieRight.position.set(7.45, 0.6, 1.8);
+    roomGroup.add(boiserieRight);
+
+    const boiserieFront = new THREE.Mesh(new THREE.BoxGeometry(16, 1.2, 0.15), darkWoodMat);
+    boiserieFront.position.set(0, 0.6, 6.45);
+    roomGroup.add(boiserieFront);
+
+    // Grand Panoramic Library Window (Frame + Mullions + Architectural Glass)
+    const windowGroup = new THREE.Group();
+    windowGroup.position.set(-7.75, 3.9, 1.8);
+
+    // Window Casing Frame (Outer border)
+    const frameMat = darkWoodMat;
+    const winW = 5.2;
+    const winH = 5.4;
+    const frameThick = 0.14;
+
+    const topBar = new THREE.Mesh(new THREE.BoxGeometry(frameThick * 2, frameThick, winW), frameMat);
+    topBar.position.set(0, winH / 2, 0);
+    windowGroup.add(topBar);
+
+    const btmBar = new THREE.Mesh(new THREE.BoxGeometry(frameThick * 2, frameThick, winW), frameMat);
+    btmBar.position.set(0, -winH / 2, 0);
+    windowGroup.add(btmBar);
+
+    const lSide = new THREE.Mesh(new THREE.BoxGeometry(frameThick * 2, winH, frameThick), frameMat);
+    lSide.position.set(0, 0, -winW / 2);
+    windowGroup.add(lSide);
+
+    const rSide = new THREE.Mesh(new THREE.BoxGeometry(frameThick * 2, winH, frameThick), frameMat);
+    rSide.position.set(0, 0, winW / 2);
+    windowGroup.add(rSide);
+
+    // 3 Vertical Mullions (Creating 4 vertical glass bays)
+    [-winW / 4, 0, winW / 4].forEach(z => {
+      const vMullion = new THREE.Mesh(new THREE.BoxGeometry(frameThick * 1.5, winH, 0.08), frameMat);
+      vMullion.position.set(0, 0, z);
+      windowGroup.add(vMullion);
+    });
+
+    // 2 Horizontal Transoms (Creating 3 vertical tiers)
+    [-winH / 6, winH / 4].forEach(y => {
+      const hTransom = new THREE.Mesh(new THREE.BoxGeometry(frameThick * 1.5, 0.08, winW), frameMat);
+      hTransom.position.set(0, y, 0);
+      windowGroup.add(hTransom);
+    });
+
+    // Transparent Architectural Glass Pane
+    const glassMat = new THREE.MeshStandardMaterial({
+      color: 0xd6eaff,
+      roughness: 0.04,
+      metalness: 0.12,
+      transparent: true,
+      opacity: 0.18,
+      side: THREE.DoubleSide
+    });
+    const glassMesh = new THREE.Mesh(new THREE.PlaneGeometry(winH, winW), glassMat);
+    glassMesh.rotation.y = Math.PI / 2;
+    windowGroup.add(glassMesh);
+
+    roomGroup.add(windowGroup);
+
+    // Ceiling Beams spanning the room
+    [-2, 0.4, 2.8, 5.2].forEach(z => {
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(16, 0.35, 0.4), darkWoodMat);
+      beam.position.set(0, 8.35, z);
+      beam.castShadow = true;
+      roomGroup.add(beam);
+    });
+
+    scene.add(roomGroup);
+
+    /* =====================================================================
+       Modern Skyscraper Cityscape with GTA Style Neon Illumination
+       ===================================================================== */
+    function createSkyscraperCity() {
+      const cityGroup = new THREE.Group();
+
+      // 1. Panoramic Sky Backdrop (Day & GTA Neon Night Crossfade)
+      const skyGeo = new THREE.PlaneGeometry(80, 60);
+
+      const skyMatDay = new THREE.MeshBasicMaterial({
+        map: createSkyTexture(false),
+        transparent: true,
+        opacity: 1.0,
+        side: THREE.DoubleSide
+      });
+      const skyMeshDay = new THREE.Mesh(skyGeo, skyMatDay);
+      skyMeshDay.position.set(-72, 16, 1.8);
+      skyMeshDay.rotation.y = Math.PI / 2;
+      cityGroup.add(skyMeshDay);
+      LightingState.skyMeshDay = skyMeshDay;
+
+      const skyMatNight = new THREE.MeshBasicMaterial({
+        map: createSkyTexture(true),
+        transparent: true,
+        opacity: 0.0,
+        side: THREE.DoubleSide
+      });
+      const skyMeshNight = new THREE.Mesh(skyGeo, skyMatNight);
+      skyMeshNight.position.set(-71.8, 16, 1.8);
+      skyMeshNight.rotation.y = Math.PI / 2;
+      cityGroup.add(skyMeshNight);
+      LightingState.skyMeshNight = skyMeshNight;
+
+      // 2. Skyscraper Materials & Neon Palette
+      const windowTex = createSkyscraperWindowTexture();
+      const emissiveTex = createSkyscraperEmissiveTexture();
+
+      const towerBuildingMat = new THREE.MeshStandardMaterial({
+        map: windowTex,
+        emissiveMap: emissiveTex,
+        emissive: 0xffffff,
+        emissiveIntensity: 0.02,
+        roughness: 0.35,
+        metalness: 0.45
+      });
+      LightingState.cityWindowMaterials.push(towerBuildingMat);
+
+      // GTA Vibrant Neon Materials
+      const neonColors = [
+        { name: 'pink', hex: 0xff007f },
+        { name: 'cyan', hex: 0x00f0ff },
+        { name: 'purple', hex: 0x9d00ff },
+        { name: 'lime', hex: 0x39ff14 },
+        { name: 'gold', hex: 0xffaa00 }
+      ];
+
+      const neonMatMap = {};
+      neonColors.forEach(item => {
+        const nMat = new THREE.MeshStandardMaterial({
+          color: item.hex,
+          emissive: item.hex,
+          emissiveIntensity: 0.05,
+          roughness: 0.2,
+          metalness: 0.1
+        });
+        neonMatMap[item.name] = nMat;
+        LightingState.cityNeonMaterials.push(nMat);
+      });
+
+      // Aircraft Beacon Material (Blinking Red)
+      const beaconMat = new THREE.MeshStandardMaterial({
+        color: 0xff1122,
+        emissive: 0xff1122,
+        emissiveIntensity: 0.05,
+        roughness: 0.1
+      });
+      LightingState.cityNeonMaterials.push(beaconMat);
+
+      // 3. Cluster of Modern High-Rise Towers & Skyscrapers (pushed back for panoramic view)
+      const buildingConfigs = [
+        // Front foreground skyline (closest, framing window view)
+        { x: -28, z: -1.0, w: 4.0, d: 4.5, h: 24, neon: 'pink', sign: 'VICE CITY' },
+        { x: -30, z: 3.5,  w: 4.6, d: 4.0, h: 30, neon: 'cyan', sign: 'CYBER' },
+        { x: -32, z: -4.5, w: 4.4, d: 4.4, h: 20, neon: 'lime' },
+        { x: -31, z: 7.5,  w: 4.2, d: 4.2, h: 27, neon: 'purple', sign: 'NEON' },
+        { x: -35, z: 1.2,  w: 5.4, d: 5.0, h: 38, neon: 'pink', hasSpire: true },
+        { x: -36, z: -2.5, w: 4.2, d: 4.2, h: 32, neon: 'gold', sign: 'TITAN' },
+        { x: -33, z: 5.5,  w: 4.8, d: 4.2, h: 23, neon: 'cyan' },
+
+        // Second layer (mid-depth)
+        { x: -38, z: -7.0, w: 5.5, d: 5.0, h: 28, neon: 'purple' },
+        { x: -40, z: 9.5,  w: 5.8, d: 5.4, h: 34, neon: 'pink', hasSpire: true },
+        { x: -42, z: 3.8,  w: 5.2, d: 5.2, h: 42, neon: 'cyan', hasSpire: true },
+        { x: -41, z: -3.5, w: 4.8, d: 4.8, h: 36, neon: 'lime' },
+        { x: -44, z: 0.0,  w: 6.0, d: 6.0, h: 48, neon: 'pink', hasSpire: true, sign: 'SYNTH 2027' },
+        { x: -42, z: -9.0, w: 5.2, d: 4.6, h: 26, neon: 'gold' },
+        { x: -45, z: 6.5,  w: 5.4, d: 4.8, h: 30, neon: 'cyan' },
+
+        // Background density skyline (deepest layer)
+        { x: -48, z: -6.0, w: 6.0, d: 6.0, h: 38, neon: 'purple' },
+        { x: -50, z: 2.5,  w: 7.0, d: 6.0, h: 44, neon: 'pink' },
+        { x: -52, z: 8.0,  w: 6.5, d: 5.5, h: 36, neon: 'cyan' },
+        { x: -53, z: -11.0, w: 6.0, d: 6.0, h: 28, neon: 'lime' },
+        { x: -53, z: 12.0, w: 6.5, d: 6.5, h: 32, neon: 'gold' },
+        { x: -55, z: -2.0, w: 6.0, d: 6.0, h: 52, neon: 'cyan', hasSpire: true }
+      ];
+
+      buildingConfigs.forEach(b => {
+        const towerGroup = new THREE.Group();
+        towerGroup.position.set(b.x, b.h / 2 - 2, b.z);
+
+        // Main Tower Shaft
+        const mainTower = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), towerBuildingMat);
+        mainTower.castShadow = true;
+        mainTower.receiveShadow = true;
+        towerGroup.add(mainTower);
+
+        // Rooftop Penthouse Setback
+        const setbackH = 2.4;
+        const setbackW = b.w * 0.72;
+        const setbackD = b.d * 0.72;
+        const setbackMesh = new THREE.Mesh(
+          new THREE.BoxGeometry(setbackW, setbackH, setbackD),
+          towerBuildingMat
+        );
+        setbackMesh.position.set(0, (b.h / 2) + (setbackH / 2), 0);
+        towerGroup.add(setbackMesh);
+
+        // GTA Style Glowing Neon Rooftop Perimeter Trim
+        const nMat = neonMatMap[b.neon] || neonMatMap['pink'];
+        const neonTrimW = setbackW + 0.15;
+        const neonTrimD = setbackD + 0.15;
+        const neonTrimThickness = 0.16;
+
+        // Rooftop Glowing Frame
+        const roofNeon = new THREE.Mesh(
+          new THREE.BoxGeometry(neonTrimW, neonTrimThickness, neonTrimD),
+          nMat
+        );
+        roofNeon.position.set(0, (b.h / 2) + setbackH + (neonTrimThickness / 2), 0);
+        towerGroup.add(roofNeon);
+
+        // Vertical Neon Corner Ribbons (GTA Vice City Aesthetic)
+        const vBarH = b.h * 0.55;
+        const vBar = new THREE.Mesh(
+          new THREE.BoxGeometry(0.12, vBarH, 0.12),
+          nMat
+        );
+        vBar.position.set(b.w / 2 + 0.05, (b.h / 4), b.d / 2 + 0.05);
+        towerGroup.add(vBar);
+
+        // Antenna Spire with Blinking Aviation Beacon
+        if (b.hasSpire) {
+          const spireH = 5.2;
+          const spire = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.04, 0.15, spireH, 6),
+            darkWoodMat
+          );
+          spire.position.set(0, (b.h / 2) + setbackH + (spireH / 2), 0);
+          towerGroup.add(spire);
+
+          const beacon = new THREE.Mesh(
+            new THREE.SphereGeometry(0.22, 8, 8),
+            beaconMat
+          );
+          beacon.position.set(0, (b.h / 2) + setbackH + spireH, 0);
+          towerGroup.add(beacon);
+          LightingState.cityBeacons.push(beacon);
+        }
+
+        // Glowing Neon Billboard Sign on Tower Facade
+        if (b.sign) {
+          const signTex = createNeonBillboardCanvas(b.sign, '#' + nMat.color.getHexString(), '#ffffff');
+          const signMat = new THREE.MeshStandardMaterial({
+            map: signTex,
+            emissiveMap: signTex,
+            emissive: nMat.color,
+            emissiveIntensity: 0.05,
+            roughness: 0.1
+          });
+          LightingState.cityNeonMaterials.push(signMat);
+
+          const signMesh = new THREE.Mesh(
+            new THREE.BoxGeometry(0.1, 1.8, 4.4),
+            signMat
+          );
+          // Face the sign toward library window (+X direction)
+          signMesh.position.set(b.w / 2 + 0.08, (b.h / 2) - 3.2, 0);
+          towerGroup.add(signMesh);
+        }
+
+        cityGroup.add(towerGroup);
+      });
+
+      // City Ground Plane (Dark asphalt with wet specular reflection)
+      const cityGround = new THREE.Mesh(
+        new THREE.PlaneGeometry(100, 80),
+        new THREE.MeshStandardMaterial({ color: 0x0a0c10, roughness: 0.4, metalness: 0.3 })
+      );
+      cityGround.position.set(-40, -2, 1.8);
+      cityGround.rotation.x = -Math.PI / 2;
+      cityGroup.add(cityGround);
+
+      scene.add(cityGroup);
+    }
+
+    createSkyscraperCity();
+
+    // 2. Central Majestic Bookshelves
+    function createBookshelf(x, z, rotY = 0) {
+      const shelfGroup = new THREE.Group();
+      shelfGroup.position.set(x, 0, z);
+      shelfGroup.rotation.y = rotY;
+
+      const shelfWidth = 5.2;
+      const shelfHeight = 5.6;
+      const shelfDepth = 0.75;
+      const numTiers = 4;
+
+      // Outer frame
+      const frameGeoL = new THREE.BoxGeometry(0.12, shelfHeight, shelfDepth);
+      const leftCol = new THREE.Mesh(frameGeoL, darkWoodMat);
+      leftCol.position.set(-shelfWidth / 2, shelfHeight / 2, 0);
+      leftCol.castShadow = true;
+      leftCol.receiveShadow = true;
+      shelfGroup.add(leftCol);
+
+      const rightCol = new THREE.Mesh(frameGeoL, darkWoodMat);
+      rightCol.position.set(shelfWidth / 2, shelfHeight / 2, 0);
+      rightCol.castShadow = true;
+      rightCol.receiveShadow = true;
+      shelfGroup.add(rightCol);
+
+      // Backboard
+      const backMesh = new THREE.Mesh(new THREE.BoxGeometry(shelfWidth, shelfHeight, 0.08), woodMat);
+      backMesh.position.set(0, shelfHeight / 2, -shelfDepth / 2 + 0.04);
+      backMesh.receiveShadow = true;
+      shelfGroup.add(backMesh);
+
+      // Shelves levels
+      const shelfPositionsY = [];
+      const tierHeight = shelfHeight / (numTiers + 1);
+      for (let i = 0; i <= numTiers + 1; i++) {
+        const y = i * tierHeight;
+        const plank = new THREE.Mesh(new THREE.BoxGeometry(shelfWidth, 0.08, shelfDepth), darkWoodMat);
+        plank.position.set(0, y, 0);
+        plank.castShadow = true;
+        plank.receiveShadow = true;
+        shelfGroup.add(plank);
+        if (i > 0 && i <= numTiers) shelfPositionsY.push(y);
+      }
+
+      // Crown Cornice Molding on top
+      const crown = new THREE.Mesh(new THREE.BoxGeometry(shelfWidth + 0.3, 0.25, shelfDepth + 0.2), darkWoodMat);
+      crown.position.set(0, shelfHeight + 0.12, 0);
+      crown.castShadow = true;
+      shelfGroup.add(crown);
+
+      scene.add(shelfGroup);
+      return { group: shelfGroup, shelfY: shelfPositionsY };
+    }
+
+    const mainShelf = createBookshelf(0, -2.4, 0);
+
+    // 3. Banker's Reading Desk in Forefront
+    const deskGroup = new THREE.Group();
+    deskGroup.position.set(0, 0, 1.6);
+
+    const deskTop = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.12, 1.8), darkWoodMat);
+    deskTop.position.set(0, 1.05, 0);
+    deskTop.castShadow = true;
+    deskTop.receiveShadow = true;
+    deskGroup.add(deskTop);
+
+    // Desk Legs
+    [[-1.6, -0.7], [1.6, -0.7], [-1.6, 0.7], [1.6, 0.7]].forEach(([lx, lz]) => {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.05, 0.12), darkWoodMat);
+      leg.position.set(lx, 1.05 / 2, lz);
+      leg.castShadow = true;
+      deskGroup.add(leg);
+    });
+
+    // Classical Emeralite / Banker's Lamp Builder
+    function createBankersLamp(x, z, rotY = 0) {
+      const lampGroup = new THREE.Group();
+      lampGroup.position.set(x, 1.11, z); // Table top is at y = 1.05 + 0.12/2 = 1.11
+      lampGroup.rotation.y = rotY;
+
+      // 1. Ornate Stepped Heavy Brass Base
+      const feltBottom = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.14, 0.14, 0.006, 24),
+        new THREE.MeshStandardMaterial({ color: 0x1a2618, roughness: 0.9 })
+      );
+      feltBottom.position.y = 0.003;
+      lampGroup.add(feltBottom);
+
+      const baseTier1 = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.13, 0.14, 0.016, 24),
+        brassMat
+      );
+      baseTier1.position.y = 0.014;
+      baseTier1.castShadow = true;
+      lampGroup.add(baseTier1);
+
+      const baseTier2 = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.10, 0.118, 0.016, 24),
+        brassMat
+      );
+      baseTier2.position.y = 0.030;
+      baseTier2.castShadow = true;
+      lampGroup.add(baseTier2);
+
+      const baseCollar = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.04, 0.08, 0.024, 20),
+        brassMat
+      );
+      baseCollar.position.y = 0.050;
+      lampGroup.add(baseCollar);
+
+      const baseBead = new THREE.Mesh(
+        new THREE.TorusGeometry(0.042, 0.01, 10, 24),
+        brassMat
+      );
+      baseBead.rotation.x = Math.PI / 2;
+      baseBead.position.y = 0.062;
+      lampGroup.add(baseBead);
+
+      // 2. Fluted Brass Mast & Knuckle
+      const lowerStem = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.018, 0.02, 0.16, 16),
+        brassMat
+      );
+      lowerStem.position.y = 0.142;
+      lowerStem.castShadow = true;
+      lampGroup.add(lowerStem);
+
+      const midKnuckle = new THREE.Mesh(
+        new THREE.SphereGeometry(0.026, 16, 12),
+        brassMat
+      );
+      midKnuckle.position.y = 0.222;
+      lampGroup.add(midKnuckle);
+
+      // Graceful Arched Gooseneck / Curved Brass Neck
+      const neckCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0, 0.222, 0),
+        new THREE.Vector3(0, 0.31, -0.015),
+        new THREE.Vector3(0, 0.37, 0.02),
+        new THREE.Vector3(0, 0.395, 0.05)
+      ]);
+      const neckGeo = new THREE.TubeGeometry(neckCurve, 16, 0.013, 12, false);
+      const neckMesh = new THREE.Mesh(neckGeo, brassMat);
+      neckMesh.castShadow = true;
+      lampGroup.add(neckMesh);
+
+      // Horizontal Swivel Crossbar supporting the shade
+      const crossbar = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.01, 0.01, 0.36, 16),
+        brassMat
+      );
+      crossbar.rotation.z = Math.PI / 2;
+      crossbar.position.set(0, 0.395, 0.05);
+      crossbar.castShadow = true;
+      lampGroup.add(crossbar);
+
+      // Acorn Finial End-caps & side mounting brackets
+      [-0.185, 0.185].forEach(sideX => {
+        const acorn = new THREE.Mesh(
+          new THREE.SphereGeometry(0.018, 12, 10),
+          brassMat
+        );
+        acorn.position.set(sideX, 0.395, 0.05);
+        lampGroup.add(acorn);
+
+        const bracket = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.008, 0.008, 0.038, 10),
+          brassMat
+        );
+        bracket.position.set(sideX > 0 ? 0.17 : -0.17, 0.38, 0.05);
+        lampGroup.add(bracket);
+
+        const thumbScrew = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.015, 0.015, 0.012, 12),
+          brassMat
+        );
+        thumbScrew.rotation.z = Math.PI / 2;
+        thumbScrew.position.set(sideX > 0 ? 0.182 : -0.182, 0.375, 0.05);
+        lampGroup.add(thumbScrew);
+      });
+
+      // 3. Swiveling Shade Assembly (tilted forward gracefully toward the desk)
+      const shadePivot = new THREE.Group();
+      shadePivot.position.set(0, 0.375, 0.05);
+      shadePivot.rotation.x = 0.18; // ~10° forward tilt to showcase inner glow
+
+      // Outer Iconic Emerald Green Glass Half-Cylinder
+      const shadeMat = new THREE.MeshStandardMaterial({
+        color: 0x0e582b,
+        roughness: 0.15,
+        metalness: 0.12,
+        transparent: true,
+        opacity: 0.93,
+        emissive: 0x145a2b,
+        emissiveIntensity: LightingState.isNight ? 0.75 : 0.08,
+        side: THREE.DoubleSide
+      });
+      LightingState.lampShadeMaterials.push(shadeMat);
+
+      // Half-cylinder arched canopy (radius ~0.076, length 0.33)
+      const outerShadeGeo = new THREE.CylinderGeometry(0.075, 0.082, 0.33, 28, 1, false, 0, Math.PI);
+      const outerShade = new THREE.Mesh(outerShadeGeo, shadeMat);
+      outerShade.rotation.z = Math.PI / 2;
+      outerShade.castShadow = true;
+      shadePivot.add(outerShade);
+
+      // Inner Opal/Milk-White Reflective Glass Casing (Emeralite cased glass)
+      const innerShadeGeo = new THREE.CylinderGeometry(0.071, 0.078, 0.324, 24, 1, false, 0, Math.PI);
+      const innerShadeMat = new THREE.MeshStandardMaterial({
+        color: 0xfffaed,
+        roughness: 0.28,
+        metalness: 0.04,
+        side: THREE.DoubleSide
+      });
+      const innerShade = new THREE.Mesh(innerShadeGeo, innerShadeMat);
+      innerShade.rotation.z = Math.PI / 2;
+      shadePivot.add(innerShade);
+
+      // Fine Brass Rim Trim along the bottom edges of the shade
+      [-0.079, 0.079].forEach(rz => {
+        const rim = new THREE.Mesh(
+          new THREE.BoxGeometry(0.334, 0.007, 0.007),
+          brassMat
+        );
+        rim.position.set(0, 0, rz);
+        shadePivot.add(rim);
+      });
+
+      // 4. Brass Bulb Socket & Filament Bulb inside
+      const socket = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.018, 0.018, 0.05, 12),
+        brassMat
+      );
+      socket.rotation.z = Math.PI / 2;
+      socket.position.set(0, 0.03, 0);
+      shadePivot.add(socket);
+
+      // Glowing Incandescent Bulb
+      const bulbMat = new THREE.MeshStandardMaterial({
+        color: 0xfffae6,
+        roughness: 0.2,
+        metalness: 0.05,
+        emissive: 0xffaa44,
+        emissiveIntensity: LightingState.isNight ? 2.2 : 0.6
+      });
+      LightingState.lampBulbMaterials.push(bulbMat);
+
+      const bulb = new THREE.Mesh(
+        new THREE.SphereGeometry(0.032, 16, 12),
+        bulbMat
+      );
+      bulb.scale.set(1.4, 0.8, 0.8);
+      bulb.position.set(0, 0.015, 0);
+      shadePivot.add(bulb);
+
+      // 5. Vintage Beaded Brass Pull-Chain Switch
+      const chain = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.0018, 0.0018, 0.11, 6),
+        brassMat
+      );
+      chain.position.set(0.04, -0.05, 0);
+      shadePivot.add(chain);
+
+      const chainFob = new THREE.Mesh(
+        new THREE.SphereGeometry(0.007, 10, 8),
+        brassMat
+      );
+      chainFob.position.set(0.04, -0.11, 0);
+      shadePivot.add(chainFob);
+
+      lampGroup.add(shadePivot);
+      return lampGroup;
+    }
+
+    // Spawn Symmetrical Classic Banker's Lamps on Left and Right of Desk
+    const lampRight = createBankersLamp(1.35, 0.0, -0.04);
+    deskGroup.add(lampRight);
+
+    const lampLeft = createBankersLamp(-1.35, 0.0, 0.04);
+    deskGroup.add(lampLeft);
+
+    // Open Book Prop on Desk
+    const propBookMat = new THREE.MeshStandardMaterial({ color: 0x541818, roughness: 0.7 });
+    const deskBook = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.05, 0.38), propBookMat);
+    deskBook.position.set(-0.8, 1.09, 0.1);
+    deskBook.rotation.y = 0.25;
+    deskBook.castShadow = true;
+    deskGroup.add(deskBook);
+
+    scene.add(deskGroup);
+
+    /* =====================================================================
+       Interactive 3D Books Generation & Placement
+       ===================================================================== */
+    const interactiveBooks = [];
+    const interactiveMeshes = [];
+    let activeFloatingBook = null;
+
+    // Fill Shelves with Both Decorative and Interactive Project Books
+    const shelfYLevels = mainShelf.shelfY; // Array of Y coordinates of shelves
+    const shelfWidth = 4.8;
+
+    // Build Project Interactive Books
+    PROJECTS_CATALOG.forEach((proj, idx) => {
+      const bookWidth = 0.11;
+      const bookHeight = 0.65;
+      const bookDepth = 0.44;
+
+      // Book Spine Texture
+      const hexColor = '#' + proj.color.toString(16).padStart(6, '0');
+      const spineTexture = createBookSpineCanvas(proj.spineTitle, hexColor, proj.goldAccent);
+
+      const coverMat = new THREE.MeshStandardMaterial({
+        color: proj.color,
+        roughness: 0.55,
+        metalness: 0.15
+      });
+
+      const spineMat = new THREE.MeshStandardMaterial({
+        map: spineTexture,
+        roughness: 0.55,
+        metalness: 0.15
+      });
+
+      // Box Materials: [right, left, top, bottom, front, back]
+      // In Three.js: 0=x+, 1=x-, 2=y+, 3=y-, 4=z+, 5=z-
+      // Facing out into the room (+Z is spine):
+      const materials = [
+        coverMat,       // x+
+        coverMat,       // x-
+        paperPagesMat,  // y+
+        paperPagesMat,  // y-
+        spineMat,       // z+ (Spine facing front)
+        paperPagesMat   // z- (Pages inside)
+      ];
+
+      const bookGeo = new THREE.BoxGeometry(bookWidth, bookHeight, bookDepth);
+      const bookMesh = new THREE.Mesh(bookGeo, materials);
+      bookMesh.castShadow = true;
+      bookMesh.receiveShadow = true;
+
+      // Shelf Placement
+      const targetShelfY = shelfYLevels[proj.shelfIndex || 0];
+      const slotX = -1.8 + (proj.slotIndex * 0.45);
+      const basePos = new THREE.Vector3(slotX, targetShelfY + (bookHeight / 2) + 0.04, -2.4 + (bookDepth / 2) - 0.1);
+      const baseRot = new THREE.Euler(0, 0, (Math.random() - 0.5) * 0.02);
+
+      bookMesh.position.copy(basePos);
+      bookMesh.rotation.copy(baseRot);
+
+      // Metadata on mesh
+      const bookData = {
+        mesh: bookMesh,
+        project: proj,
+        shelfPos: basePos.clone(),
+        shelfRot: baseRot.clone(),
+        isFloating: false
+      };
+
+      bookMesh.userData = bookData;
+      interactiveBooks.push(bookData);
+      interactiveMeshes.push(bookMesh);
+      scene.add(bookMesh);
+    });
+
+    // Add Filler / Decorative Books on shelves to make library dense and rich
+    const fillerColors = [0x2c3e50, 0x8b4513, 0x553018, 0x1f3a3d, 0x4a1525, 0x3d3d3d, 0x785128];
+    for (let shelfIdx = 0; shelfIdx < shelfYLevels.length; shelfIdx++) {
+      const y = shelfYLevels[shelfIdx];
+      let currX = -2.2;
+      while (currX < 2.2) {
+        // Skip slot if close to interactive project book
+        const nearInteractive = interactiveBooks.some(b => 
+          Math.abs(b.shelfPos.x - currX) < 0.22 && Math.abs(b.shelfPos.y - (y + 0.3)) < 0.25
+        );
+
+        const bWidth = 0.06 + Math.random() * 0.06;
+        const bHeight = 0.55 + Math.random() * 0.16;
+        const bDepth = 0.38 + Math.random() * 0.06;
+
+        if (!nearInteractive) {
+          const col = fillerColors[Math.floor(Math.random() * fillerColors.length)];
+          const fillMat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.65 });
+          const fillBook = new THREE.Mesh(
+            new THREE.BoxGeometry(bWidth, bHeight, bDepth),
+            [fillMat, fillMat, paperPagesMat, paperPagesMat, fillMat, paperPagesMat]
+          );
+          fillBook.position.set(currX, y + (bHeight / 2) + 0.04, -2.4 + (bDepth / 2) - 0.1);
+          fillBook.rotation.z = (Math.random() - 0.5) * 0.04;
+          fillBook.castShadow = true;
+          scene.add(fillBook);
+        }
+
+        currX += bWidth + 0.02;
+      }
+    }
+
+    /* =====================================================================
+       Floating Book Animation Mechanics (Extraction & Return)
+       ===================================================================== */
+    const sheetEl = document.getElementById('project-sheet');
+
+    window.setMobileSheetTab = function(tab) {
+      const isMobile = window.innerWidth <= 860;
+      const tabChat = document.getElementById('tab-chat');
+      const tabSheet = document.getElementById('tab-sheet');
+
+      if (tab === 'sheet') {
+        if (!activeFloatingBook) {
+          addBotResponse('Actualmente no hay ningún tomo extraído en la mesa. Tocá cualquier libro en el estante o elegí un tema en el chat para inspeccionarlo.');
+          return;
+        }
+        document.body.classList.add('mobile-tab-sheet');
+        if (tabSheet) tabSheet.classList.add('active');
+        if (tabChat) tabChat.classList.remove('active');
+      } else {
+        document.body.classList.remove('mobile-tab-sheet');
+        if (tabChat) tabChat.classList.add('active');
+        if (tabSheet) tabSheet.classList.remove('active');
+      }
+    };
+
+    function extractBook(bookData) {
+      if (activeFloatingBook === bookData) return;
+      if (activeFloatingBook) returnBook(activeFloatingBook);
+
+      activeFloatingBook = bookData;
+      bookData.isFloating = true;
+
+      AudioFX.playSlide();
+
+      // Temporarily constrain OrbitControls
+      controls.autoRotate = false;
+
+      // Compute target position in front of camera
+      // On desktop: offset left to leave room for sheet. On mobile: center & raise to top 50%
+      const forwardVec = new THREE.Vector3();
+      camera.getWorldDirection(forwardVec);
+
+      const isMobile = window.innerWidth <= 860;
+      const forwardDist = isMobile ? 1.55 : 1.8;
+      const targetPos = new THREE.Vector3()
+        .copy(camera.position)
+        .addScaledVector(forwardVec, forwardDist)
+        .add(isMobile ? new THREE.Vector3(0, 0.28, 0) : new THREE.Vector3(-0.35, -0.05, 0));
+
+      // Target orientation: book faces camera, tilted slightly in 3D perspective
+      const targetRot = new THREE.Euler(
+        camera.rotation.x + (isMobile ? 0.08 : 0.15),
+        camera.rotation.y + (isMobile ? 0.22 : 0.35),
+        camera.rotation.z - (isMobile ? 0.06 : 0.12)
+      );
+
+      // Animation Step 1: Slide out of shelf
+      const pullOutPos = bookData.shelfPos.clone().add(new THREE.Vector3(0, 0.05, 0.65));
+
+      new TWEEN.Tween(bookData.mesh.position)
+        .to(pullOutPos, 350)
+        .easing(TWEEN.Easing.Cubic.Out)
+        .onComplete(() => {
+          AudioFX.playWhoosh();
+          // Step 2: Float up and glide to screen
+          new TWEEN.Tween(bookData.mesh.position)
+            .to(targetPos, 850)
+            .easing(TWEEN.Easing.Back.Out)
+            .start();
+
+          new TWEEN.Tween(bookData.mesh.rotation)
+            .to({ x: targetRot.x, y: targetRot.y, z: targetRot.z }, 850)
+            .easing(TWEEN.Easing.Back.Out)
+            .onComplete(() => {
+              // Open inspection card
+              displayProjectSheet(bookData.project);
+            })
+            .start();
+        })
+        .start();
+    }
+
+    function returnBook(bookData) {
+      if (!bookData || !bookData.isFloating) return;
+
+      hideProjectSheet();
+      AudioFX.playSlide();
+
+      const mesh = bookData.mesh;
+      const pullOutPos = bookData.shelfPos.clone().add(new THREE.Vector3(0, 0.08, 0.65));
+
+      // Step 1: Fly back near shelf
+      new TWEEN.Tween(mesh.position)
+        .to(pullOutPos, 700)
+        .easing(TWEEN.Easing.Quadratic.InOut)
+        .start();
+
+      new TWEEN.Tween(mesh.rotation)
+        .to({
+          x: bookData.shelfRot.x,
+          y: bookData.shelfRot.y,
+          z: bookData.shelfRot.z
+        }, 700)
+        .easing(TWEEN.Easing.Quadratic.InOut)
+        .onComplete(() => {
+          // Step 2: Slide snug into shelf slot
+          new TWEEN.Tween(mesh.position)
+            .to(bookData.shelfPos, 350)
+            .easing(TWEEN.Easing.Cubic.Out)
+            .onComplete(() => {
+              bookData.isFloating = false;
+              if (activeFloatingBook === bookData) activeFloatingBook = null;
+            })
+            .start();
+        })
+        .start();
+    }
+
+    function displayProjectSheet(proj) {
+      document.getElementById('sheet-category').textContent = proj.category;
+      document.getElementById('sheet-title').textContent = proj.title;
+      document.getElementById('sheet-subtitle').textContent = proj.subtitle;
+      document.getElementById('sheet-description').textContent = proj.description;
+      
+      const stackContainer = document.getElementById('sheet-stack');
+      stackContainer.innerHTML = '';
+      proj.stack.forEach(tech => {
+        const tag = document.createElement('span');
+        tag.className = 'stack-tag';
+        tag.textContent = tech;
+        stackContainer.appendChild(tag);
+      });
+
+      document.getElementById('sheet-action-link').href = proj.link;
+      sheetEl.classList.add('active');
+
+      const dot = document.getElementById('tab-dot');
+      if (dot) dot.classList.add('active');
+
+      if (window.innerWidth <= 860) {
+        setMobileSheetTab('sheet');
+      }
+    }
+
+    function hideProjectSheet() {
+      sheetEl.classList.remove('active');
+
+      const dot = document.getElementById('tab-dot');
+      if (dot) dot.classList.remove('active');
+
+      if (window.innerWidth <= 860) {
+        setMobileSheetTab('chat');
+      }
+    }
+
+    document.getElementById('sheet-return-btn').addEventListener('click', () => {
+      if (activeFloatingBook) returnBook(activeFloatingBook);
+    });
+
+    /* =====================================================================
+       Raycasting & Mouse Interaction (Click & Hover on Books)
+       ===================================================================== */
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let hoveredBook = null;
+
+    window.addEventListener('pointermove', (e) => {
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(interactiveMeshes);
+
+      if (intersects.length > 0) {
+        const hitMesh = intersects[0].object;
+        if (hoveredBook !== hitMesh && (!hitMesh.userData.isFloating)) {
+          hoveredBook = hitMesh;
+          document.body.style.cursor = 'pointer';
+        }
+      } else {
+        if (hoveredBook) {
+          hoveredBook = null;
+          document.body.style.cursor = 'default';
+        }
+      }
+    });
+
+    window.addEventListener('click', (e) => {
+      // Ignore click if user clicked on UI overlay
+      if (e.target.closest('.chat-dock') || e.target.closest('.project-inspection-sheet') || e.target.closest('.top-bar') || e.target.closest('.mobile-bottom-tabs')) {
+        return;
+      }
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(interactiveMeshes);
+
+      if (intersects.length > 0) {
+        const hitBook = intersects[0].object.userData;
+        extractBook(hitBook);
+        addChatMessage('user', `Muéstrame el tomo de "${hitBook.project.title}"`);
+        addBotResponse(`¡Excelente elección! Acabo de extraer del estante el volumen correspondiente a **${hitBook.project.title}**. Podés ver los detalles de arquitectura en la ficha.`);
+      } else {
+        // Clicked in empty room space: if a book is open and clicked far away, dismiss it
+        if (activeFloatingBook && !e.target.closest('#project-sheet')) {
+          returnBook(activeFloatingBook);
+        }
+      }
+    });
+
+    /* =====================================================================
+       Chatbot Logic & Command Query Resolver
+       ===================================================================== */
+    const chatMessagesEl = document.getElementById('chat-messages');
+    const chatFormEl = document.getElementById('chat-form');
+    const chatInputEl = document.getElementById('chat-input');
+
+    function addChatMessage(sender, text) {
+      const msgDiv = document.createElement('div');
+      msgDiv.className = `msg ${sender}`;
+      msgDiv.innerHTML = text;
+      chatMessagesEl.appendChild(msgDiv);
+      chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+    }
+
+    function addBotResponse(text, delay = 350) {
+      // Show typing indicator
+      const typingDiv = document.createElement('div');
+      typingDiv.className = 'msg bot msg-typing';
+      typingDiv.innerHTML = '<span></span><span></span><span></span>';
+      chatMessagesEl.appendChild(typingDiv);
+      chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+
+      setTimeout(() => {
+        typingDiv.remove();
+        addChatMessage('bot', text);
+      }, delay);
+    }
+
+    window.selectProjectFromChat = function(projId) {
+      const bookData = interactiveBooks.find(b => b.project.id === projId);
+      if (!bookData) return;
+
+      // Extract selected book to front of camera
+      extractBook(bookData);
+      addChatMessage('user', `Ver tomo: "${bookData.project.title}"`);
+      addBotResponse(`Extrayendo **${bookData.project.title}** hacia la mesa de lectura... Podés ver la arquitectura en la ficha.`);
+    };
+
+    function handleProjectQuery(query) {
+      const q = query.toLowerCase().trim();
+      const words = q.split(/\s+/).filter(w => w.length > 1);
+
+      // Helper to evaluate project match against query string
+      function matchScore(p) {
+        const fullText = `${p.title} ${p.spineTitle} ${p.category} ${p.subtitle} ${p.description} ${p.stack.join(' ')}`.toLowerCase();
+        
+        // Exact full phrase
+        if (fullText.includes(q)) return 2;
+
+        // All individual words present
+        if (words.length > 1 && words.every(w => fullText.includes(w))) return 1.5;
+
+        // Any word present (for broad search)
+        if (words.length > 1 && words.some(w => fullText.includes(w))) return 1;
+
+        return 0;
+      }
+
+      // First try strict match (exact phrase or all words)
+      let matches = PROJECTS_CATALOG.filter(p => matchScore(p) >= 1.5);
+
+      // If no strict match, try broad match (at least 1 word)
+      if (matches.length === 0 && words.length > 1) {
+        matches = PROJECTS_CATALOG.filter(p => matchScore(p) >= 1);
+      }
+
+      // Fallback domain keyword mapping
+      if (matches.length === 0) {
+        if (q.includes('aws') || q.includes('cloud') || q.includes('serverless')) {
+          matches = PROJECTS_CATALOG.filter(p => 
+            p.category.includes('CLOUD') || 
+            p.stack.some(s => s.toLowerCase().includes('aws') || s.toLowerCase().includes('serverless')) ||
+            p.description.toLowerCase().includes('aws') || p.description.toLowerCase().includes('serverless')
+          );
+        } else if (q.includes('python') || q.includes('data') || q.includes('lake')) {
+          matches = PROJECTS_CATALOG.filter(p => 
+            p.category.includes('DATA') || 
+            p.stack.some(s => s.toLowerCase().includes('python') || s.toLowerCase().includes('duckdb'))
+          );
+        } else if (q.includes('ia') || q.includes('ai') || q.includes('agent') || q.includes('agente')) {
+          matches = PROJECTS_CATALOG.filter(p => p.category.includes('ARTIFICIAL') || p.stack.includes('LLMs'));
+        } else if (q.includes('iot') || q.includes('edge') || q.includes('raspberry') || q.includes('rust')) {
+          matches = PROJECTS_CATALOG.filter(p => p.category.includes('IOT') || p.stack.includes('Rust'));
+        } else if (q.includes('k8s') || q.includes('micro') || q.includes('docker') || q.includes('go')) {
+          matches = PROJECTS_CATALOG.filter(p => p.category.includes('DEVOPS') || p.stack.includes('Kubernetes') || p.stack.includes('Docker'));
+        } else if (q.includes('fintech') || q.includes('ledger') || q.includes('java')) {
+          matches = PROJECTS_CATALOG.filter(p => p.category.includes('FINTECH') || p.stack.includes('Java 21'));
+        }
+      }
+
+      if (matches.length === 0) {
+        addBotResponse(`He revisado los estantes pero no encontré tomos para "${query}". Probá buscando por **AWS**, **Python**, **IA**, **IoT**, o hacé click directamente sobre cualquier lomo.`);
+      } else if (matches.length === 1) {
+        // Single match: directly extract and animate forward
+        const matched = matches[0];
+        const bookData = interactiveBooks.find(b => b.project.id === matched.id);
+        if (bookData) {
+          extractBook(bookData);
+          addBotResponse(`Buscando en la estantería... Encontré el tomo de **${matched.title}** (${matched.category}). Flotando hacia la pantalla para su inspección.`);
+        }
+      } else {
+        // Multiple matches: DO NOT bring any book forward yet until user selects one!
+        let optionsHtml = `<div class="chat-project-options">`;
+        matches.forEach(proj => {
+          const hex = '#' + proj.color.toString(16).padStart(6, '0');
+          const shortStack = proj.stack.slice(0, 3).join(', ');
+          optionsHtml += `
+            <button class="chat-project-btn" onclick="window.selectProjectFromChat('${proj.id}')">
+              <span class="btn-spine-dot" style="background:${hex};"></span>
+              <div class="btn-info">
+                <span class="btn-title">${proj.title}</span>
+                <span class="btn-desc">${proj.category} &bull; ${shortStack}</span>
+              </div>
+              <span class="btn-arrow">&rarr;</span>
+            </button>
+          `;
+        });
+        optionsHtml += `</div>`;
+
+        addBotResponse(`Encontré **${matches.length} tomos** sobre ese tema. Seleccioná cuál querés inspeccionar para que se acerque a la mesa:${optionsHtml}`);
+      }
+    }
+
+    chatFormEl.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const val = chatInputEl.value.trim();
+      if (!val) return;
+      addChatMessage('user', val);
+      chatInputEl.value = '';
+      handleProjectQuery(val);
+    });
+
+    // Quick filter chips click handler
+    document.querySelectorAll('.chip-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const query = btn.getAttribute('data-query');
+        addChatMessage('user', query);
+        handleProjectQuery(query);
+      });
+    });
+
+    /* =====================================================================
+       Day / Night Theme Controller & Camera Reset
+       ===================================================================== */
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    const themeIconEl = document.getElementById('theme-icon');
+    const themeLabelEl = document.getElementById('theme-label');
+    let isNightMode = false;
+
+    themeToggleBtn.addEventListener('click', () => {
+      isNightMode = !isNightMode;
+      document.body.classList.toggle('night-mode', isNightMode);
+
+      if (isNightMode) {
+        themeIconEl.innerHTML = '&#9790;'; // Moon symbol
+        themeLabelEl.textContent = 'Modo Día';
+        LightingState.applyTheme(true);
+      } else {
+        themeIconEl.innerHTML = '&#9788;'; // Sun symbol
+        themeLabelEl.textContent = 'Modo Noche';
+        LightingState.applyTheme(false);
+      }
+    });
+
+    document.getElementById('reset-cam-btn').addEventListener('click', () => {
+      new TWEEN.Tween(camera.position)
+        .to({ x: initialCameraPos.x, y: initialCameraPos.y, z: initialCameraPos.z }, 900)
+        .easing(TWEEN.Easing.Cubic.Out)
+        .start();
+
+      new TWEEN.Tween(controls.target)
+        .to({ x: initialLookAt.x, y: initialLookAt.y, z: initialLookAt.z }, 900)
+        .easing(TWEEN.Easing.Cubic.Out)
+        .start();
+    });
+
+    /* =====================================================================
+       Window Resizing & Render Loop
+       ===================================================================== */
+    function handleWindowResize() {
+      const isMobile = window.innerWidth <= 860;
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.fov = isMobile ? 54 : 46;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+
+      if (isMobile) {
+        controls.target.set(0, 1.92, 0);
+      } else {
+        controls.target.set(0, 1.8, 0);
+      }
+    }
+    window.addEventListener('resize', handleWindowResize);
+    handleWindowResize();
+
+    const clock = new THREE.Clock();
+
+    function renderLoop() {
+      requestAnimationFrame(renderLoop);
+      const elapsedTime = clock.getElapsedTime();
+
+      // Update Tween animations
+      TWEEN.update();
+
+      // Update Lighting flickers (candle effect at night)
+      LightingState.updateFlicker(elapsedTime);
+
+      // Subtle breathing floating motion on active floating book
+      if (activeFloatingBook && activeFloatingBook.isFloating) {
+        activeFloatingBook.mesh.position.y += Math.sin(elapsedTime * 2.2) * 0.0008;
+        activeFloatingBook.mesh.rotation.z += Math.cos(elapsedTime * 1.8) * 0.0004;
+      }
+
+      controls.update();
+
+      // Hard Boundary Guard: Mathematically prevent the camera from exiting the room
+      camera.position.x = THREE.MathUtils.clamp(camera.position.x, -5.2, 5.2);
+      camera.position.y = THREE.MathUtils.clamp(camera.position.y, 1.1, 4.2);
+      camera.position.z = THREE.MathUtils.clamp(camera.position.z, -0.4, 5.7);
+
+      renderer.render(scene, camera);
+    }
+
+    renderLoop();
+  </script>
+</body>
+</html>
