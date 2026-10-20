@@ -644,15 +644,27 @@ const projectsJson = JSON.stringify(projects).replace(/</g, '\u003c');
     40% { transform: scale(1); opacity: 1; }
   }
   
-  /* Project Quick Selection Chips */
+  /*
+   * Project Quick Selection Chips — Phase 5.5h (L24).
+   *
+   * The prototype's quick-chips was a single-row `display: flex` with
+   * `overflow-x: auto` so the 5 hardcoded chips could scroll
+   * horizontally when the chat-dock was narrow. With 10 tag-derived
+   * chips from `topTagsOfProjects(allProjects, 10)`, the row overflowed
+   * the chat-dock width and the later tags (`fastapi`, `fullstack`,
+   * `i18n`, `microservices`, `python`, `rag`) were visually clipped
+   * behind an invisible scrollbar.
+   *
+   * Switching to `flex-wrap: wrap` lets the chips flow into 2-3 rows
+   * inside the chat-dock's natural width. The horizontal-scroll
+   * fallback is removed; nothing scrolls anymore.
+   */
   .biblioteca-3d-root .quick-chips {
     display: flex;
+    flex-wrap: wrap;
     gap: 6px;
     padding: 0 18px 12px;
-    overflow-x: auto;
-    scrollbar-width: none;
   }
-  .biblioteca-3d-root .quick-chips::-webkit-scrollbar { display: none; }
   
   .biblioteca-3d-root .chip-btn {
     flex-shrink: 0;
