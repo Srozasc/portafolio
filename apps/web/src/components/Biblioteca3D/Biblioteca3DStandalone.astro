@@ -1,0 +1,1127 @@
+---
+/**
+ * Biblioteca3DStandalone.astro — the HTML prototype at
+ * experiments/chat-3d-library.html ported into the Astro app.
+ *
+ * Phase 5.5e / T12 (L13: "identical to the prototype", L14: inject standalone
+ * HTML, L15: real portfolio projects).
+ *
+ * Three decisions worth knowing about:
+ *
+ *  1. CSS isolation. The prototype stylesheet targets generic class names
+ *     (`.top-bar`, `.chat-dock`, `.control-btn`, ...) that collide with
+ *     Base.astro's navbar and the Chatbot island. Every selector in the
+ *     `<style is:global>` block below is therefore re-scoped under
+ *     `.biblioteca-3d-root`. Three prototype selectors are element selectors
+ *     and are re-scoped by hand:
+ *     - `:root` -> the wrapper itself (the wrapper is the token scope root);
+ *     - `html, body` -> the wrapper itself (the wrapper is the viewport box);
+ *     - `body.night-mode` / `body.mobile-tab-sheet` ->
+ *       `body.<cls> .biblioteca-3d-root`, so the prototype JS can keep
+ *       toggling those classes on `document.body` verbatim.
+ *
+ *  2. Project data. The Astro page hands `projects` (a projection of
+ *     `getCollection('projects')`) down as a prop. It is serialized into an
+ *     inert `<script type="application/json" id="biblioteca3d-projects">` tag
+ *     and read back by `main.ts`, which runs it through `buildCatalog()` to
+ *     produce the catalog the Three.js scene consumes. No fetch, no storage,
+ *     no backend call (S7/S8/S9).
+ *
+ *  3. Script loading. Three.js r128, OrbitControls and Tween.js are classic
+ *     non-async scripts, so the browser runs them before the deferred Astro
+ *     module bundle that imports `./main.ts`.
+ */
+import type { ProjectEntry, TopTag } from './types';
+
+interface Props {
+  projects: ProjectEntry[];
+  /**
+   * Locale-aware link back to the standard portfolio mode, surfaced as the
+   * "Volver" button in the prototype's top-bar. The Astro page computes it
+   * from `Astro.currentLocale` so this component does not need to know
+   * i18n internals.
+   *   - ES: `/index.html`
+   *   - EN: `/en/index.html`
+   */
+  indexPath: string;
+  /**
+   * Top-N tags + occurrence counts from the project Content Collection.
+   * Rendered as the bibliotecario's quick-filter chips (Phase 5.5g / L22).
+   * Same source and ordering as the standard-mode Chatbot's chip row
+   * (computed in `apps/web/src/layouts/Base.astro`) so the two chat
+   * surfaces stay in lockstep on vocabulary.
+   */
+  topTags: TopTag[];
+}
+
+const { projects, indexPath, topTags } = Astro.props;
+
+/**
+ * Every `<` in the payload is written as the six-character JSON escape
+ * (backslash-u-0-0-3-c) so a project description can never terminate the
+ * surrounding script element early. `JSON.parse` decodes it back to a
+ * literal `<`.
+ */
+const projectsJson = JSON.stringify(projects).replace(/</g, '\u003c');
+---
+
+<div class="biblioteca-3d-root">
+  <script is:inline type="application/json" id="biblioteca3d-projects" set:html={projectsJson}></script>
+  <!-- 3D Canvas -->
+  <canvas id="webgl-viewport"></canvas>
+  <div class="viewport-overlay"></div>
+
+  <!-- Top Navigation -->
+  <header class="top-bar">
+    <div class="library-brand">
+      <div class="library-emblem">B</div>
+      <div class="library-title">
+        <h1>Biblioteca de Proyectos</h1>
+        <span>Archivo Arquitectónico &bull; 3D</span>
+      </div>
+    </div>
+
+    <div class="top-controls">
+      <!--
+        Phase 5.5f (T18): exit-to-standard-mode button. Anchored as the
+        first control so it sits leftmost in the right-aligned controls
+        column. Reuses the `.control-btn` rule (which already covers hover,
+        active, and the mobile <860px variant in the prototype CSS) so no
+        new CSS is needed.
+      -->
+      <a class="control-btn" href={indexPath} title="Volver al portafolio estándar" aria-label="Volver al portafolio">
+        <span>←</span>
+        <span>Volver</span>
+      </a>
+
+      <button class="control-btn" id="theme-toggle" title="Alternar entre luz diurna y lámparas nocturnas">
+        <span class="theme-icon" id="theme-icon">&#9788;</span>
+        <span id="theme-label">Modo Noche</span>
+      </button>
+
+      <button class="control-btn" id="reset-cam-btn" title="Restablecer ángulo de la cámara">
+        <span>&#8635;</span>
+        <span>Reencuadrar</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Interaction Hint -->
+  <div class="interaction-hint" id="interaction-hint">
+    <div class="hint-dot"></div>
+    <span>Arrastrá con el mouse para rotar la sala &bull; Clickeá cualquier libro para extraerlo</span>
+  </div>
+
+  <!-- Mobile Bottom Sheet Tabs -->
+  <div class="mobile-bottom-tabs" id="mobile-bottom-tabs">
+    <button class="mobile-tab-btn active" id="tab-chat" onclick="setMobileSheetTab('chat')">
+      <span>💬 Chat</span>
+    </button>
+    <button class="mobile-tab-btn" id="tab-sheet" onclick="setMobileSheetTab('sheet')">
+      <span>📖 Ficha <span class="tab-dot" id="tab-dot"></span></span>
+    </button>
+  </div>
+
+  <!-- Floating Chat Assistant -->
+  <section class="chat-dock" aria-label="Asistente de la biblioteca">
+    <div class="chat-header">
+      <div class="chat-header-title">
+        <span>Bibliotecario Virtual</span>
+        <span class="status-badge">ONLINE</span>
+      </div>
+    </div>
+
+    <div class="chat-messages" id="chat-messages">
+      <div class="msg bot">
+        ¡Hola! Te doy la bienvenida al archivo central. Cada libro en las estanterías representa un proyecto de ingeniería. Podés preguntarme por temas como <strong>AWS</strong>, <strong>Python</strong>, <strong>IA</strong>, o clickear cualquier tomo directamente.
+      </div>
+    </div>
+
+    <!-- Quick Filter Chips — Phase 5.5g (L22): unified vocabulary with standard Chatbot -->
+    <div class="quick-chips" id="quick-chips">
+      {topTags.map(({ tag, count }) => (
+        <button class="chip-btn" data-query={tag}>
+          {tag}<span class="biblioteca-chip-count"> · {count}</span>
+        </button>
+      ))}
+    </div>
+
+    <form class="chat-input-area" id="chat-form">
+      <input type="text" id="chat-input" class="chat-input" placeholder="Preguntá por un proyecto o tecnología..." autocomplete="off" />
+      <button type="submit" class="send-btn" title="Enviar consulta">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
+    </form>
+  </section>
+
+  <!-- Project Inspection Sheet (Detail Overlay) -->
+  <article class="project-inspection-sheet" id="project-sheet">
+    <span class="sheet-badge" id="sheet-category">CLOUD ARCHITECTURE</span>
+    <h2 class="sheet-title" id="sheet-title">Serverless Cloud Data Hub</h2>
+    <p class="sheet-subtitle" id="sheet-subtitle">Pipeline distribuido de procesamiento de eventos en tiempo real</p>
+    <p class="sheet-description" id="sheet-description">
+      Migración y modernización de infraestructura heredada a un esquema 100% serverless multicuenta en AWS. Se orquestaron lambdas desacopladas con EventBridge y SQS, logrando latencias submilenarias y costo cero en reposo.
+    </p>
+
+    <div class="sheet-stack" id="sheet-stack">
+      <span class="stack-tag">AWS Lambda</span>
+      <span class="stack-tag">Terraform</span>
+      <span class="stack-tag">Python</span>
+      <span class="stack-tag">EventBridge</span>
+    </div>
+
+    <div class="sheet-footer">
+      <button class="return-btn" id="sheet-return-btn">
+        <span>&larr;</span> Devolver al estante
+      </button>
+      <a href="#" class="action-btn" id="sheet-action-link" target="_blank">
+        Ver Proyecto <span>&nearr;</span>
+      </a>
+    </div>
+  </article>
+</div>
+
+<!--
+  Three.js r128, OrbitControls and Tween.js come from CDN, exactly as in the
+  prototype. `is:inline` keeps Vite/Astro from bundling or rewriting them, so
+  they only attach to the pages that mount this component (T14 evidence).
+  Classic non-async scripts always run before the deferred module below.
+-->
+<script is:inline src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script is:inline src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script is:inline src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+<script>
+  import './main.ts';
+</script>
+
+<style is:global>
+  /* =====================================================================
+     3D Interactive Library Portfolio - Design Tokens & Styles
+     ===================================================================== */
+  .biblioteca-3d-root {
+    --font-serif: 'Cinzel', serif;
+    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  
+    /* Day Theme */
+    --theme-day-bg: #ece6da;
+    --theme-day-glass: rgba(255, 255, 255, 0.72);
+    --theme-day-glass-border: rgba(200, 190, 175, 0.5);
+    --theme-day-text: #26221c;
+    --theme-day-text-muted: #6e675b;
+    --theme-day-accent: #934a26;
+    --theme-day-accent-light: #f7e9df;
+    --theme-day-card-bg: rgba(255, 252, 246, 0.92);
+  
+    /* Night Theme */
+    --theme-night-bg: #090a0f;
+    --theme-night-glass: rgba(14, 17, 26, 0.76);
+    --theme-night-glass-border: rgba(85, 95, 125, 0.28);
+    --theme-night-text: #edeaf4;
+    --theme-night-text-muted: #959bb0;
+    --theme-night-accent: #e28d44;
+    --theme-night-accent-light: rgba(226, 141, 68, 0.16);
+    --theme-night-card-bg: rgba(18, 22, 33, 0.94);
+  
+    /* Active Dynamic Variables */
+    --bg-canvas: var(--theme-day-bg);
+    --panel-glass: var(--theme-day-glass);
+    --panel-border: var(--theme-day-glass-border);
+    --text-main: var(--theme-day-text);
+    --text-muted: var(--theme-day-text-muted);
+    --accent: var(--theme-day-accent);
+    --accent-soft: var(--theme-day-accent-light);
+    --card-bg: var(--theme-day-card-bg);
+  
+    --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  
+  body.night-mode .biblioteca-3d-root {
+    --bg-canvas: var(--theme-night-bg);
+    --panel-glass: var(--theme-night-glass);
+    --panel-border: var(--theme-night-glass-border);
+    --text-main: var(--theme-night-text);
+    --text-muted: var(--theme-night-text-muted);
+    --accent: var(--theme-night-accent);
+    --accent-soft: var(--theme-night-accent-light);
+    --card-bg: var(--theme-night-card-bg);
+  }
+  
+  .biblioteca-3d-root *, .biblioteca-3d-root *::before, .biblioteca-3d-root *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  
+  .biblioteca-3d-root {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: var(--font-sans);
+    background-color: var(--bg-canvas);
+    color: var(--text-main);
+    transition: background-color 1.2s ease, color 0.8s ease;
+    user-select: none;
+  }
+  
+  /* 3D Canvas WebGL Container */
+  .biblioteca-3d-root #webgl-viewport {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    display: block;
+    outline: none;
+  }
+  
+  /* Ambient Vignette & Mood Overlay */
+  .biblioteca-3d-root .viewport-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2;
+    background: radial-gradient(circle at center, transparent 45%, rgba(0,0,0,0.3) 100%);
+    transition: opacity 1s ease;
+  }
+  
+  /* Top Navigation & Status Bar */
+  .biblioteca-3d-root .top-bar {
+    position: absolute;
+    top: 24px;
+    left: 28px;
+    right: 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 10;
+    pointer-events: none;
+  }
+  
+  .biblioteca-3d-root .top-bar > * {
+    pointer-events: auto;
+  }
+  
+  .biblioteca-3d-root .library-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--panel-glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--panel-border);
+    padding: 10px 18px;
+    border-radius: 999px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    transition: all 0.5s var(--ease-smooth);
+  }
+  
+  .biblioteca-3d-root .library-emblem {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 50%;
+    font-family: var(--font-serif);
+    font-size: 15px;
+    font-weight: 700;
+  }
+  
+  .biblioteca-3d-root .library-title {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .biblioteca-3d-root .library-title h1 {
+    font-family: var(--font-serif);
+    font-size: 14px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--text-main);
+  }
+  
+  .biblioteca-3d-root .library-title span {
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+  }
+  
+  .biblioteca-3d-root .top-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .biblioteca-3d-root .control-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border-radius: 999px;
+    background: var(--panel-glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--panel-border);
+    color: var(--text-main);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+    transition: transform 0.2s ease, background 0.3s ease, border-color 0.3s ease;
+  }
+  
+  .biblioteca-3d-root .control-btn:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+  }
+  
+  .biblioteca-3d-root .control-btn:active {
+    transform: translateY(0);
+  }
+  
+  .biblioteca-3d-root .theme-icon {
+    font-size: 16px;
+    display: inline-block;
+    transition: transform 0.5s var(--ease-out-back);
+  }
+  
+  /* Instruction Hint */
+  .biblioteca-3d-root .interaction-hint {
+    position: absolute;
+    top: 86px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--panel-glass);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--panel-border);
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    color: var(--text-muted);
+    z-index: 5;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    opacity: 0.85;
+    transition: opacity 0.4s ease;
+  }
+  
+  .biblioteca-3d-root .hint-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse-dot 2s infinite;
+  }
+  
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 0.4; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.3); }
+  }
+  
+  /* Floating Chat Interface */
+  .biblioteca-3d-root .chat-dock {
+    position: absolute;
+    bottom: 26px;
+    left: 28px;
+    width: 420px;
+    max-width: calc(100vw - 56px);
+    background: var(--panel-glass);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid var(--panel-border);
+    border-radius: 24px;
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.16);
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: transform 0.4s var(--ease-smooth), opacity 0.3s ease;
+  }
+  
+  .biblioteca-3d-root .chat-header {
+    padding: 14px 20px 10px;
+    border-bottom: 1px solid var(--panel-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  
+  .biblioteca-3d-root .chat-header-title {
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    letter-spacing: 0.02em;
+  }
+  
+  .biblioteca-3d-root .status-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-weight: 600;
+  }
+  
+  .biblioteca-3d-root .chat-messages {
+    padding: 16px 20px;
+    max-height: 220px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    scroll-behavior: smooth;
+  }
+  
+  .biblioteca-3d-root .chat-messages::-webkit-scrollbar {
+    width: 4px;
+  }
+  .biblioteca-3d-root .chat-messages::-webkit-scrollbar-thumb {
+    background: var(--panel-border);
+    border-radius: 4px;
+  }
+  
+  .biblioteca-3d-root .msg {
+    max-width: 90%;
+    font-size: 13.5px;
+    line-height: 1.5;
+    padding: 10px 14px;
+    border-radius: 16px;
+    word-break: break-word;
+    animation: msg-appear 0.3s var(--ease-smooth);
+  }
+  
+  @keyframes msg-appear {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  .biblioteca-3d-root .msg.bot {
+    align-self: flex-start;
+    background: rgba(255, 255, 255, 0.45);
+    border: 1px solid var(--panel-border);
+    color: var(--text-main);
+    border-bottom-left-radius: 4px;
+  }
+  
+  body.night-mode .biblioteca-3d-root .msg.bot {
+    background: rgba(255, 255, 255, 0.05);
+  }
+  
+  .biblioteca-3d-root .msg.user {
+    align-self: flex-end;
+    background: var(--accent);
+    color: #ffffff;
+    border-bottom-right-radius: 4px;
+    font-weight: 500;
+  }
+  
+  /* Interactive Multi-Project Selection Options in Chat */
+  .biblioteca-3d-root .chat-project-options {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin-top: 10px;
+    width: 100%;
+  }
+  
+  .biblioteca-3d-root .chat-project-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    background: rgba(255, 255, 255, 0.65);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    cursor: pointer;
+    text-align: left;
+    font-family: var(--font-sans);
+    color: var(--text-main);
+    transition: all 0.22s var(--ease-smooth);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  }
+  
+  body.night-mode .biblioteca-3d-root .chat-project-btn {
+    background: rgba(255, 255, 255, 0.06);
+  }
+  
+  .biblioteca-3d-root .chat-project-btn:hover {
+    background: var(--accent);
+    color: #ffffff;
+    border-color: var(--accent);
+    transform: translateX(4px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  .biblioteca-3d-root .chat-project-btn:hover .btn-spine-dot {
+    box-shadow: 0 0 8px #ffffff;
+    border-color: #ffffff;
+  }
+  
+  .biblioteca-3d-root .chat-project-btn:hover .btn-desc {
+    color: rgba(255, 255, 255, 0.85);
+  }
+  
+  .biblioteca-3d-root .chat-project-btn:hover .btn-arrow {
+    color: #ffffff;
+    transform: translateX(3px);
+  }
+  
+  .biblioteca-3d-root .btn-spine-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+  }
+  
+  .biblioteca-3d-root .btn-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  
+  .biblioteca-3d-root .btn-title {
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .biblioteca-3d-root .btn-desc {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .biblioteca-3d-root .btn-arrow {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-weight: bold;
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+  }
+  
+  .biblioteca-3d-root .msg-typing {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 14px;
+  }
+  
+  .biblioteca-3d-root .msg-typing span {
+    width: 5px;
+    height: 5px;
+    background: var(--text-muted);
+    border-radius: 50%;
+    animation: typing-dots 1.4s infinite ease-in-out both;
+  }
+  
+  .biblioteca-3d-root .msg-typing span:nth-child(1) { animation-delay: -0.32s; }
+  .biblioteca-3d-root .msg-typing span:nth-child(2) { animation-delay: -0.16s; }
+  
+  @keyframes typing-dots {
+    0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
+    40% { transform: scale(1); opacity: 1; }
+  }
+  
+  /*
+   * Project Quick Selection Chips — Phase 5.5h (L24).
+   *
+   * The prototype's quick-chips was a single-row `display: flex` with
+   * `overflow-x: auto` so the 5 hardcoded chips could scroll
+   * horizontally when the chat-dock was narrow. With 10 tag-derived
+   * chips from `topTagsOfProjects(allProjects, 10)`, the row overflowed
+   * the chat-dock width and the later tags (`fastapi`, `fullstack`,
+   * `i18n`, `microservices`, `python`, `rag`) were visually clipped
+   * behind an invisible scrollbar.
+   *
+   * Switching to `flex-wrap: wrap` lets the chips flow into 2-3 rows
+   * inside the chat-dock's natural width. The horizontal-scroll
+   * fallback is removed; nothing scrolls anymore.
+   */
+  .biblioteca-3d-root .quick-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 18px 12px;
+  }
+  
+  .biblioteca-3d-root .chip-btn {
+    flex-shrink: 0;
+    background: var(--accent-soft);
+    border: 1px solid var(--panel-border);
+    color: var(--text-main);
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  /*
+   * Phase 5.5g (L22): dim the occurrence count on each chip so the tag
+   * label reads as primary, mirroring the standard Chatbot's
+   * .chatbot-chip-count visual hierarchy. The " · N" runs inline as
+   * text, the span is purely the styling hook.
+   */
+  .biblioteca-3d-root .chip-btn .biblioteca-chip-count {
+    opacity: 0.55;
+    margin-left: 0.25em;
+    font-weight: 500;
+  }
+
+  .biblioteca-3d-root .chip-btn:hover {
+    background: var(--accent);
+    color: #fff;
+    transform: translateY(-1px);
+  }
+  
+  /* Chat Input Form */
+  .biblioteca-3d-root .chat-input-area {
+    padding: 12px 18px;
+    border-top: 1px solid var(--panel-border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .biblioteca-3d-root .chat-input {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.4);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    padding: 10px 14px;
+    font-family: var(--font-sans);
+    font-size: 13.5px;
+    color: var(--text-main);
+    outline: none;
+    transition: border-color 0.2s ease, background 0.2s ease;
+  }
+  
+  body.night-mode .biblioteca-3d-root .chat-input {
+    background: rgba(0, 0, 0, 0.2);
+  }
+  
+  .biblioteca-3d-root .chat-input:focus {
+    border-color: var(--accent);
+    background: rgba(255, 255, 255, 0.85);
+  }
+  
+  body.night-mode .biblioteca-3d-root .chat-input:focus {
+    background: rgba(0, 0, 0, 0.4);
+  }
+  
+  .biblioteca-3d-root .send-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition: transform 0.2s var(--ease-out-back), background 0.2s ease;
+  }
+  
+  .biblioteca-3d-root .send-btn:hover {
+    transform: scale(1.08);
+  }
+  
+  .biblioteca-3d-root .send-btn:active {
+    transform: scale(0.96);
+  }
+  
+  /* Project Inspection Modal / Card Display (when book reaches camera) */
+  .biblioteca-3d-root .project-inspection-sheet {
+    position: absolute;
+    top: 50%;
+    right: 54px;
+    transform: translateY(-50%) translateX(40px);
+    width: 440px;
+    max-width: calc(100vw - 40px);
+    background: var(--card-bg);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--panel-border);
+    border-radius: 28px;
+    padding: 32px;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+    z-index: 20;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s var(--ease-smooth), transform 0.5s var(--ease-out-back);
+  }
+  
+  .biblioteca-3d-root .project-inspection-sheet.active {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(-50%) translateX(0);
+  }
+  
+  .biblioteca-3d-root .sheet-badge {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  
+  .biblioteca-3d-root .sheet-title {
+    font-family: var(--font-serif);
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--text-main);
+    margin-bottom: 8px;
+  }
+  
+  .biblioteca-3d-root .sheet-subtitle {
+    font-size: 13.5px;
+    color: var(--text-muted);
+    margin-bottom: 18px;
+    line-height: 1.4;
+  }
+  
+  .biblioteca-3d-root .sheet-description {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-main);
+    margin-bottom: 22px;
+  }
+  
+  .biblioteca-3d-root .sheet-stack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 24px;
+  }
+  
+  .biblioteca-3d-root .stack-tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: rgba(120, 120, 120, 0.12);
+    color: var(--text-main);
+    border: 1px solid var(--panel-border);
+  }
+  
+  .biblioteca-3d-root .sheet-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid var(--panel-border);
+    padding-top: 18px;
+  }
+  
+  .biblioteca-3d-root .return-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 18px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .biblioteca-3d-root .return-btn:hover {
+    color: var(--text-main);
+    border-color: var(--text-main);
+    background: rgba(120, 120, 120, 0.08);
+  }
+  
+  .biblioteca-3d-root .action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--accent);
+    color: #fff;
+    text-decoration: none;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 20px;
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+    transition: transform 0.2s ease;
+  }
+  
+  .biblioteca-3d-root .action-btn:hover {
+    transform: translateY(-2px);
+  }
+  
+  .biblioteca-3d-root .mobile-bottom-tabs {
+    display: none;
+  }
+  
+  /* =====================================================================
+     Mobile Responsive Architecture: Bottom Sheet Pattern (screens <= 860px)
+     ===================================================================== */
+  @media (max-width: 860px) {
+    .biblioteca-3d-root .top-bar {
+      left: 12px;
+      right: 12px;
+      top: 10px;
+      padding: 8px 14px;
+      border-radius: 18px;
+      height: auto;
+    }
+  
+    .biblioteca-3d-root .library-emblem {
+      width: 32px;
+      height: 32px;
+      font-size: 14px;
+    }
+  
+    .biblioteca-3d-root .library-title h1 {
+      font-size: 14px;
+    }
+  
+    .biblioteca-3d-root .library-title span {
+      display: none;
+    }
+  
+    .biblioteca-3d-root .control-btn {
+      padding: 7px 12px;
+      font-size: 12px;
+    }
+  
+    .biblioteca-3d-root .control-btn span:not(.theme-icon) {
+      display: none;
+    }
+  
+    .biblioteca-3d-root .interaction-hint {
+      display: none;
+    }
+  
+    /* Mobile Segmented Drawer Header Tabs */
+    .biblioteca-3d-root .mobile-bottom-tabs {
+      display: flex;
+      position: fixed;
+      bottom: 49vh;
+      left: 12px;
+      right: 12px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid var(--panel-border);
+      border-radius: 18px 18px 0 0;
+      border-bottom: none;
+      padding: 5px;
+      gap: 6px;
+      z-index: 25;
+      box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.15);
+    }
+  
+    .biblioteca-3d-root .mobile-tab-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border-radius: 12px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: var(--font-sans);
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+  
+    .biblioteca-3d-root .mobile-tab-btn.active {
+      background: var(--card-bg);
+      color: var(--accent);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+  
+    .biblioteca-3d-root .tab-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: none;
+    }
+  
+    .biblioteca-3d-root .tab-dot.active {
+      display: inline-block;
+    }
+  
+    /* Mobile Chat Dock Bottom Sheet */
+    .biblioteca-3d-root .chat-dock {
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: 0;
+      width: auto;
+      height: 49vh;
+      max-height: 49vh;
+      border-radius: 0 0 22px 22px;
+      border-top: none;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      transition: opacity 0.25s ease, transform 0.3s var(--ease-smooth);
+    }
+  
+    body.mobile-tab-sheet .biblioteca-3d-root .chat-dock {
+      transform: translateY(16px);
+      opacity: 0;
+      pointer-events: none;
+    }
+  
+    .biblioteca-3d-root .chat-header {
+      padding: 8px 14px;
+    }
+  
+    .biblioteca-3d-root .chat-messages {
+      flex: 1;
+      padding: 10px 14px;
+      max-height: none;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+  
+    .biblioteca-3d-root .quick-chips {
+      padding: 0 14px 8px;
+    }
+  
+    .biblioteca-3d-root .chat-input-area {
+      padding: 8px 14px;
+      padding-bottom: max(10px, env(safe-area-inset-bottom, 10px));
+    }
+  
+    /* Mobile Project Inspection Sheet Bottom Sheet */
+    .biblioteca-3d-root .project-inspection-sheet {
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: 0;
+      top: auto;
+      width: auto;
+      max-width: none;
+      height: 49vh;
+      max-height: 49vh;
+      border-radius: 0 0 22px 22px;
+      border-top: none;
+      padding: 18px 18px max(18px, env(safe-area-inset-bottom, 18px));
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+      z-index: 22;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      transform: translateY(20px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.3s var(--ease-smooth);
+    }
+  
+    .biblioteca-3d-root .project-inspection-sheet.active {
+      /* Handled conditionally on mobile via body.mobile-tab-sheet */
+    }
+  
+    body.mobile-tab-sheet .biblioteca-3d-root .project-inspection-sheet.active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+  
+    .biblioteca-3d-root .sheet-badge {
+      font-size: 10px;
+      padding: 3px 8px;
+      margin-bottom: 8px;
+    }
+  
+    .biblioteca-3d-root .sheet-title {
+      font-size: 19px;
+      margin-bottom: 6px;
+    }
+  
+    .biblioteca-3d-root .sheet-subtitle {
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+  
+    .biblioteca-3d-root .sheet-description {
+      font-size: 12.5px;
+      line-height: 1.5;
+      margin-bottom: 14px;
+    }
+  
+    .biblioteca-3d-root .sheet-stack {
+      gap: 5px;
+      margin-bottom: 14px;
+    }
+  
+    .biblioteca-3d-root .stack-tag {
+      font-size: 10px;
+      padding: 3px 8px;
+    }
+  
+    .biblioteca-3d-root .sheet-footer {
+      padding-top: 12px;
+    }
+  
+    .biblioteca-3d-root .return-btn, .biblioteca-3d-root .action-btn {
+      padding: 8px 14px;
+      font-size: 12px;
+    }
+  }
+
+/* ---------------------------------------------------------------------------
+   Wrapper base rule - NOT part of the prototype stylesheet.
+   The prototype is a standalone document, so `html, body { height: 100% }`
+   (re-scoped above to `.biblioteca-3d-root`) supplied the viewport-sized box
+   that its absolutely positioned chrome (.top-bar, .chat-dock,
+   .project-inspection-sheet, #webgl-viewport) positions against. Inside the
+   Astro page nothing above the wrapper has a definite height, so the wrapper
+   has to establish that box itself. `isolation: isolate` gives the component
+   its own stacking context, keeping the prototype's internal z-index ladder
+   below Base.astro's global navbar and the Chatbot FAB.
+   --------------------------------------------------------------------------- */
+.biblioteca-3d-root {
+  position: relative;
+  isolation: isolate;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100vh;
+  min-height: 420px;
+}
+</style>

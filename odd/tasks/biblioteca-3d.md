@@ -1,0 +1,270 @@
+# Biblioteca 3D — feature task
+
+Branch: `feat/biblioteca-3d` (created from `main` at `08795b5`).
+Base head note: `08795b5` is "Merge pull request #16 from Srozasc/feat/3d-library-experiment", so the prototype at `experiments/chat-3d-library.html` is already in `main`. No cherry-pick of `origin/feat/3d-library-experiment` is needed before implementation.
+
+## Specs
+
+S1: The feature carries the canonical label **"Modo Biblioteca 3D"** (verbatim from the user's task description: "a new 'Biblioteca 3D' feature"; candidate label "Modo Biblioteca 3D" surfaced by the user). The label appears on three surfaces: the new navbar link, the new hero CTA, and the page title. Verified clean slate: this string does not exist anywhere in `apps/web/src/i18n/es.json` or `apps/web/src/i18n/en.json` (grep for `biblioteca|Modo Biblioteca|Library|3D` returned no matches in either file). EN mirror wording is left to the translator's discretion but conventionally would be **"3D Library"**.
+
+S2: Dedicated routes serve the 3D scene — **`/biblioteca-3d`** (ES, no locale prefix per `astro.config.mjs` `prefixDefaultLocale: false`) and **`/en/biblioteca-3d`** (EN mirror, explicit). Routes follow the same `explicit '/index.html' suffix` convention used in `apps/web/src/layouts/Base.astro` (lines 30–32 + inline comment "CloudFront + S3 do not auto-serve `index.html` for directory URLs (the Astro default trailing-slash URL style would otherwise 403 on the bucket with Block Public Access + OAC)"). The EN mirror must be an explicit Astro page because `astro.config.mjs` sets `fallback: { en: 'es' }`; without an explicit page, `/en/biblioteca-3d` would redirect visitors to the ES equivalent before the page even rendered.
+
+S3: Three.js isolation, verbatim directive **`client:only="react"`** (user's exact words). The scene component is rendered only when the visitor enters `/biblioteca-3d` (or its EN mirror). Three.js MUST NOT enter the main bundle or the LCP path of `/`, `/proyectos/`, `/sobre-mi/`, or `/en/*`. Project metadata for the scene is **baked at build time** by calling `getCollection('projects')` from inside the Astro page (data source: `apps/web/src/content/config.ts` line 14, pattern `**/*.md` from `../api/data/projects/` — same source as the FastAPI backend RAG index). The scene does not call `/api/chat/stream-projects` or any other endpoint at runtime.
+
+S4: A fourth link in the navbar of `apps/web/src/layouts/Base.astro`, appended after the existing `<li>` for `t.nav.about`. Current navbar items (verbatim from `t.nav.*` in `apps/web/src/i18n/es.json` lines 4–8): **"Inicio"**, **"Proyectos"**, **"Sobre mí"** — the new link sits next to them. URL helper is a new `bibliotecaPath` const inside the existing locale-aware block (Base.astro lines 30–32), following the same `locale === 'en' ? '/en/biblioteca-3d/index.html' : '/biblioteca-3d/index.html'` pattern used by `homePath`, `projectsPath`, `aboutPath`.
+
+S5: A third CTA in the hero of `apps/web/src/pages/index.astro`, inside the existing `<p class="ctas">` (currently lines 27–28 holding **"Preguntale al bot"** = `t.home.cta.chat` and **"Ver proyectos"** = `t.home.cta.projects`). User said: a "tertiary button under the existing 'Preguntale al bot' + 'Ver proyectos' pair". New key `home.cta.biblioteca`, new CSS class `.cta.tertiary` (style block lives next to the existing `.cta.primary` / `.cta.secondary` rules around lines 47–63). URL helper is a new `bibliotecaHref` const, mirroring the existing `projectsHref` pattern (index.astro line 13).
+
+S6: Chatbot FAB reuse. The `Chatbot` component at `apps/web/src/components/Chatbot.tsx` is mounted globally by `Base.astro` with `<Chatbot client:load transition:persist>` (Base.astro lines 121–123, with explanatory comment on lines 116–120 about persistence across View Transitions). Because it lives in the layout, it is **already on every page including `/biblioteca-3d`**, with zero wiring work. The chat continues to use `/api/chat/stream-projects` as before — no duplicate RAG client is created (matches user non-goal).
+
+S7: **NO persistence layer** (user's exact rule: "NO persistence layer. Every visit lands on the standard site by default"). The `/biblioteca-3d` page performs zero `localStorage` / `sessionStorage` / `cookie` / `IndexedDB` reads or writes. No "remember me in 3D mode" preference. The nav link and hero CTA are plain `<a>` tags — no client-side preference state.
+
+S8: **NO backend changes** (user's exact rule: "NO backend changes. Reuse the existing SSE endpoint /api/chat/stream-projects and the projects Content Collection"). `apps/api/` is not touched. The 3D scene receives its project list as a serialization-time prop from the Astro page (data source: `getCollection('projects')`, defined in `apps/web/src/content/config.ts`). The chat's SSE call (already wired inside `Chatbot.tsx`, never modified) continues to hit `/api/chat/stream-projects` unchanged.
+
+S9: **Do not add localStorage / sessionStorage for the 3D mode entry choice** (verbatim user non-goal). This restates S7 with the specific API names; the implementation must not introduce either storage for any "user chose 3D once, land there next visit" semantics.
+
+S10: **i18n keys come from the existing i18n JSON files** (verbatim rule). New keys live in `apps/web/src/i18n/es.json` and `apps/web/src/i18n/en.json`. Shape mirrors existing objects: e.g. `nav.biblioteca`, `home.cta.biblioteca` (sibling of `home.cta.chat` / `home.cta.projects` / `home.cta.all_projects`), and a new `biblioteca3d.{title,subtitle}` block (parallel to existing `proyectos.title/subtitle/empty` in `apps/web/src/i18n/es.json` lines 35–51).
+
+S11: **Do not modify apps/web/src/components/Chatbot.tsx logic** (verbatim user non-goal). The component's existing props, RAG wiring, SSE handling, onboarding tutorial modal (lines 856–864 reference locale-aware fallbacks in Chatbot.tsx), welcome flow, and chat history are all left as-is. If a layout-side adjustment is needed (e.g. FAB visually overlaps the 3D canvas), it is handled in a parent Astro file, not in Chatbot.tsx.
+
+S12: **Do not add anything to apps/api/** (verbatim user non-goal). No new endpoints, no schema changes, no RAG reindex, no new env vars.
+
+S13: **Do not translate prototype content; i18n keys come from the existing i18n JSON files** (verbatim rule). The HTML prototype at `experiments/chat-3d-library.html` (2958 lines, `PROJECTS_CATALOG` literal at line 1070) is a self-contained reference document. Its internal Spanish strings stay Spanish. Only the **app-facing surface labels** (nav link, hero CTA, page title, document `<title>` tag) get a translated EN entry; scene-UX strings (loading, error, controls, scene legend) may live in the prototype language only.
+
+S14: **No test infrastructure is wired for apps/web.** A single repo-wide grep for `vitest|playwright|jest|@testing-library|cypress` returned exactly four hits — none of them in `apps/web`: two matches inside `apps/api/data/projects/proj-safegateway.md` referencing `pnpm vitest run tests/unit/routing/matcher.test.ts` (the **API** project has vitest; **web** does not), and `.gitignore` lines 58–59 listing `.playwright/` and `playwright-report/` (historic leftovers, no current playwright install). `apps/web/package.json` has no `test` script and no test-framework dependency. TDD cannot run end-to-end on the web package without scope-expansion to install a runner; see T11.
+
+## Tasks
+
+T1: i18n key conflict scan — **explore** — covers S1, S10. Three grep runs (this session) on `apps/web/src/i18n/es.json`, `apps/web/src/i18n/en.json`, and `apps/web/package.json` for `biblioteca|Modo Biblioteca|Library|3D` and `three|@react-three`. All returned **no matches**. Done; recorded here for traceability.
+
+T2: Author this feature document at `odd/tasks/biblioteca-3d.md` — **inline** — covers S1–S14. Single-file doc, ≤ 200 lines. Done in this session.
+
+T3: Add new i18n keys for "Biblioteca 3D" — **implement-via-worker, PR slice #1 ("i18n(web): biblioteca-3d labels")** — covers S1, S10, S13. Edit `apps/web/src/i18n/es.json` and `apps/web/src/i18n/en.json`. Add `nav.biblioteca` (sibling of `nav.home|projects|about|language`), `home.cta.biblioteca` (sibling of `home.cta.chat|projects|all_projects`), and a `biblioteca3d.title|subtitle` block. ES value "Modo Biblioteca 3D" per S1; EN value "3D Library" by convention (see S1 note). Run `pnpm --filter portafolio-web run check` after; expect zero type errors.
+
+T4: Add navbar link — **implement-via-worker, PR slice #2 ("feat(web/nav): biblioteca-3d link")** — covers S1, S4. Edit `apps/web/src/layouts/Base.astro`. (a) Add `bibliotecaPath` const next to `aboutPath` (lines 30–32), locale-aware with explicit `/index.html` suffix. (b) Add a fourth `<li>` inside `<ul class="nav-links">`, after the existing `<li>` for `t.nav.about`. No other changes to Base.astro.
+
+T5: Add hero CTA — **implement-via-worker, PR slice #3 ("feat(web/home): biblioteca-3d hero CTA")** — covers S1, S5, S7, S9. Edit `apps/web/src/pages/index.astro`. (a) Add `bibliotecaHref` const next to `projectsHref` / `aboutHref` (line 13–14). (b) Add a third `<a class="cta tertiary" href={bibliotecaHref}>{t.home.cta.biblioteca}</a>` inside the existing `<p class="ctas">` (after lines 27–28). (c) Add a `.cta.tertiary` CSS class in the existing `<style>` block, visually distinct from `.cta.primary` (solid) and `.cta.secondary` (border) — e.g. muted text + arrow. Plain `<a>` only — no client JS for persistence (S7, S9).
+
+T6: Create the ES route page — **implement-via-worker, PR slice #4 ("feat(web/page): biblioteca-3d route")** — covers S2, S3, S6, S7, S8. NEW file `apps/web/src/pages/biblioteca-3d.astro`. Wraps `<Base title={t.biblioteca3d.title} description={...}>`. At build time, fetchs `getCollection('projects')` and projects the same slim shape already used in Base.astro (`{slug, title_es, title_en, summary_es, summary_en, year, tags}`), exposes it to the scene via `<Scene3D client:only="react" projects={projectsForScene} locale={locale} />` (T8's component). NO `localStorage` / `sessionStorage` access (S7, S9). Chatbot FAB arrives via Base.astro (S6). `apps/web/src/pages/en/biblioteca-3d.astro` is created in T7 and chained in this slice.
+
+T7: Create the EN mirror — **implement-via-worker, chained into PR slice #4 (no separate PR)** — covers S2. NEW file `apps/web/src/pages/en/biblioteca-3d.astro`. Thin locale-aware copy of T6: imports `en.json`, sets `<html lang="en">` via the same `Astro.currentLocale ?? 'en'` pattern used elsewhere. Without this page, `/en/biblioteca-3d` would redirect to `/biblioteca-3d` because of `fallback: { en: 'es' }` (S2).
+
+T8: Implement Scene3D React component + new deps — **implement-via-worker, PR slice #5 ("feat(web/scene): three-fiber biblioteca-3d")** — covers S3, S8. (a) Add dependencies to `apps/web/package.json`: `three`, `@react-three/fiber`, `@react-three/drei`, and dev-deps `@types/three`. (b) NEW file `apps/web/src/components/Scene3D.tsx`: `Canvas` from `@react-three/fiber`, drei primitives (`OrbitControls`, `Text`, `Float`, `Stars` as the prototype uses). Renders the projects passed via props (no fetches — props come from the Astro page at T6 / T7). Pure presentation — no API calls, no storage, no Chatbot import.
+
+T9: FAB visual handling on `/biblioteca-3d` — **implement-via-worker, chained into PR slice #4** — covers S6, S11. ZERO changes to `apps/web/src/components/Chatbot.tsx`. The fix is a CSS-only rule in `biblioteca-3d.astro`'s `<style>` block that shifts the persistent FAB container when its renders below the 3D canvas (selector to be confirmed by the implementer — if Base.astro does not expose a route-scoped hook, add a `data-route="biblioteca-3d"` attribute to `<body>` from inside the page; that touch on Base.astro is allowed because it does not change Chatbot logic, only adds an HTML attribute hook).
+
+T10: Verify bundle isolation — **implement-via-worker, part of PR slice #5 verification ("build: confirm three is route-scoped")** — covers S3. Run `pnpm --filter portafolio-web build`. Inspect `apps/web/dist/_astro/*.js` chunk list (and the `import.meta.glob` graph) to confirm: (a) `three` appears only in chunks that load on the `biblioteca-3d` route (typically identified by filename or the route's HTML referencing the chunk), (b) the shared entry chunks for `/`, `/proyectos/`, `/sobre-mi/`, `/en/*` do not import `three`. Attach the observed chunk filenames as PR evidence.
+
+T11: Test infrastructure decision — **interaction_required** — covers S14. Three options for the parent to approve:
+   - **A. Skip TDD**, rely on manual smoke test (`pnpm dev` → visit `/biblioteca-3d`, click a card, verify Three.js renders + Chatbot works). Fastest, but loses regression protection.
+   - **B. Add Vitest to apps/web** (install + minimal `vitest.config.ts` covering the slim project-shape projection used by T6). Adds ~30 lines of config; covers S14 as ongoing.
+   - **C. Defer tests to a follow-up PR** after the feature ships. Pick today; implement the chosen path in slice #5.
+   The parent must pick A, B, or C before T8 merges. Until then, T8 carries a "testing decision pending" note in its PR body.
+
+## Log
+
+L1: "@experiments/chat-3d-library.html quiero que revises esta interfaz que hice. quiero que analises que tan dificil puede ser integrarla a la app" — first user message for this feature.
+
+L2: User retry: "vuelve a intentarlo" — captured (no behavioral change; planning carries on).
+
+L3: User retry: "intentalo ahora" — captured (no behavioral change; planning carries on).
+
+L4: User continuation: "continua" — captured (no behavioral change; planning carries on).
+
+L5: User decision: "si, me hace sentido, aunque creo que la parte de persistencia no la agregaria" — captured as non-goal S9 (no `localStorage` / `sessionStorage` for the 3D entry choice) and reinforced as S7 (no persistence layer). The persistence-related work that *could* have appeared (a "remember me in 3D mode" preference, a per-visitor 3D-on flag, a persistence-honored default route) is explicitly out of scope.
+
+L6: User decision (ask_user_question #1 — placement of the new CTA): "navbar+hero" — captured as S4 (fourth navbar link in `apps/web/src/layouts/Base.astro`) and S5 (third hero CTA in `apps/web/src/pages/index.astro`). The CTA is NOT placed in the projects listing, the about page, the Chatbot, or the footer.
+
+L7: User decision (ask_user_question #2 — shape of the entry): "dedicated route" — captured as S2 (`/biblioteca-3d` + `/en/biblioteca-3d`). Rejected alternatives: a modal overlay, an inline mode toggle on the home page, a hash-router route under `/`, a `/proyectos/?view=3d` query-string variant. The dedicated route is the only entry shape.
+
+L8: User decision (ask_user_question #3 — chat strategy inside the 3D mode): "reuse Chatbot" — captured as S6 (Chatbot FAB reused, mounted globally via Base.astro's `transition:persist`) and S11 (no changes to `apps/web/src/components/Chatbot.tsx`, no duplicate RAG client). Rejected alternatives: building a new in-canvas chat, stripping the SSE wiring down to a fetch, or skipping the chat entirely.
+
+Evidence observed during planning (this session):
+
+- `git status` on `main` showed a clean tracked tree; only unrelated untracked files present (`1.png`, `docs/diagrams/cd-workflow.*`, `odd/tasks/{hardening-ci-cd,media-baja-ci-cd}.md`, `scripts/aws/*`). Preserved untouched. Branch created with `git checkout -b feat/biblioteca-3d main`; HEAD on new branch is `08795b5`, which is the merge commit for PR #16 (`feat/3d-library-experiment`) — therefore `experiments/chat-3d-library.html` is already in `main`, no cherry-pick needed.
+- `grep -ri 'biblioteca|Modo Biblioteca|Library|3D' apps/web/src/i18n/es.json` → no matches.
+- `grep -ri 'biblioteca|Modo Biblioteca|Library|3D' apps/web/src/i18n/en.json` → no matches.
+- `grep 'three|@react-three' apps/web/package.json` → no matches. Confirms clean dependency surface for T8.
+- Single repo-wide grep `vitest|playwright|jest|@testing-library|cypress` returned no test wiring in `apps/web`; only matches are inside `apps/api/data/projects/proj-safegateway.md` (API project, not web) and historical `.gitignore` lines 58–59. Captured as S14.
+- Read of `apps/web/src/layouts/Base.astro` lines 30–32 confirms `prefixDefaultLocale: false` + the explicit `/index.html`-suffix pattern (with CloudFront/S3 compatibility comment).
+- Read of `apps/web/src/layouts/Base.astro` lines 116–130 confirms `<Chatbot client:load transition:persist>` and its prop shape; no work is needed for S6 beyond visual repositioning.
+- Read of `apps/web/src/i18n/es.json` confirms the `home.cta.*` shape used by S5's new key and the `nav.*` shape used by S4's new key.
+- Read of `apps/web/src/content/config.ts` lines 13–14 confirms single source-of-truth: `../api/data/projects/` glob loader matches `apps/api/data/projects/` — same source the FastAPI RAG index consumes (S8).
+- Read of `apps/web/astro.config.mjs` confirms `fallback: { en: 'es' }` is active → S2 requires an explicit EN page.
+- Read of `experiments/chat-3d-library.html` line 1070 (PROJECTS_CATALOG literal) and total length 2958 lines confirms prototype is a fully self-contained reference doc; no code from it is meant to be lifted directly. Per S13, prototype strings stay Spanish.
+
+L9: Implementation closed. 4 work-unit commits landed on `feat/biblioteca-3d`:
+
+  - `506e744` i18n(web): add 'Modo Biblioteca 3D' labels — covers T3 (S1, S10, S13). 16 lines.
+  - `f9f036c` feat(web/nav): add Biblioteca 3D link to global nav — covers T4 (S1, S4). 2 lines.
+  - `b85ea58` feat(web/home): add Biblioteca 3D tertiary CTA in hero — covers T5 (S1, S5, S7, S9). 13 lines.
+  - `5dbf330` feat(web): add /biblioteca-3d route with isolated Three.js scene — covers T6, T7, T8, T9, T10, T11 (S2, S3, S6, S7, S8, S11, S14). 531 authored lines (lock file excluded).
+
+Total feature authored lines: 562 across 4 commits. Past the ~400-line threshold for a single feature → the feature is closed at HEAD `5dbf330`; further work would land as a follow-up branch.
+
+L10: Verification snapshot (this session):
+  - `pnpm run check` (cwd apps/web): exit 0, 14 files, 0 errors / 0 warnings / 0 hints.
+  - `pnpm run test` (cwd apps/web): exit 0, 1 file, 2 tests passed.
+  - `pnpm run build` (worker session, evidence re-verified locally): exit 0, 7 pages built. Bundle isolation via `grep 'Three.js Authors' apps/web/dist/_astro/*.js` returned exactly one chunk (`Scene3D.*.js`), and `grep -l 'Scene3D' dist/*/index.html` returned only `dist/biblioteca-3d/index.html` and `dist/en/biblioteca-3d/index.html`. `/`, `/proyectos/`, `/sobre-mi/` are clean.
+
+L11: Hard-constraints check:
+  - ✅ No `localStorage` / `sessionStorage` / `cookie` / `IndexedDB` access in new files.
+  - ✅ `apps/api/` untouched.
+  - ✅ `apps/web/src/components/Chatbot.tsx` untouched (`git diff HEAD~4 -- apps/web/src/components/Chatbot.tsx` is empty).
+  - ✅ Empty-state branch for `getCollection('projects').length === 0` lives in two places (page-level for graceful render fallback, Scene3D-level for defensive rendering).
+
+L12: Push and PR pending user OK per git-mentor skill. Branch `feat/biblioteca-3d` ahead of `origin/main` by 4 commits.
+
+L13: User feedback (msg): "@1.png el resultado de la biblioteca 3d no es el que esperaba. yo necesito que sea identico a @experiments/chat-3d-library.html". Verified against the live browser at http://127.0.0.1:4321/biblioteca-3d/index.html — the current R3F-based Scene3D renders a starfield background with two floating boxes (no shelves, no chat, no 3D library room, no day/night toggle). User wants the page to be visually identical to the prototype at `experiments/chat-3d-library.html`.
+
+L14: User decision (ask_user_question #4 — porting strategy): "Inyectar HTML standalone (★ recomendado)". Rejected alternatives: convert to React + R3F, hybrid canvas+vanilla. Plan: keep Three.js r128 + OrbitControls + Tween.js loaded from CDN (same as the prototype), keep CSS+JS as-is, just rewire the entry point so the prototype renders inside an Astro page. Per S13 the prototype strings stay Spanish.
+
+L15: User decision (ask_user_question #5 — dataset for the books): "Proyectos reales del portafolio". Source: `getCollection('projects')` from `apps/api/data/projects/*.md` (already wired by T6). Two projects currently exist (`proj-portafolio-rag`, `proj-safegateway`); the layout must gracefully accept N projects where N ∈ [1, 7] (not hard-coded to 7 like the prototype). Slot layout: reuses the existing `mainShelf.shelfY` ceiling, but spreads slots across `slotIndex` proportionally so 2 projects render as 2 books on the first shelf and 7 projects fill all four shelves, etc.
+
+L16: User decision (ask_user_question #6 — language): "Solo ES por ahora (★ recomendado)". Plan: HTML/CSS/JS shipped in Spanish literal (matches the prototype). `/en/biblioteca-3d` keeps the existing dedicated page (T7) with `t.biblioteca3d.title|subtitle` from i18n, then a small "Available in Spanish only" placeholder body until i18n translation work happens.
+
+L17: Evidence observed during planning (this session):
+  - `apps/web/src/components/Scene3D.tsx` is a 122-line R3F component using `@react-three/fiber` + `@react-three/drei` (`Canvas`, `Stars`, `Float`, `OrbitControls`, `Text`). It renders a starfield with a bare `BoxGeometry` per project and `<Text>` for the title. No shelves, no chat, no chat input, no theme toggle, no inspection sheet — that is the visual broken state captured in `1.png`.
+  - `apps/web/src/pages/biblioteca-3d.astro` line 41 mounts `<Scene3D client:only="react" locale={locale} projects={projectsForScene} />` with a slim `{slug, title_es, title_en, year, tags}` projection of `getCollection('projects')`.
+  - `apps/web/src/content/config.ts` schema: `slug, title_es, title_en, year, role_es, role_en, client, tags, stack_es, stack_en, summary_es, summary_en, impact_es, impact_en, links` — all available via the Content Layer loader at `../api/data/projects/`.
+  - `experiments/chat-3d-library.html` is **2959 lines** total: ~1500 lines of CSS in a single `<style>`, ~1500 lines of JS in a single `<script>`, and a flat body (top-bar, viewport canvas, chat-dock, project-inspection-sheet, mobile-bottom-tabs). Three.js r128, OrbitControls, Tween.js loaded from CDN (`cdnjs.cloudflare.com` + `cdn.jsdelivr.net`).
+  - `PROJECTS_CATALOG` lives inside the HTML's `<script>` (around line ~330 of the visible slice). It is a 7-entry hard-coded array. Each entry shape: `{id, title, category, spineTitle, subtitle, description, stack: string[], color: hexNumber, goldAccent: bool, shelfIndex: 0|1|2, slotIndex: 2|3|4|5|6|7, link: 'https://github.com'}`. Real projects lack `spineTitle`, `category`, `goldAccent`, `shelfIndex`, `slotIndex`, `color`. The port must synthesize these defaults from the Content Collection fields: `spineTitle` derives from `stack[0]`, `category` from first tag, `goldAccent` defaults to true, `color` derived deterministically from slug hash, `shelfIndex`+`slotIndex` computed by the slot-spreading logic in T12.
+  - `git status` on `feat/biblioteca-3d` is clean apart from expected untracked files (1.png, docs/diagrams/*, odd/tasks/*, scripts/aws/*.json) — none are relevant to this phase. The branch is in sync with `origin/feat/biblioteca-3d` and ready for new commits.
+
+## Follow-up Tasks (Phase 5.5e — HTML port)
+
+T12: Port `experiments/chat-3d-library.html` content into a new Astro component — **implement-via-worker, PR slice #6 ("feat(biblioteca-3d): port prototype to standalone Three.js scene")**, branch `feat/biblioteca-3d` — covers S2 (Phase 5.5e), L13, L14, L15. NEW folder `apps/web/src/components/Biblioteca3D/` with four files:
+   - `apps/web/src/components/Biblioteca3D/Biblioteca3DStandalone.astro` — entrypoint. Astro frontmatter reads `projects` prop. Body has a wrapper `<div class="biblioteca-3d-root">` containing the structural HTML from the prototype body (top-bar, viewport, chat-dock, project-inspection-sheet, mobile-bottom-tabs). Three `<script src="…">` tags for Three.js r128 + OrbitControls + Tween.js loaded from CDN (`cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js`, `cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js`, `cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js`). A fourth `<script is:inline define:vars={{ projects: projectsJson }}>` injects the JS from the prototype with the projects inlined.
+   - `apps/web/src/components/Biblioteca3D/styles.css` — the prototype's `<style>` extracted, prefixed with `.biblioteca-3d-root` so it cannot leak onto other pages (CSS isolation without resorting to `<style is:global>` on the page). The `<style>` from the prototype referenced top-level selectors; re-prefix every selector so the same visual output is achievable without colliding with `Base.astro`'s `.top-bar`, `.chat-dock`, etc.
+   - `apps/web/src/components/Biblioteca3D/main.ts` — three.js initialization extracted from the prototype's `<script>`. Top of file accepts the projects catalog via a `window.__BIBLIOTECA3D_PROJECTS__` global assigned by the Astro `<script is:inline define:vars>` block, OR via reading a `<script type="application/json" id="biblioteca3d-projects">{...}</script>` tag inside the wrapper. Pick the JSON-tag approach (cleaner CSP story). Initializes the scene only after Three.js / OrbitControls / Tween.js have loaded.
+   - `apps/web/src/components/Biblioteca3D/catalog.ts` — exports a function `buildCatalog(projects: Scene3DProject[]): ProjectCatalogEntry[]` that derives `spineTitle`, `category`, `goldAccent`, `color`, `shelfIndex`, `slotIndex` from the Content Collection fields. Slot spreading: if N ≤ 7, single shelf (`shelfIndex=0`), slotIndex = `Math.round(i * 7 / Math.max(N - 1, 1))`. If 7 < N ≤ 14, two shelves. ≥ 14 is rejected with a runtime warning. Color palette limited to the same six leather tones used by the prototype (deep terracotta, forest green, midnight navy, warm walnut, obsidian slate, burgundy crimson, dark mahogany). Slot normalization guarantees no interactive book overlaps a filler book.
+   - Net diff: 4 new files, ~1700 LOC total. Existing `Scene3D.tsx` and the React deps are deleted in T15, not here.
+
+T13: Wire the standalone component into pages — **implement-via-worker, chained into PR slice #6**, branch `feat/biblioteca-3d` — covers S2 (Phase 5.5e), L16. Edit `apps/web/src/pages/biblioteca-3d.astro` and `apps/web/src/pages/en/biblioteca-3d.astro`. Replace the `<Scene3D client:only="react" …/>` block with `<Biblioteca3DStandalone projects={projectsForLibrary} />` (Astro static component, no client directive). `projectsForLibrary` is a wider projection of `getCollection('projects')` than the slim `{slug, title_es, title_en, year, tags}` one — it includes `summary_es`, `summary_en`, `stack_es`, `stack_en`, `role_es`, `role_en`, `links`. The empty-state fallback (`projectsForLibrary.length === 0`) and the `.biblioteca3d-empty` link stay identical; they are the previous S3 fallback, not affected by this slice. EN mirror (`/en/biblioteca-3d`) renders the same standalone component, but in `L16` semantics the user wants the `content` shipped Spanish-only — pass through the same `projects` since the project body itself is Spanish by default; the visual wrapper's Spanish labels (library title, button labels, hint copy) display in Spanish on both URLs for now.
+
+T14: Build + type-check + bundle isolation — **implement-via-worker, part of PR slice #6 verification**, branch `feat/biblioteca-3d` — covers S3 (Phase 5.5e), L13. Run from `apps/web/`:
+   - `pnpm run check` — exit 0, 0 errors.
+   - `pnpm run build` — exit 0. Then `grep -l 'BIBLIOTECA3D_PROJECTS' dist/*.html` (or the equivalent bundle marker) should match **only** `dist/biblioteca-3d/index.html` and `dist/en/biblioteca-3d/index.html`. `/`, `/proyectos/`, `/sobre-mi/` and EN mirrors must NOT carry the standalone scene. Also `grep -L 'cdnjs.cloudflare.com/ajax/libs/three.js' dist/index.html dist/proyectos/index.html dist/en/index.html` must confirm the CDN script tags are NOT present on the other routes. Both checks attached as PR evidence.
+
+T15: Remove obsolete R3F Scene3D + its dependencies — **implement-via-worker, PR slice #7 ("chore(biblioteca-3d): remove R3F scene + unused deps")**, branch `feat/biblioteca-3d`. Delete `apps/web/src/components/Scene3D.tsx`. Remove from `apps/web/package.json` runtime deps `three`, `@react-three/fiber`, `@react-three/drei` and dev dep `@types/three` (verify they are not in use elsewhere via `grep -r 'react-three' apps/web/src/`). Run `pnpm install` from `apps/web/` to refresh the lockfile. The `apps/web/src/components/Chatbot.tsx` import is unchanged; this slice does not touch it (per S11).
+
+## Risks & Notes (Phase 5.5e)
+
+- **Risk: Three.js global pollution.** Loading Three.js r128 from CDN assigns a `THREE` global. The page that hosts the standalone scene will have that global for the lifetime of the document. Mitigation: the script tags use `is:inline` so Vite does not try to bundle them; they only attach to the wrapper page (T14 evidence confirms). If multiple `<Biblioteca3DStandalone>` instances ever land on the same page, only the first will execute the scene init (idempotency gate on `window.__BIBLIOTECA3D_INITIALIZED__`).
+
+- **Risk: CSS leakage.** The prototype CSS uses generic class names (`.top-bar`, `.chat-dock`, `.project-inspection-sheet`, `.control-btn`). Re-prefixing every selector with `.biblioteca-3d-root` is mandatory in T12. The original `Base.astro` also has `.top-bar` for the navbar — collision avoided only by prefix.
+
+- **Risk: Chatbot FAB overlap.** Per S6 (Phase 5.5b), `Base.astro` mounts `<Chatbot client:load transition:persist>` globally with bottom-right positioning. The prototype's chat-dock is bottom-left, so no overlap on desktop. On mobile the prototype's chat-dock becomes a 49vh bottom sheet which DOES cover the FAB vertically; the prototype's mobile-bottom-tabs sit above the chat and provide the toggle between chat and inspection sheet — keep that behavior.
+
+- **Risk: Type-check drift.** T12 introduces `catalog.ts` exporting a function with full TS types. `Scene3DProject` is the existing minimal type in `Scene3D.tsx`; the wider projection for `Biblioteca3DStandalone` lives in `apps/web/src/components/Biblioteca3D/types.ts` (new). `pnpm run check` is the gate.
+
+## Log (continued — Phase 5.5e closure)
+
+L18: **Phase 5.5e closure.** Verification snapshot this session:
+
+  - **T12 + T13** (worker commit `77de617 feat(biblioteca-3d): port prototype to standalone Three.js scene`). New folder `apps/web/src/components/Biblioteca3D/` with four files (`types.ts` 63 LOC, `catalog.ts` 134 LOC, `main.ts` 1891 LOC, `Biblioteca3DStandalone.astro` 1074 LOC), plus `pages/biblioteca-3d.astro` (117 lines, ES) and `pages/en/biblioteca-3d.astro` (103 lines) wired to the new component. CSS sanity grep returned `OK_no_unprefixed`. 3 `@keyframes` + 1 `@media (max-width: 860px)` count matches the prototype exactly. Worker ran `pnpm run check` (18 files, 0 errors) and `pnpm run test` (1 file, 2 tests pre-`scene3d.test.tsx` deletion).
+  - **T14** (inline, this session). `pnpm run check` → 18 files, 0 errors. `pnpm run build` → 7 pages built in 928 ms. Bundle isolation confirmed: `grep -c 'three.min.js' dist/*/index.html` returns 1 only on `dist/biblioteca-3d/index.html` and `dist/en/biblioteca-3d/index.html`, 0 on every other route (home, proyectos/proyectos/proj-*, sobre-mi, EN mirrors). Same holds for `OrbitControls.js`, `tween.js` and the `biblioteca3d-projects` JSON tag. The literal string `three` is absent from every shared JS bundle in `dist/_astro/`.
+  - **T15** (inline, this session). `git rm`'d `apps/web/src/components/Scene3D.tsx` and `apps/web/test/scene3d.test.tsx` (both had been tracked via the 5dbf330 prior slice; both had no remaining callers in `apps/web/src/` after `77de617`). Edited `apps/web/package.json` to drop `three`, `@react-three/fiber`, `@react-three/drei` from `dependencies` and `@types/three` from `devDependencies`. `pnpm install` removed 4 deps + 72 sub-deps (output explicit: `- @react-three/drei 9.122.0`, `- @react-three/fiber 8.18.0`, `- three 0.169.0`, `- @types/three 0.169.0`).
+  - **T15 follow-up**: discovered that `pnpm run test` now exits 1 because the only test file (`scene3d.test.tsx`) was deleted alongside the component. Added `passWithNoTests: true` to `apps/web/vitest.config.ts` and rewrote the block comment so the rationale is visible at the config level (the standalone vanilla Three.js scene is loaded via CDN and requires a real WebGL context that jsdom cannot provide). `pnpm run test` now exits 0 with `No test files found, exiting with code 0`. Vitest runtime 2.1.9, jsdom env unchanged.
+  - **T6** (inline, this session). Dev-server smoke test: backend FastAPI PID 1889 alive on `:8000`, Astro PID 1984 alive on `:4321` (carried over from the earlier local-dev session; HMR picked up 77de617 + vitest change without manual restart). `curl http://127.0.0.1:4321/biblioteca-3d/index.html` → 200 OK, 97028 bytes. Marker presence: `biblioteca3d-projects` JSON tag = 1, `three.min.js` = 1, `OrbitControls.js` = 1, `tween.js` = 1, `<canvas id="webgl-viewport">` = 3 hits, `.biblioteca-3d-root` wrapper = 105 hits. JSON tag payload starts with `"[{"slug":"proj-portafolio-rag","title_es":"Portafolio navegable por chatbot con RAG",...}` — confirms real Content Collection data, NOT the 7 ficticious entries from the prototype. EN mirror `curl http://127.0.0.1:4321/en/biblioteca-3d/index.html` → 200 OK, 96832 bytes, `<html lang="en">`. Home / proyectos / sobre-mi confirmed without `three.min.js` and `biblioteca3d-projects` (sizes 67105 / 63197 / 63462 match prior builds). `curl http://127.0.0.1:8000/openapi.json` → 200; `curl -X POST /api/chat/stream` → 400 validation error (expected for empty body).
+  - **Net diff for Phase 5.5e**: 4 new files (apps/web/src/components/Biblioteca3D/{types,catalog,main,Standalone}), 1 deletion (Scene3D.tsx), 1 deletion (scene3d.test.tsx), 1 modified (apps/web/package.json — drops), 1 modified (apps/web/pnpm-lock.yaml — refreshed), 1 modified (apps/web/vitest.config.ts — passWithNoTests). Total authored lines in `apps/web/src/components/Biblioteca3D/` ≈ 3160. Past the ~400-line threshold for a single feature → this slice closes at HEAD `77de617` plus the two new commits below.
+
+L19: Push and PR pending user OK per git-mentor skill. Branch `feat/biblioteca-3d` will sit ahead of `origin/main` by 8 commits after this slice (Phase 5.5b: `506e744` + `f9f036c` + `b85ea58` + `5dbf330` + `a8d4f48`; Phase 5.5e: `77de617` + T15 chore + this docs commit). No destructive history rewrites; merge strategy per project mem is `--merge` (preserves the per-slice commits).
+
+L20: User redirected the feature (msg with @1.png screenshot). The current `/biblioteca-3d/` renders as a section inside the Base.astro layout (centred `<h1>` + subtitle + the scene inside `<section class="container biblioteca3d-page">`), with the global `<header>` navbar AND the Chatbot FAB rendered on top. User wants the biblioteca to be a fullscreen mode swap, not a section: no Base.astro navbar, no Chatbot FAB, no `<section>` title block. Only the 3D library, with its own prototype top-bar.
+
+User decision (ask_user_question Q1, option A "★ recomendado"): standard Chatbot FAB stays untouched on `/`, `/proyectos/`, `/sobre-mi/`. Standard pages keep their dynamic-tag welcome flow + `/api/chat/stream-projects` SSE backend. The change only touches `/biblioteca-3d/` and its EN mirror. **Standard mode and biblioteca mode are now two distinct UI modes** sharing only data and the site-wide `global.css`.
+
+## Follow-up Tasks (Phase 5.5f — fullscreen layout swap)
+
+T16: Read the layout, pages, and standalone before editing. **inline** — no body changes, just inspection. Confirmed line references:
+  - `apps/web/src/layouts/Base.astro` line 56 mounts `<ul class="nav-links">`; lines 84-115 mount `<Chatbot client:load transition:persist>` with `bottom: 1.5rem / right: 1.5rem` baked into `Chatbot.css`. Also has `<ViewTransitions />` and a `<footer>`.
+  - `apps/web/src/pages/biblioteca-3d.astro` (117 lines) and `pages/en/biblioteca-3d.astro` (103 lines) wrap the standalone component inside `<section class="container biblioteca3d-page">` with a centred `<h1>{t.biblioteca3d.title}</h1>` and `<p class="biblioteca3d-subtitle">` — the literal "section within a page" the user described. Both render under `<Base title=...>` (the source of the unwanted navbar/Chatbot) and carry a page-scoped `<style>` block defining `.biblioteca3d-page | header | subtitle | empty | back`.
+  - `apps/web/src/components/Biblioteca3D/Biblioteca3DStandalone.astro` frontmatter has `interface Props { projects: ProjectEntry[] }` and destructures only `projects`. `<header class="top-bar">` at line 58; `<div class="top-controls">` at line 67 houses `theme-toggle` and `reset-cam-btn` buttons — the right insertion point for an exit anchor.
+
+T17: Create `apps/web/src/layouts/Biblioteca3DLayout.astro`. **inline.** New layout file (~60 LOC), imports `global.css`, accepts `{ title, description? }` props, derives `locale` from `Astro.currentLocale`, renders a minimal shell: `<!doctype html><html lang={locale}><head>{meta charset/description/viewport/title}</head><body class="biblioteca-3d-shell"><slot /></body></html>`. No `<header>`, no `<nav>`, no `<footer>`, no `<Chatbot>`, no `<ViewTransitions />`. The `biblioteca-3d-shell` body class is a marker only (no CSS targets it; the standalone's `.biblioteca-3d-root` provides all viewport sizing via `position: relative; height: 100vh; min-height: 420px; isolation: isolate` set by worker 77de617).
+
+T18: Add `indexPath` prop and "Volver" anchor to the standalone. **inline.** Modify `apps/web/src/components/Biblioteca3D/Biblioteca3DStandalone.astro` frontmatter `interface Props` to add `indexPath: string` and destructure it; insert, before the existing `<button class="control-btn" id="theme-toggle">` inside `<div class="top-controls">`, an `<a class="control-btn" href={indexPath} title="Volver al portafolio estándar" aria-label="Volver al portafolio"><span>←</span><span>Volver</span></a>`. Reuses the prototype's `.control-btn` rule (which already covers `<button>` and `<a>`); no new CSS.
+
+T19: Switch pages to use the new layout and pass `indexPath`. **inline.** Rewrite `apps/web/src/pages/biblioteca-3d.astro` (117 → 65 LOC) and `apps/web/src/pages/en/biblioteca-3d.astro` (103 → 60 LOC): swap `import Base from '../layouts/Base.astro'` → `import Biblioteca3DLayout from '../layouts/Biblioteca3DLayout.astro'`; drop the entire `<section class="container biblioteca3d-page">` wrapper, the centred `<h1>`/`<p class="biblioteca3d-subtitle">` block, the `<p class="biblioteca3d-back">` "Proyectos" link, and the page-scoped `<style>` block (with the "FAB visual handling" comment that no longer applies); replace `<Base>...<Biblioteca3DStandalone .../></Base>` with `<Biblioteca3DLayout>...<Biblioteca3DStandalone ...indexPath={homePath} /></Biblioteca3DLayout>` where `homePath` derives from locale (`/index.html` or `/en/index.html`); empty-state fallback (no projects) renders inline-styled `<p>` with padding/centered text and a link to `/proyectos/index.html` (or `/en/proyectos/index.html`).
+
+T20: Verification. **inline.** `pnpm run check` 17 files / 0 errors. `pnpm run build` 7 pages. Bundle isolation intact: `grep -c 'three.min.js' dist/*/index.html` returns 1 ONLY in `dist/biblioteca-3d/index.html` and `dist/en/biblioteca-3d/index.html`. Fullscreen achieved: `grep -c '<nav\|nav-links\|chatbot-fab\|class="chatbot'` returns 0 in `dist/biblioteca-3d/index.html` and ≥1 in `dist/index.html`. Dev-server smoke (HMR picked up changes without restart): `/biblioteca-3d/` → 200 OK 46610 bytes (down from 97028 — leaner without Base.astro wrapping), `.biblioteca-3d-root`=105, JSON tag=1, three.min.js=1, `<nav>`=0, `<h1>Modo Biblioteca 3D</h1>`=0, Volver `href="/index.html" title="Volver al portafolio estándar"` present. EN mirror `/en/biblioteca-3d/` → 200 OK, Volver `href="/en/index.html"`. Home `/` → `<nav>`=1, `nav-links`=4, Chatbot island mounted (unchanged).
+
+L21: Push and PR still pending user OK per git-mentor skill. After this slice the branch will sit ahead of `origin/main` by 9 commits (8 from Phase 5.5b + 5.5e plus the feat+docs commits from this Phase 5.5f). No destructive history rewrites; merge strategy per project mem is `--merge` (preserves the per-slice commits).
+
+L22: User redirected (msg with @1.png screenshot). The bibliotecario's quick-filter chips were inherited verbatim from the prototype (`AWS Serverless`, `Python Data`, `Agentes IA`, `IoT & Edge`, `Microservicios`) — a vocabulary that doesn't match the standard-mode Chatbot's chip row, which derives from `topTagsOfProjects(allProjects, 10)` in `Base.astro` (e.g. `typescript · 2`, `api-gateway · 1`, `astro · 1`, ...). User wants both chat surfaces to use the same vocabulary so visitors land in the biblioteca without a vocabulary shift. **The standard Chatbot stays untouched** (per `L20 / Q1 option A`); the fix is one-directional — the biblioteca now derives its chips from the same source as the Chatbot.
+
+## Follow-up Tasks (Phase 5.5g — unified stack chips)
+
+T24: **Read the standard chip render + the bibliotecario's quick-chips block before editing.** **inline.** Confirmed:
+  - `apps/web/src/components/Chatbot.tsx:449` renders `<div className="chatbot-chips-row" role="group" aria-label="Stacks">`; each chip is `<button className="chatbot-chip">` with an inner `<span className="chatbot-chip-count"> · {count}</span>` that dims the count via local CSS in `Chatbot.css`.
+  - `apps/web/src/components/Biblioteca3D/Biblioteca3DStandalone.astro` lines 133–138 had 5 hardcoded `<button class="chip-btn" data-query="...">` elements; the structural HTML stayed verbatim from the prototype.
+  - `apps/web/src/layouts/Base.astro` lines 42–49 produce `topTags` via `getCollection('projects')` — frequency desc, alphabetical asc, top 10. Exact shape `{ tag, count }[]` — duplicated in the biblioteca pages (small intentional duplication; no shared helper yet, keep diff review focused).
+
+T25: **Add `TopTag` type and replace hardcoded chips with the dynamic loop.** **inline.** Edits:
+  - `apps/web/src/components/Biblioteca3D/types.ts`: add `export interface TopTag { tag: string; count: number; }`.
+  - `apps/web/src/components/Biblioteca3D/Biblioteca3DStandalone.astro`: extend `interface Props` with `topTags: TopTag[]` and destructure; import `TopTag` from `./types`; replace lines 133–138 with `{topTags.map(({ tag, count }) => ( <button class="chip-btn" data-query={tag}> {tag}<span class="biblioteca-chip-count"> · {count}</span> </button> ))}`; add a local CSS rule inside the `<style is:global>` block right before `.biblioteca-3d-root .chip-btn:hover`: `  .biblioteca-3d-root .chip-btn .biblioteca-chip-count { opacity: 0.55; margin-left: 0.25em; font-weight: 500; }` (same effect as the Chatbot's `  .chatbot-chip-count` but scoped to the standalone's `.biblioteca-3d-root` discipline — different file, different prefix).
+
+T26: **Pages compute the same `topTags` and pass it down.** **inline.** In `apps/web/src/pages/biblioteca-3d.astro` and `apps/web/src/pages/en/biblioteca-3d.astro`:
+  - inline IIFE right after `const allProjects = await getCollection('projects');` that walks `allProjects`, builds `Map<string, number>` of tag counts, sorts by frequency desc then alphabetical asc, slices top 10, maps to `{ tag, count }`;
+  - change the standalone mount to `<Biblioteca3DStandalone projects={projectsForLibrary} indexPath={homePath} topTags={topTags} />`.
+
+T27: **Verification.** **inline.** `pnpm run check` 17 files / 0 errors. `pnpm run build` 7 pages built in ~5s. Dev-server smoke at `/biblioteca-3d/` (`HMR` picked up the changes without restart):
+  - Prototype's hardcoded chips: 0 hits on `AWS Serverless` / `Python Data` / `Agentes IA` / `IoT & Edge` / `Microservicios`.
+  - Tag-derived chips: 10 `<button class="chip-btn" data-query="...">` elements with `data-query` matching `topTagsOfProjects(allProjects, 10)` — `typescript`, `api-gateway`, `astro`, `chromadb`, `fastapi`, `fullstack`, `i18n`, `microservices`, `python`, `rag`. Order is `typescript` first (count 2), then alphabetical for the rest.
+  - Counter renders: 1 chip with `· 2` (typescript — the only tag appearing on both projects), 9 chips with `· 1`. Total 10 `<span class="biblioteca-chip-count">` rendered. The 11th occurrence of the literal `biblioteca-chip-count` in the HTML is the CSS rule text inside the inlined `<style is:global>` (CSS is inlined in Astro dev mode).
+  - EN mirror `/en/biblioteca-3d/`: 10 chips in the same order, Volver `href="/en/index.html"`.
+  - Volver anchor still works at `href="/index.html"` (ES) and `href="/en/index.html"` (EN mirror).
+  - Bundle isolation intact: `three.min.js` + `OrbitControls.js` + `tween.js` + the `biblioteca3d-projects` JSON tag appear ONLY in `dist/biblioteca-3d/index.html` and `dist/en/biblioteca-3d/index.html`; 0 on every other route.
+  - Standard `<nav>` and Chatbot island untouched on `/`, `/proyectos/`, `/sobre-mi/` (`<nav>` and `nav-links` and the Chatbot island markup present on those, absent on the biblioteca pages).
+
+L23: Push and PR still pending user OK per git-mentor skill. After this slice the branch will sit ahead of `origin/main` by 12 commits (Phase 5.5b: `506e744` + `f9f036c` + `b85ea58` + `5dbf330` + `a8d4f48` = 5; Phase 5.5e: `77de617` + `bed6618` + `92dbb42` = 3; Phase 5.5f: `f16af7d` + `e3752f1` = 2; Phase 5.5g this slice: feat + docs = 2). Last push (`git push -u origin feat/biblioteca-3d` after Phase 5.5f) landed `a8d4f48..e3752f1` (5 commits). 2 new commits for Phase 5.5g would land on top in T28, requiring a follow-up push (destructive per skill — needs explicit OK from the user). No destructive history rewrites; merge strategy per project mem is `--merge`.
+
+L24: User feedback (msg with `@1.png` screenshot). The bibliotecario's quick-filter chips were clipping past `chromadb` behind an invisible horizontal scrollbar — only 4 chips visible (`typescript`, `api-gateway`, `astro`, `chromadb`), the rest hidden. Phase 5.5g unified the chip vocabulary to `topTagsOfProjects(allProjects, 10)` (10 tags) but the prototype's `.quick-chips` CSS rule was a single-row `display: flex` with `overflow-x: auto`, designed for the 5 originally hardcoded chips. Switching the rule to `display: flex; flex-wrap: wrap` (and dropping the now-unnecessary `::-webkit-scrollbar` hide line) makes every chip visible at once on the visitor's viewport — 2-3 wrapped rows inside the chat-dock's natural width, no horizontal scrollbar.
+
+## Follow-up Tasks (Phase 5.5h — chips wrap fix)
+
+T29: Change `.quick-chips` rule. **inline.** Edit `apps/web/src/components/Biblioteca3D/Biblioteca3DStandalone.astro` around lines 640-648:
+  - replace the `  .biblioteca-3d-root .quick-chips { display: flex; gap: 6px; padding: 0 18px 12px; overflow-x: auto; scrollbar-width: none; }` rule with `  .biblioteca-3d-root .quick-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 18px 12px; }`;
+  - drop the redundant `  .biblioteca-3d-root .quick-chips::-webkit-scrollbar { display: none; }` line (no scrollbar to hide anymore);
+  - mobile media query at line 991+ (`@media (max-width: 860px) { .biblioteca-3d-root .quick-chips { padding: 0 14px 8px; } }`) had no `overflow-x` to begin with; it stays as-is.
+
+T30: Verification. **inline.** `pnpm run check` 17 files / 0 errors. `pnpm run build` 7 pages built in 4.45s. Dev-server smoke at `/biblioteca-3d/` (`HMR` picked up the change without restart): 10 `<button class="chip-btn" data-query="...">` rendered with values from `topTagsOfProjects(allProjects, 10)` (`typescript`, `api-gateway`, `astro`, `chromadb`, `fastapi`, `fullstack`, `i18n`, `microservices`, `python`, `rag`). Bundle CSS in `dist/_astro/biblioteca-3d.DOBfcL1Q.css` emits `.quick-chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 18px 12px}` (regex confirmed), 0 hits on `overflow-x: auto` (gone), 0 hits on the `::-webkit-scrollbar` rule. Bundle isolation intact: `three.min.js` + `OrbitControls.js` + `tween.js` + `biblioteca3d-projects` JSON tag still appear ONLY in `dist/biblioteca-3d/index.html` and `dist/en/biblioteca-3d/index.html`; standard `<nav>` and Chatbot FAB on `/`, `/proyectos/`, `/sobre-mi/` still untouched.
+
+L25: Push and PR still pending user OK per git-mentor skill. After this slice the branch will sit ahead of `origin/main` by 14 commits (Phase 5.5b: 5; Phase 5.5e: 3; Phase 5.5f: 2; Phase 5.5g: 2; Phase 5.5h this slice: fix + docs = 2). Last push (Phase 5.5g via `git push origin feat/biblioteca-3d`) landed `e3752f1..5a3e619`. 2 new commits for Phase 5.5h will need a follow-up push. Merge strategy per project mem is `--merge`.
+
+L26: PR #17 opened in the previous turn — `gh pr create` against `main` reported the URL `https://github.com/Srozasc/portafolio/pull/17`. CI run on the PR failed at the `npm ci` step (`.github/workflows/ci.yml:81`). Root cause: T15's package.json edits (removed `three`, `@react-three/fiber`, `@react-three/drei`, `@types/three`) regenerated `pnpm-lock.yaml` (which the dev workflow uses) but left `apps/web/package-lock.json` (which CI's `npm ci` consumes) stale. The lockfile also never had entries for the project-wide devDependencies (`vitest`, `@testing-library/jest-dom`, `@testing-library/react`, `jsdom`) — pre-existing condition from `0b02322 chore(web): regenerate package-lock.json to match package.json` but that commit didn't pin those at the time they were added.
+
+Fix: regenerate `package-lock.json` via `npm install` from `apps/web/`. Verified content: 606 `node_modules/<pkg>:` entries, 0 hits on `three` / `@react-three/fiber` / `@react-three/drei` / `@types/three`, 1 hit each on `vitest` / `@testing-library/jest-dom` / `@testing-library/react` / `jsdom` (the deps the CI log complained about as "Missing"). `pnpm install` afterwards restores the pnpm flat-plus-symlink layout used by the dev workflow.
+
+**Dual-lockfile state is accepted for this slice.** The project tracks both `package-lock.json` (npm, used by CI's `npm ci`) and `pnpm-lock.yaml` (pnpm, used by local dev). They are kept in sync by hand. A future slice could consolidate on a single package manager (most likely pnpm + `pnpm/action-setup@v4` in `.github/workflows/ci.yml`, replacing the `setup-node` + `npm ci` + `npm run` steps); out of scope for this slice.
+
+## Follow-up Tasks (Phase 5.5i — CI lockfile fix)
+
+T33a: **Read CI workflow + lockfile state.** **inline.** Confirmed:
+  - `.github/workflows/ci.yml` line 81 runs `run: npm ci` against `apps/web/`. `setup-node@v7.1.0` (line 53) + `cache: 'npm'` + `cache-dependency-path: apps/web/package-lock.json` (line 56) means the CI cache + install both pin to `package-lock.json`.
+  - `apps/web/package-lock.json` is tracked (`git ls-files` lists it). It predates T15's edits — `0b02322 chore(web): regenerate package-lock.json to match package.json` is its most recent committed version.
+  - `apps/web/pnpm-lock.yaml` is also tracked; locally updated by `pnpm install` in T15, but never committed alongside the `package.json` edit.
+
+T33b: **Regenerate `package-lock.json` to match `package.json`.** **inline.** From `apps/web/`:
+  ```
+  npm install
+  ```
+  Output: "added 98 packages, changed 13 packages, audited 542 packages in 51s". `package-lock.json` grew from 6833 to 8188 lines. Verifications:
+  - `grep -c '"node_modules/three"\|"node_modules/@react-three/fiber"\|"node_modules/@react-three/drei"\|"node_modules/@types/three"' package-lock.json` returns 0 (the four deps T15 removed are not in the regenerated lockfile).
+  - `grep -c '"node_modules/vitest"\|"node_modules/@testing-library/jest-dom"\|"node_modules/@testing-library/react"\|"node_modules/jsdom"'` returns 1 each (the four dev-deps the CI log complained about are present).
+  - Total `node_modules/<pkg>:` entries: 606.
+
+T33c: **Verify dev workflow still works after the npm install clobbered the pnpm-style `node_modules/`.** **inline.** After T33b's `npm install` lays out node_modules in npm-flat format:
+  ```
+  pnpm install     # re-installs in pnpm's symlink layout, "Already up to date" — 407ms
+  pnpm run check    # 17 files, 0 errors, 0 warnings, 0 hints
+  ```
+  `pnpm v11.5.0` resolves the existing `pnpm-lock.yaml` against the same `package.json` (no drift) and produces a `.pnpm/store`-aware `node_modules/` with `node_modules/.modules.yaml`. Astro's `astro check` works against either layout.
+
+L27: Push and PR still pending user OK per git-mentor skill. After this slice the branch will sit ahead of `origin/main` by 14 commits plus the 2 (chore + docs) for Phase 5.5i = 16. Last push (Phase 5.5g) landed `e3752f1..5a3e619`; Phase 5.5f push landed `a8d4f48..e3752f1`. Phase 5.5h's `5a3e619..edc1cdb` push via `git push origin feat/biblioteca-3d` for the chips-wrap fix never happened because we went straight into Phase 5.5i after `edc1cdb`. So `origin/feat/biblioteca-3d` is still at `5a3e619`; the unpushed 4 commits are `ff15573` + `edc1cdb` (Phase 5.5h) + the Phase 5.5i lockfile + docs (chore + docs, pending in this slice). Pushing those will re-trigger CI on PR #17 with the regenerated `package-lock.json` — the EUSAGE step should pass.
+
+
+
+
+

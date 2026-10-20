@@ -1,0 +1,53 @@
+---
+/**
+ * Biblioteca3DLayout.astro — fullscreen layout for /biblioteca-3d and its EN mirror.
+ *
+ * Phase 5.5f (T17). The user explicitly asked for the biblioteca experience to
+ * be a "full UI swap" mode, not a section inside the standard portfolio:
+ *   - no global `<header>` with the navbar (Base.astro provides that);
+ *   - no `<Chatbot client:load transition:persist>` FAB on the right
+ *     (Base.astro mounts it globally with `bottom: 1.5rem / right: 1.5rem`);
+ *   - no centred `<h1>` + subtitle wrapper that the pages used to render
+ *     (those are dropped at the page level in T19, not in this layout).
+ *
+ * The standalone component imports its own copy of Three.js + OrbitControls
+ * + Tween.js via CDN, manages its own top-bar with theme/cam-reset/exit
+ * buttons, and renders the chat-dock as the only chat surface available in
+ * this mode. The standard Chatbot (backed by /api/chat/stream SSE) remains
+ * untouched on /, /proyectos/, /sobre-mi/ (per the user's Q1 choice).
+ *
+ * The layout still imports `global.css` so the prototype's CSS tokens
+ * (--bg-canvas, --panel-glass, --accent, --font-sans, ...) defined in the
+ * standalone's `<style is:global>` block keep their references valid.
+ *
+ * The `biblioteca-3d-shell` class on `<body>` is a marker; no styles target
+ * it today (the standalone's `.biblioteca-3d-root` provides the viewport
+ * sizing via `position: relative; height: 100vh; min-height: 420px;
+ * isolation: isolate` — see worker commit 77de617).
+ */
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const {
+  title,
+  description = 'Portafolio profesional navegable por chatbot con RAG.',
+} = Astro.props;
+const locale = (Astro.currentLocale ?? 'es') as 'es' | 'en';
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content={description} />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+  </head>
+  <body class="biblioteca-3d-shell">
+    <slot />
+  </body>
+</html>

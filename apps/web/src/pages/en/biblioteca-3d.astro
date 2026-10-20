@@ -1,0 +1,85 @@
+---
+import { getCollection } from 'astro:content';
+import Biblioteca3DLayout from '../../layouts/Biblioteca3DLayout.astro';
+import Biblioteca3DStandalone from '../../components/Biblioteca3D/Biblioteca3DStandalone.astro';
+import en from '../../i18n/en.json';
+
+/**
+ * /en/biblioteca-3d — EN mirror of the Biblioteca 3D page.
+ *
+ * Phase 5.5f (T19): the route also switched from Base.astro to
+ * Biblioteca3DLayout, mirroring the ES entry point so both URLs render
+ * fullscreen with no global navbar and no Chatbot FAB (L20).
+ *
+ * Astro's `fallback: { en: 'es' }` would otherwise 30x /en/biblioteca-3d
+ * to the ES page; we ship an explicit Astro page so the EN route renders
+ * directly. Per L16 the scene's own UI ships Spanish-only for now, so the
+ * component renders identically on both URLs. The project payload still
+ * carries both locales (`title_es`/`title_en`, `stack_es`/`stack_en`, ...)
+ * because `ProjectEntry` requires them; `buildCatalog()` picks the Spanish
+ * fields.
+ */
+const t = en;
+
+const allProjects = await getCollection('projects');
+
+/**
+ * Phase 5.5g (L22): top-tags computation identical to the one in
+ * `apps/web/src/layouts/Base.astro` for the standard-mode Chatbot, so
+ * the bibliotecario's quick-filter chips stay aligned with the standard
+ * Chatbot's chip row on vocabulary, ordering and counts.
+ */
+const topTags = (() => {
+  const counts = new Map<string, number>();
+  for (const project of allProjects) {
+    for (const tag of project.data.tags) {
+      counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    }
+  }
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 10)
+    .map(([tag, count]) => ({ tag, count }));
+})();
+
+const projectsForLibrary = allProjects.map((p) => ({
+  slug: p.data.slug,
+  title_es: p.data.title_es,
+  title_en: p.data.title_en,
+  summary_es: p.data.summary_es,
+  summary_en: p.data.summary_en,
+  year: p.data.year,
+  role_es: p.data.role_es,
+  role_en: p.data.role_en,
+  tags: p.data.tags,
+  stack_es: p.data.stack_es,
+  stack_en: p.data.stack_en,
+  impact_es: p.data.impact_es ?? null,
+  impact_en: p.data.impact_en ?? null,
+  client: p.data.client ?? null,
+  links: {
+    repo: p.data.links?.repo ?? null,
+    demo: p.data.links?.demo ?? null,
+    case_study: p.data.links?.case_study ?? null,
+  },
+}));
+
+const homePath = '/en/index.html';
+const projectsPath = '/en/proyectos/index.html';
+const proyectosEmptyText = t.proyectos.empty;
+const proyectosBackLabel = t.proyectos.detail.back;
+---
+
+<Biblioteca3DLayout
+  title={`${t.biblioteca3d.title} — ${t.site.title}`}
+  description={t.biblioteca3d.subtitle}
+>
+  {projectsForLibrary.length === 0 ? (
+    <p style="padding: 2rem; text-align: center;">
+      {proyectosEmptyText}{' '}
+      <a href={projectsPath}>{proyectosBackLabel}</a>
+    </p>
+  ) : (
+    <Biblioteca3DStandalone projects={projectsForLibrary} indexPath={homePath} topTags={topTags} />
+  )}
+</Biblioteca3DLayout>

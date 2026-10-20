@@ -8,6 +8,6 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["src/**/*", "src/env.d.ts"],
+  "include": ["src/**/*", "src/env.d.ts", "test/**/*", "vitest.setup.ts"],
   "exclude": ["dist", "node_modules", ".astro"]
 }

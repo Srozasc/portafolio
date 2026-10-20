@@ -7,6 +7,7 @@
     "home": "Inicio",
     "projects": "Proyectos",
     "about": "Sobre mí",
+    "biblioteca": "Modo Biblioteca 3D",
     "language": "Idioma"
   },
   "home": {
@@ -20,7 +21,8 @@
     "cta": {
       "chat": "Preguntale al bot",
       "projects": "Ver proyectos",
-      "all_projects": "Ver todos"
+      "all_projects": "Ver todos",
+      "biblioteca": "Modo Biblioteca 3D"
     },
     "chat": {
       "input_placeholder": "Preguntale al bot sobre un stack, proyecto o rol...",
@@ -76,6 +78,10 @@
         "case_study": "Caso de estudio"
       }
     }
+  },
+  "biblioteca3d": {
+    "title": "Modo Biblioteca 3D",
+    "subtitle": "Explorá el portafolio como una biblioteca 3D interactiva. Cada libro es un proyecto."
   },
   "sobre_mi": {
     "title": "Sobre mí",

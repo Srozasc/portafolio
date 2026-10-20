@@ -23,6 +23,7 @@ const t = locale === 'en' ? en : es;
 const homePath = locale === 'en' ? '/en/index.html' : '/index.html';
 const projectsPath = locale === 'en' ? '/en/proyectos/index.html' : '/proyectos/index.html';
 const aboutPath = locale === 'en' ? '/en/sobre-mi/index.html' : '/sobre-mi/index.html';
+const bibliotecaPath = locale === 'en' ? '/en/biblioteca-3d/index.html' : '/biblioteca-3d/index.html';
 
 // Lang switcher intentionally removed: the EN pages are generated as
 // redirect stubs by Astro's i18n `fallback: { en: 'es' }` config, so
@@ -72,6 +73,7 @@ const projectsForChat = allProjects.map((p) => ({
           <li><a href={homePath}>{t.nav.home}</a></li>
           <li><a href={projectsPath}>{t.nav.projects}</a></li>
           <li><a href={aboutPath}>{t.nav.about}</a></li>
+          <li><a href={bibliotecaPath}>{t.nav.biblioteca}</a></li>
         </ul>
       </nav>
     </header>

@@ -7,6 +7,7 @@
     "home": "Home",
     "projects": "Projects",
     "about": "About",
+    "biblioteca": "3D Library",
     "language": "Language"
   },
   "home": {
@@ -20,7 +21,8 @@
     "cta": {
       "chat": "Ask the bot",
       "projects": "View projects",
-      "all_projects": "View all"
+      "all_projects": "View all",
+      "biblioteca": "3D Library"
     },
     "chat": {
       "input_placeholder": "Ask the bot about a stack, project or role...",
@@ -76,6 +78,10 @@
         "case_study": "Case study"
       }
     }
+  },
+  "biblioteca3d": {
+    "title": "3D Library",
+    "subtitle": "Explore the portfolio as an interactive 3D library. Each book is a project."
   },
   "sobre_mi": {
     "title": "About me",
