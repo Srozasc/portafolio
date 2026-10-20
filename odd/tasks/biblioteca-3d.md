@@ -220,5 +220,19 @@ T27: **Verification.** **inline.** `pnpm run check` 17 files / 0 errors. `pnpm r
 
 L23: Push and PR still pending user OK per git-mentor skill. After this slice the branch will sit ahead of `origin/main` by 12 commits (Phase 5.5b: `506e744` + `f9f036c` + `b85ea58` + `5dbf330` + `a8d4f48` = 5; Phase 5.5e: `77de617` + `bed6618` + `92dbb42` = 3; Phase 5.5f: `f16af7d` + `e3752f1` = 2; Phase 5.5g this slice: feat + docs = 2). Last push (`git push -u origin feat/biblioteca-3d` after Phase 5.5f) landed `a8d4f48..e3752f1` (5 commits). 2 new commits for Phase 5.5g would land on top in T28, requiring a follow-up push (destructive per skill — needs explicit OK from the user). No destructive history rewrites; merge strategy per project mem is `--merge`.
 
+L24: User feedback (msg with `@1.png` screenshot). The bibliotecario's quick-filter chips were clipping past `chromadb` behind an invisible horizontal scrollbar — only 4 chips visible (`typescript`, `api-gateway`, `astro`, `chromadb`), the rest hidden. Phase 5.5g unified the chip vocabulary to `topTagsOfProjects(allProjects, 10)` (10 tags) but the prototype's `.quick-chips` CSS rule was a single-row `display: flex` with `overflow-x: auto`, designed for the 5 originally hardcoded chips. Switching the rule to `display: flex; flex-wrap: wrap` (and dropping the now-unnecessary `::-webkit-scrollbar` hide line) makes every chip visible at once on the visitor's viewport — 2-3 wrapped rows inside the chat-dock's natural width, no horizontal scrollbar.
+
+## Follow-up Tasks (Phase 5.5h — chips wrap fix)
+
+T29: Change `.quick-chips` rule. **inline.** Edit `apps/web/src/components/Biblioteca3D/Biblioteca3DStandalone.astro` around lines 640-648:
+  - replace the `  .biblioteca-3d-root .quick-chips { display: flex; gap: 6px; padding: 0 18px 12px; overflow-x: auto; scrollbar-width: none; }` rule with `  .biblioteca-3d-root .quick-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 18px 12px; }`;
+  - drop the redundant `  .biblioteca-3d-root .quick-chips::-webkit-scrollbar { display: none; }` line (no scrollbar to hide anymore);
+  - mobile media query at line 991+ (`@media (max-width: 860px) { .biblioteca-3d-root .quick-chips { padding: 0 14px 8px; } }`) had no `overflow-x` to begin with; it stays as-is.
+
+T30: Verification. **inline.** `pnpm run check` 17 files / 0 errors. `pnpm run build` 7 pages built in 4.45s. Dev-server smoke at `/biblioteca-3d/` (`HMR` picked up the change without restart): 10 `<button class="chip-btn" data-query="...">` rendered with values from `topTagsOfProjects(allProjects, 10)` (`typescript`, `api-gateway`, `astro`, `chromadb`, `fastapi`, `fullstack`, `i18n`, `microservices`, `python`, `rag`). Bundle CSS in `dist/_astro/biblioteca-3d.DOBfcL1Q.css` emits `.quick-chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 18px 12px}` (regex confirmed), 0 hits on `overflow-x: auto` (gone), 0 hits on the `::-webkit-scrollbar` rule. Bundle isolation intact: `three.min.js` + `OrbitControls.js` + `tween.js` + `biblioteca3d-projects` JSON tag still appear ONLY in `dist/biblioteca-3d/index.html` and `dist/en/biblioteca-3d/index.html`; standard `<nav>` and Chatbot FAB on `/`, `/proyectos/`, `/sobre-mi/` still untouched.
+
+L25: Push and PR still pending user OK per git-mentor skill. After this slice the branch will sit ahead of `origin/main` by 14 commits (Phase 5.5b: 5; Phase 5.5e: 3; Phase 5.5f: 2; Phase 5.5g: 2; Phase 5.5h this slice: fix + docs = 2). Last push (Phase 5.5g via `git push origin feat/biblioteca-3d`) landed `e3752f1..5a3e619`. 2 new commits for Phase 5.5h will need a follow-up push. Merge strategy per project mem is `--merge`.
+
+
 
 
