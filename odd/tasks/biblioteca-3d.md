@@ -192,4 +192,33 @@ T20: Verification. **inline.** `pnpm run check` 17 files / 0 errors. `pnpm run b
 
 L21: Push and PR still pending user OK per git-mentor skill. After this slice the branch will sit ahead of `origin/main` by 9 commits (8 from Phase 5.5b + 5.5e plus the feat+docs commits from this Phase 5.5f). No destructive history rewrites; merge strategy per project mem is `--merge` (preserves the per-slice commits).
 
+L22: User redirected (msg with @1.png screenshot). The bibliotecario's quick-filter chips were inherited verbatim from the prototype (`AWS Serverless`, `Python Data`, `Agentes IA`, `IoT & Edge`, `Microservicios`) — a vocabulary that doesn't match the standard-mode Chatbot's chip row, which derives from `topTagsOfProjects(allProjects, 10)` in `Base.astro` (e.g. `typescript · 2`, `api-gateway · 1`, `astro · 1`, ...). User wants both chat surfaces to use the same vocabulary so visitors land in the biblioteca without a vocabulary shift. **The standard Chatbot stays untouched** (per `L20 / Q1 option A`); the fix is one-directional — the biblioteca now derives its chips from the same source as the Chatbot.
+
+## Follow-up Tasks (Phase 5.5g — unified stack chips)
+
+T24: **Read the standard chip render + the bibliotecario's quick-chips block before editing.** **inline.** Confirmed:
+  - `apps/web/src/components/Chatbot.tsx:449` renders `<div className="chatbot-chips-row" role="group" aria-label="Stacks">`; each chip is `<button className="chatbot-chip">` with an inner `<span className="chatbot-chip-count"> · {count}</span>` that dims the count via local CSS in `Chatbot.css`.
+  - `apps/web/src/components/Biblioteca3D/Biblioteca3DStandalone.astro` lines 133–138 had 5 hardcoded `<button class="chip-btn" data-query="...">` elements; the structural HTML stayed verbatim from the prototype.
+  - `apps/web/src/layouts/Base.astro` lines 42–49 produce `topTags` via `getCollection('projects')` — frequency desc, alphabetical asc, top 10. Exact shape `{ tag, count }[]` — duplicated in the biblioteca pages (small intentional duplication; no shared helper yet, keep diff review focused).
+
+T25: **Add `TopTag` type and replace hardcoded chips with the dynamic loop.** **inline.** Edits:
+  - `apps/web/src/components/Biblioteca3D/types.ts`: add `export interface TopTag { tag: string; count: number; }`.
+  - `apps/web/src/components/Biblioteca3D/Biblioteca3DStandalone.astro`: extend `interface Props` with `topTags: TopTag[]` and destructure; import `TopTag` from `./types`; replace lines 133–138 with `{topTags.map(({ tag, count }) => ( <button class="chip-btn" data-query={tag}> {tag}<span class="biblioteca-chip-count"> · {count}</span> </button> ))}`; add a local CSS rule inside the `<style is:global>` block right before `.biblioteca-3d-root .chip-btn:hover`: `  .biblioteca-3d-root .chip-btn .biblioteca-chip-count { opacity: 0.55; margin-left: 0.25em; font-weight: 500; }` (same effect as the Chatbot's `  .chatbot-chip-count` but scoped to the standalone's `.biblioteca-3d-root` discipline — different file, different prefix).
+
+T26: **Pages compute the same `topTags` and pass it down.** **inline.** In `apps/web/src/pages/biblioteca-3d.astro` and `apps/web/src/pages/en/biblioteca-3d.astro`:
+  - inline IIFE right after `const allProjects = await getCollection('projects');` that walks `allProjects`, builds `Map<string, number>` of tag counts, sorts by frequency desc then alphabetical asc, slices top 10, maps to `{ tag, count }`;
+  - change the standalone mount to `<Biblioteca3DStandalone projects={projectsForLibrary} indexPath={homePath} topTags={topTags} />`.
+
+T27: **Verification.** **inline.** `pnpm run check` 17 files / 0 errors. `pnpm run build` 7 pages built in ~5s. Dev-server smoke at `/biblioteca-3d/` (`HMR` picked up the changes without restart):
+  - Prototype's hardcoded chips: 0 hits on `AWS Serverless` / `Python Data` / `Agentes IA` / `IoT & Edge` / `Microservicios`.
+  - Tag-derived chips: 10 `<button class="chip-btn" data-query="...">` elements with `data-query` matching `topTagsOfProjects(allProjects, 10)` — `typescript`, `api-gateway`, `astro`, `chromadb`, `fastapi`, `fullstack`, `i18n`, `microservices`, `python`, `rag`. Order is `typescript` first (count 2), then alphabetical for the rest.
+  - Counter renders: 1 chip with `· 2` (typescript — the only tag appearing on both projects), 9 chips with `· 1`. Total 10 `<span class="biblioteca-chip-count">` rendered. The 11th occurrence of the literal `biblioteca-chip-count` in the HTML is the CSS rule text inside the inlined `<style is:global>` (CSS is inlined in Astro dev mode).
+  - EN mirror `/en/biblioteca-3d/`: 10 chips in the same order, Volver `href="/en/index.html"`.
+  - Volver anchor still works at `href="/index.html"` (ES) and `href="/en/index.html"` (EN mirror).
+  - Bundle isolation intact: `three.min.js` + `OrbitControls.js` + `tween.js` + the `biblioteca3d-projects` JSON tag appear ONLY in `dist/biblioteca-3d/index.html` and `dist/en/biblioteca-3d/index.html`; 0 on every other route.
+  - Standard `<nav>` and Chatbot island untouched on `/`, `/proyectos/`, `/sobre-mi/` (`<nav>` and `nav-links` and the Chatbot island markup present on those, absent on the biblioteca pages).
+
+L23: Push and PR still pending user OK per git-mentor skill. After this slice the branch will sit ahead of `origin/main` by 12 commits (Phase 5.5b: `506e744` + `f9f036c` + `b85ea58` + `5dbf330` + `a8d4f48` = 5; Phase 5.5e: `77de617` + `bed6618` + `92dbb42` = 3; Phase 5.5f: `f16af7d` + `e3752f1` = 2; Phase 5.5g this slice: feat + docs = 2). Last push (`git push -u origin feat/biblioteca-3d` after Phase 5.5f) landed `a8d4f48..e3752f1` (5 commits). 2 new commits for Phase 5.5g would land on top in T28, requiring a follow-up push (destructive per skill — needs explicit OK from the user). No destructive history rewrites; merge strategy per project mem is `--merge`.
+
+
 
