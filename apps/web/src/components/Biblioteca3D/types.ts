@@ -61,3 +61,14 @@ export interface ProjectCatalogEntry {
   slotIndex: number;
   link: string;
 }
+
+/**
+ * One tag with its occurrence count across the project set. Mirrors the
+ * `topTags` shape produced in `apps/web/src/layouts/Base.astro` so the
+ * bibliotecario's quick-filter chips can stay in lockstep with the
+ * standard-mode Chatbot's chip row. See ODD L22.
+ */
+export interface TopTag {
+  tag: string;
+  count: number;
+}

@@ -31,7 +31,7 @@
  *     non-async scripts, so the browser runs them before the deferred Astro
  *     module bundle that imports `./main.ts`.
  */
-import type { ProjectEntry } from './types';
+import type { ProjectEntry, TopTag } from './types';
 
 interface Props {
   projects: ProjectEntry[];
@@ -44,9 +44,17 @@ interface Props {
    *   - EN: `/en/index.html`
    */
   indexPath: string;
+  /**
+   * Top-N tags + occurrence counts from the project Content Collection.
+   * Rendered as the bibliotecario's quick-filter chips (Phase 5.5g / L22).
+   * Same source and ordering as the standard-mode Chatbot's chip row
+   * (computed in `apps/web/src/layouts/Base.astro`) so the two chat
+   * surfaces stay in lockstep on vocabulary.
+   */
+  topTags: TopTag[];
 }
 
-const { projects, indexPath } = Astro.props;
+const { projects, indexPath, topTags } = Astro.props;
 
 /**
  * Every `<` in the payload is written as the six-character JSON escape
@@ -129,13 +137,13 @@ const projectsJson = JSON.stringify(projects).replace(/</g, '\u003c');
       </div>
     </div>
 
-    <!-- Quick Filter Chips -->
+    <!-- Quick Filter Chips — Phase 5.5g (L22): unified vocabulary with standard Chatbot -->
     <div class="quick-chips" id="quick-chips">
-      <button class="chip-btn" data-query="AWS Serverless">AWS Serverless</button>
-      <button class="chip-btn" data-query="Python Data">Python Data</button>
-      <button class="chip-btn" data-query="Agentes IA">Agentes IA</button>
-      <button class="chip-btn" data-query="IoT & Edge">IoT & Edge</button>
-      <button class="chip-btn" data-query="Microservicios">Microservicios</button>
+      {topTags.map(({ tag, count }) => (
+        <button class="chip-btn" data-query={tag}>
+          {tag}<span class="biblioteca-chip-count"> · {count}</span>
+        </button>
+      ))}
     </div>
 
     <form class="chat-input-area" id="chat-form">
@@ -658,7 +666,19 @@ const projectsJson = JSON.stringify(projects).replace(/</g, '\u003c');
     cursor: pointer;
     transition: all 0.2s ease;
   }
-  
+
+  /*
+   * Phase 5.5g (L22): dim the occurrence count on each chip so the tag
+   * label reads as primary, mirroring the standard Chatbot's
+   * .chatbot-chip-count visual hierarchy. The " · N" runs inline as
+   * text, the span is purely the styling hook.
+   */
+  .biblioteca-3d-root .chip-btn .biblioteca-chip-count {
+    opacity: 0.55;
+    margin-left: 0.25em;
+    font-weight: 500;
+  }
+
   .biblioteca-3d-root .chip-btn:hover {
     background: var(--accent);
     color: #fff;

@@ -23,6 +23,26 @@ const locale = (Astro.currentLocale ?? 'es') as 'es' | 'en';
 const t = locale === 'en' ? en : es;
 
 const allProjects = await getCollection('projects');
+
+/**
+ * Phase 5.5g (L22): top-tags computation identical to the one in
+ * `apps/web/src/layouts/Base.astro` for the standard-mode Chatbot, so
+ * the bibliotecario's quick-filter chips stay aligned with the standard
+ * Chatbot's chip row on vocabulary, ordering and counts.
+ */
+const topTags = (() => {
+  const counts = new Map<string, number>();
+  for (const project of allProjects) {
+    for (const tag of project.data.tags) {
+      counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    }
+  }
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 10)
+    .map(([tag, count]) => ({ tag, count }));
+})();
+
 const projectsForLibrary = allProjects.map((p) => ({
   slug: p.data.slug,
   title_es: p.data.title_es,
@@ -64,6 +84,6 @@ const proyectosBackLabel = t.proyectos.detail.back;
       <a href={projectsPath}>{proyectosBackLabel}</a>
     </p>
   ) : (
-    <Biblioteca3DStandalone projects={projectsForLibrary} indexPath={homePath} />
+    <Biblioteca3DStandalone projects={projectsForLibrary} indexPath={homePath} topTags={topTags} />
   )}
 </Biblioteca3DLayout>
