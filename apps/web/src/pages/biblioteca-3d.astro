@@ -1,12 +1,17 @@
 ---
 import { getCollection } from 'astro:content';
-import Base from '../layouts/Base.astro';
+import Biblioteca3DLayout from '../layouts/Biblioteca3DLayout.astro';
 import Biblioteca3DStandalone from '../components/Biblioteca3D/Biblioteca3DStandalone.astro';
 import es from '../i18n/es.json';
 import en from '../i18n/en.json';
 
 /**
  * /biblioteca-3d — Spanish entry point for the 3D library scene.
+ *
+ * Phase 5.5f (T19): switched from Base.astro to Biblioteca3DLayout so the
+ * page renders fullscreen — no global navbar, no Chatbot FAB at the
+ * right, no centred `<h1>` "Modo Biblioteca 3D" wrapper. The biblioteca
+ * is a UI mode, not a section inside the portfolio (L20).
  *
  * `projectsForLibrary` is the wide projection required by
  * `components/Biblioteca3D/types.ts` (`ProjectEntry`); the standalone
@@ -43,75 +48,22 @@ const projectsForLibrary = allProjects.map((p) => ({
   },
 }));
 
+const homePath = '/index.html';
 const projectsPath = '/proyectos/index.html';
 const proyectosEmptyText = t.proyectos.empty;
 const proyectosBackLabel = t.proyectos.detail.back;
 ---
 
-<Base title={`${t.biblioteca3d.title} — ${t.site.title}`} description={t.biblioteca3d.subtitle}>
-  <section class="container biblioteca3d-page">
-    <header class="biblioteca3d-header">
-      <h1>{t.biblioteca3d.title}</h1>
-      <p class="biblioteca3d-subtitle">{t.biblioteca3d.subtitle}</p>
-    </header>
-
-    {projectsForLibrary.length === 0 ? (
-      <p class="biblioteca3d-empty">
-        {proyectosEmptyText}{' '}
-        <a href={projectsPath}>{proyectosBackLabel}</a>
-      </p>
-    ) : (
-      <Biblioteca3DStandalone projects={projectsForLibrary} />
-    )}
-
-    <p class="biblioteca3d-back">
-      <a href={projectsPath}>← {proyectosBackLabel}</a>
+<Biblioteca3DLayout
+  title={`${t.biblioteca3d.title} — ${t.site.title}`}
+  description={t.biblioteca3d.subtitle}
+>
+  {projectsForLibrary.length === 0 ? (
+    <p style="padding: 2rem; text-align: center;">
+      {proyectosEmptyText}{' '}
+      <a href={projectsPath}>{proyectosBackLabel}</a>
     </p>
-  </section>
-</Base>
-
-<style>
-  .biblioteca3d-page {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-  .biblioteca3d-header {
-    text-align: center;
-  }
-  .biblioteca3d-header h1 {
-    margin: 0 0 0.5rem;
-    font-size: 1.875rem;
-  }
-  .biblioteca3d-subtitle {
-    margin: 0;
-    color: var(--fg-muted);
-    font-size: 1rem;
-  }
-  .biblioteca3d-empty {
-    text-align: center;
-    color: var(--fg-muted);
-    padding-block: 2rem;
-  }
-  .biblioteca3d-back {
-    margin: 0;
-    text-align: center;
-    color: var(--fg-muted);
-    font-size: 0.9rem;
-  }
-
-  /*
-   * FAB visual handling on this route.
-   *
-   * The Chatbot FAB is mounted globally by Base.astro
-   * (`<Chatbot client:load transition:persist>`) with bottom: 1.5rem /
-   * right: 1.5rem positioning baked into Chatbot.css. That positioning
-   * places the FAB above the 3D canvas with sufficient contrast — the
-   * canvas has a `position: static` flow and z-index defaults, so the FAB
-   * (z-index 9999) sits on top without overlap of interactive elements.
-   *
-   * No new reposition rule is added here: editing Chatbot.tsx is forbidden
-   * and a `:global(.chatbot-fab)` rule would change positioning on every
-   * page, not just this one. Leaving the FAB alone is the intended behavior.
-   */
-</style>
+  ) : (
+    <Biblioteca3DStandalone projects={projectsForLibrary} indexPath={homePath} />
+  )}
+</Biblioteca3DLayout>

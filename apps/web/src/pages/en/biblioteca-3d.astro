@@ -1,20 +1,23 @@
 ---
 import { getCollection } from 'astro:content';
-import Base from '../../layouts/Base.astro';
+import Biblioteca3DLayout from '../../layouts/Biblioteca3DLayout.astro';
 import Biblioteca3DStandalone from '../../components/Biblioteca3D/Biblioteca3DStandalone.astro';
 import en from '../../i18n/en.json';
 
 /**
  * /en/biblioteca-3d — EN mirror of the Biblioteca 3D page.
  *
- * Astro's `fallback: { en: 'es' }` would otherwise 30x /en/biblioteca-3d to
- * the ES page; we ship an explicit Astro page so the EN route renders
- * directly.
+ * Phase 5.5f (T19): the route also switched from Base.astro to
+ * Biblioteca3DLayout, mirroring the ES entry point so both URLs render
+ * fullscreen with no global navbar and no Chatbot FAB (L20).
  *
- * Per L16 the scene's own UI ships Spanish-only for now, so the component
- * renders identically on both URLs. The project payload still carries both
- * locales (`title_es`/`title_en`, `stack_es`/`stack_en`, ...) because
- * `ProjectEntry` requires them; `buildCatalog()` picks the Spanish fields.
+ * Astro's `fallback: { en: 'es' }` would otherwise 30x /en/biblioteca-3d
+ * to the ES page; we ship an explicit Astro page so the EN route renders
+ * directly. Per L16 the scene's own UI ships Spanish-only for now, so the
+ * component renders identically on both URLs. The project payload still
+ * carries both locales (`title_es`/`title_en`, `stack_es`/`stack_en`, ...)
+ * because `ProjectEntry` requires them; `buildCatalog()` picks the Spanish
+ * fields.
  */
 const t = en;
 
@@ -34,9 +37,6 @@ const projectsForLibrary = allProjects.map((p) => ({
   impact_es: p.data.impact_es ?? null,
   impact_en: p.data.impact_en ?? null,
   client: p.data.client ?? null,
-  // ProjectEntry.links declares repo/demo/case_study as required-but-nullable
-  // while the content schema makes them optional; normalize so the projection
-  // satisfies the component prop type.
   links: {
     repo: p.data.links?.repo ?? null,
     demo: p.data.links?.demo ?? null,
@@ -44,60 +44,22 @@ const projectsForLibrary = allProjects.map((p) => ({
   },
 }));
 
+const homePath = '/en/index.html';
 const projectsPath = '/en/proyectos/index.html';
 const proyectosEmptyText = t.proyectos.empty;
 const proyectosBackLabel = t.proyectos.detail.back;
 ---
 
-<Base title={`${t.biblioteca3d.title} — ${t.site.title}`} description={t.biblioteca3d.subtitle}>
-  <section class="container biblioteca3d-page">
-    <header class="biblioteca3d-header">
-      <h1>{t.biblioteca3d.title}</h1>
-      <p class="biblioteca3d-subtitle">{t.biblioteca3d.subtitle}</p>
-    </header>
-
-    {projectsForLibrary.length === 0 ? (
-      <p class="biblioteca3d-empty">
-        {proyectosEmptyText}{' '}
-        <a href={projectsPath}>{proyectosBackLabel}</a>
-      </p>
-    ) : (
-      <Biblioteca3DStandalone projects={projectsForLibrary} />
-    )}
-
-    <p class="biblioteca3d-back">
-      <a href={projectsPath}>← {proyectosBackLabel}</a>
+<Biblioteca3DLayout
+  title={`${t.biblioteca3d.title} — ${t.site.title}`}
+  description={t.biblioteca3d.subtitle}
+>
+  {projectsForLibrary.length === 0 ? (
+    <p style="padding: 2rem; text-align: center;">
+      {proyectosEmptyText}{' '}
+      <a href={projectsPath}>{proyectosBackLabel}</a>
     </p>
-  </section>
-</Base>
-
-<style>
-  .biblioteca3d-page {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-  .biblioteca3d-header {
-    text-align: center;
-  }
-  .biblioteca3d-header h1 {
-    margin: 0 0 0.5rem;
-    font-size: 1.875rem;
-  }
-  .biblioteca3d-subtitle {
-    margin: 0;
-    color: var(--fg-muted);
-    font-size: 1rem;
-  }
-  .biblioteca3d-empty {
-    text-align: center;
-    color: var(--fg-muted);
-    padding-block: 2rem;
-  }
-  .biblioteca3d-back {
-    margin: 0;
-    text-align: center;
-    color: var(--fg-muted);
-    font-size: 0.9rem;
-  }
-</style>
+  ) : (
+    <Biblioteca3DStandalone projects={projectsForLibrary} indexPath={homePath} />
+  )}
+</Biblioteca3DLayout>
