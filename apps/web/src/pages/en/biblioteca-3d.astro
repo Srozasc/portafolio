@@ -1,7 +1,7 @@
 ---
 import { getCollection } from 'astro:content';
 import Base from '../../layouts/Base.astro';
-import Scene3D from '../../components/Scene3D';
+import Biblioteca3DStandalone from '../../components/Biblioteca3D/Biblioteca3DStandalone.astro';
 import en from '../../i18n/en.json';
 
 /**
@@ -9,20 +9,39 @@ import en from '../../i18n/en.json';
  *
  * Astro's `fallback: { en: 'es' }` would otherwise 30x /en/biblioteca-3d to
  * the ES page; we ship an explicit Astro page so the EN route renders
- * directly. The locale carried into <Scene3D/> comes from Astro.currentLocale
- * (which is 'en' on this URL even though the i18n JSON we load is unambiguous
- * — passing it explicitly keeps the contract identical to the ES mirror).
+ * directly.
+ *
+ * Per L16 the scene's own UI ships Spanish-only for now, so the component
+ * renders identically on both URLs. The project payload still carries both
+ * locales (`title_es`/`title_en`, `stack_es`/`stack_en`, ...) because
+ * `ProjectEntry` requires them; `buildCatalog()` picks the Spanish fields.
  */
-const locale = (Astro.currentLocale ?? 'en') as 'es' | 'en';
 const t = en;
 
 const allProjects = await getCollection('projects');
-const projectsForScene = allProjects.map((p) => ({
+const projectsForLibrary = allProjects.map((p) => ({
   slug: p.data.slug,
   title_es: p.data.title_es,
   title_en: p.data.title_en,
+  summary_es: p.data.summary_es,
+  summary_en: p.data.summary_en,
   year: p.data.year,
+  role_es: p.data.role_es,
+  role_en: p.data.role_en,
   tags: p.data.tags,
+  stack_es: p.data.stack_es,
+  stack_en: p.data.stack_en,
+  impact_es: p.data.impact_es ?? null,
+  impact_en: p.data.impact_en ?? null,
+  client: p.data.client ?? null,
+  // ProjectEntry.links declares repo/demo/case_study as required-but-nullable
+  // while the content schema makes them optional; normalize so the projection
+  // satisfies the component prop type.
+  links: {
+    repo: p.data.links?.repo ?? null,
+    demo: p.data.links?.demo ?? null,
+    case_study: p.data.links?.case_study ?? null,
+  },
 }));
 
 const projectsPath = '/en/proyectos/index.html';
@@ -37,13 +56,13 @@ const proyectosBackLabel = t.proyectos.detail.back;
       <p class="biblioteca3d-subtitle">{t.biblioteca3d.subtitle}</p>
     </header>
 
-    {projectsForScene.length === 0 ? (
+    {projectsForLibrary.length === 0 ? (
       <p class="biblioteca3d-empty">
         {proyectosEmptyText}{' '}
         <a href={projectsPath}>{proyectosBackLabel}</a>
       </p>
     ) : (
-      <Scene3D client:only="react" locale={locale} projects={projectsForScene} />
+      <Biblioteca3DStandalone projects={projectsForLibrary} />
     )}
 
     <p class="biblioteca3d-back">
