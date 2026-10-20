@@ -233,6 +233,38 @@ T30: Verification. **inline.** `pnpm run check` 17 files / 0 errors. `pnpm run b
 
 L25: Push and PR still pending user OK per git-mentor skill. After this slice the branch will sit ahead of `origin/main` by 14 commits (Phase 5.5b: 5; Phase 5.5e: 3; Phase 5.5f: 2; Phase 5.5g: 2; Phase 5.5h this slice: fix + docs = 2). Last push (Phase 5.5g via `git push origin feat/biblioteca-3d`) landed `e3752f1..5a3e619`. 2 new commits for Phase 5.5h will need a follow-up push. Merge strategy per project mem is `--merge`.
 
+L26: PR #17 opened in the previous turn — `gh pr create` against `main` reported the URL `https://github.com/Srozasc/portafolio/pull/17`. CI run on the PR failed at the `npm ci` step (`.github/workflows/ci.yml:81`). Root cause: T15's package.json edits (removed `three`, `@react-three/fiber`, `@react-three/drei`, `@types/three`) regenerated `pnpm-lock.yaml` (which the dev workflow uses) but left `apps/web/package-lock.json` (which CI's `npm ci` consumes) stale. The lockfile also never had entries for the project-wide devDependencies (`vitest`, `@testing-library/jest-dom`, `@testing-library/react`, `jsdom`) — pre-existing condition from `0b02322 chore(web): regenerate package-lock.json to match package.json` but that commit didn't pin those at the time they were added.
+
+Fix: regenerate `package-lock.json` via `npm install` from `apps/web/`. Verified content: 606 `node_modules/<pkg>:` entries, 0 hits on `three` / `@react-three/fiber` / `@react-three/drei` / `@types/three`, 1 hit each on `vitest` / `@testing-library/jest-dom` / `@testing-library/react` / `jsdom` (the deps the CI log complained about as "Missing"). `pnpm install` afterwards restores the pnpm flat-plus-symlink layout used by the dev workflow.
+
+**Dual-lockfile state is accepted for this slice.** The project tracks both `package-lock.json` (npm, used by CI's `npm ci`) and `pnpm-lock.yaml` (pnpm, used by local dev). They are kept in sync by hand. A future slice could consolidate on a single package manager (most likely pnpm + `pnpm/action-setup@v4` in `.github/workflows/ci.yml`, replacing the `setup-node` + `npm ci` + `npm run` steps); out of scope for this slice.
+
+## Follow-up Tasks (Phase 5.5i — CI lockfile fix)
+
+T33a: **Read CI workflow + lockfile state.** **inline.** Confirmed:
+  - `.github/workflows/ci.yml` line 81 runs `run: npm ci` against `apps/web/`. `setup-node@v7.1.0` (line 53) + `cache: 'npm'` + `cache-dependency-path: apps/web/package-lock.json` (line 56) means the CI cache + install both pin to `package-lock.json`.
+  - `apps/web/package-lock.json` is tracked (`git ls-files` lists it). It predates T15's edits — `0b02322 chore(web): regenerate package-lock.json to match package.json` is its most recent committed version.
+  - `apps/web/pnpm-lock.yaml` is also tracked; locally updated by `pnpm install` in T15, but never committed alongside the `package.json` edit.
+
+T33b: **Regenerate `package-lock.json` to match `package.json`.** **inline.** From `apps/web/`:
+  ```
+  npm install
+  ```
+  Output: "added 98 packages, changed 13 packages, audited 542 packages in 51s". `package-lock.json` grew from 6833 to 8188 lines. Verifications:
+  - `grep -c '"node_modules/three"\|"node_modules/@react-three/fiber"\|"node_modules/@react-three/drei"\|"node_modules/@types/three"' package-lock.json` returns 0 (the four deps T15 removed are not in the regenerated lockfile).
+  - `grep -c '"node_modules/vitest"\|"node_modules/@testing-library/jest-dom"\|"node_modules/@testing-library/react"\|"node_modules/jsdom"'` returns 1 each (the four dev-deps the CI log complained about are present).
+  - Total `node_modules/<pkg>:` entries: 606.
+
+T33c: **Verify dev workflow still works after the npm install clobbered the pnpm-style `node_modules/`.** **inline.** After T33b's `npm install` lays out node_modules in npm-flat format:
+  ```
+  pnpm install     # re-installs in pnpm's symlink layout, "Already up to date" — 407ms
+  pnpm run check    # 17 files, 0 errors, 0 warnings, 0 hints
+  ```
+  `pnpm v11.5.0` resolves the existing `pnpm-lock.yaml` against the same `package.json` (no drift) and produces a `.pnpm/store`-aware `node_modules/` with `node_modules/.modules.yaml`. Astro's `astro check` works against either layout.
+
+L27: Push and PR still pending user OK per git-mentor skill. After this slice the branch will sit ahead of `origin/main` by 14 commits plus the 2 (chore + docs) for Phase 5.5i = 16. Last push (Phase 5.5g) landed `e3752f1..5a3e619`; Phase 5.5f push landed `a8d4f48..e3752f1`. Phase 5.5h's `5a3e619..edc1cdb` push via `git push origin feat/biblioteca-3d` for the chips-wrap fix never happened because we went straight into Phase 5.5i after `edc1cdb`. So `origin/feat/biblioteca-3d` is still at `5a3e619`; the unpushed 4 commits are `ff15573` + `edc1cdb` (Phase 5.5h) + the Phase 5.5i lockfile + docs (chore + docs, pending in this slice). Pushing those will re-trigger CI on PR #17 with the regenerated `package-lock.json` — the EUSAGE step should pass.
+
+
 
 
 
